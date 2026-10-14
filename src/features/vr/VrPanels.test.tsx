@@ -119,10 +119,9 @@ describe('VR 面板 · 真实固件渲染', () => {
     expect(screen.queryByText('无线段延迟')).toBeNull()
   })
 
-  it('控制面板：桥在线时提示语说的是真实链路，不是演示', () => {
+  it('控制面板：停过遥操就提示要重按 grip（卡片里只剩按钮与归属）', () => {
     render(<VrControlPanel vm={viewOf(SNAP_STOPPED)} />)
 
-    expect(screen.getByText(/都会作用到机械臂/)).toBeTruthy()
     expect(screen.getByText(/已停止或急停过/)).toBeTruthy()
     expect(screen.queryByText(/只改页面状态/)).toBeNull()
   })
@@ -139,7 +138,6 @@ describe('VR 面板 · 真实固件渲染', () => {
 
     expect(screen.getByText('上位机正在控制机械臂')).toBeTruthy()
     expect(screen.getByText(/正在执行运动指令/)).toBeTruthy()
-    expect(screen.getByText('192.168.31.139:7449')).toBeTruthy()
     // 合成后的归属是"上位机"，而不是照抄桥的 none
     expect(screen.getByText('上位机')).toBeTruthy()
     expect(vm.following).toBe(false)
@@ -173,8 +171,9 @@ describe('VR 面板 · 真实固件渲染', () => {
 
     expect(vm.ownership.console.inControl).toBe(false)
     expect(vm.ownership.owner).toBe('none')
-    expect(screen.getByText(/当前空闲/)).toBeTruthy()
+    // 上位机空闲就不出告警条，也不拦"开始遥操"
     expect(screen.queryByText('上位机正在控制机械臂')).toBeNull()
+    expect((screen.getByRole('button', { name: /开始遥操/ }) as HTMLButtonElement).disabled).toBe(false)
   })
 })
 
@@ -205,12 +204,11 @@ describe('VR 面板 · 桥连不上时（没有兜底数据）', () => {
     expect(screen.getByText('数据源 · litearm-vr-bridge')).toBeTruthy()
   })
 
-  it('控制面板：三个按钮全禁用，并说明发不出去', () => {
+  it('控制面板：三个按钮全禁用', () => {
     render(<VrControlPanel vm={offlineView()} />)
 
     for (const name of [/开始遥操/, /停止遥操/, /急停/]) {
       expect((screen.getByRole('button', { name }) as HTMLButtonElement).disabled).toBe(true)
     }
-    expect(screen.getByText(/桥未连接：三个按钮都发不出去/)).toBeTruthy()
   })
 })

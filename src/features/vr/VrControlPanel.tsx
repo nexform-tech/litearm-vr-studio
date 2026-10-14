@@ -32,14 +32,6 @@ export function VrControlPanel({ vm }: { vm: VrLinkView }) {
         : ownership.owner === 'conflict'
           ? 'var(--danger)'
           : 'var(--ink-subtle)'
-  const consoleColor = !ownership.console.connected
-    ? 'var(--ink-subtle)'
-    : ownership.conflict
-      ? 'var(--danger)'
-      : ownership.console.inControl
-        ? 'var(--warn)'
-        : 'var(--ok)'
-
   return (
     <Card className="gap-3 rounded-[0.875rem] px-3.5 py-3.5">
       <div className="flex items-center justify-between gap-2">
@@ -73,25 +65,9 @@ export function VrControlPanel({ vm }: { vm: VrLinkView }) {
         </div>
       ) : null}
 
+      {/* 三颗按钮同高、位置常驻，不随状态挪动：急停在最上面占满一行，
+          开始 / 停止并列在它下面 */}
       <div className="flex flex-col gap-2">
-        <Button
-          type="button"
-          disabled={unavailable || offline || vm.following || blocked}
-          onClick={vm.startFollow}
-          title={blocked ? t('control.consoleBusyHint') : undefined}
-          className="h-9 w-full rounded-[0.625rem] text-[0.84375rem] font-semibold"
-        >
-          {t('control.start')}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={unavailable || !vm.following}
-          onClick={vm.stopFollow}
-          className="h-9 w-full rounded-[0.625rem] text-[0.84375rem] font-semibold"
-        >
-          {t('control.stop')}
-        </Button>
         <button
           type="button"
           disabled={unavailable || offline}
@@ -105,6 +81,26 @@ export function VrControlPanel({ vm }: { vm: VrLinkView }) {
         >
           {t('control.estop')}
         </button>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            disabled={unavailable || offline || vm.following || blocked}
+            onClick={vm.startFollow}
+            title={blocked ? t('control.consoleBusyHint') : undefined}
+            className="h-11 min-w-0 flex-1 rounded-[0.625rem] text-[0.84375rem] font-semibold"
+          >
+            {t('control.start')}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={unavailable || !vm.following}
+            onClick={vm.stopFollow}
+            className="h-11 min-w-0 flex-1 rounded-[0.625rem] text-[0.84375rem] font-semibold"
+          >
+            {t('control.stop')}
+          </Button>
+        </div>
       </div>
 
       {vm.rearmRequired || vm.fallbackActive ? (
@@ -112,40 +108,6 @@ export function VrControlPanel({ vm }: { vm: VrLinkView }) {
           {t('control.rearmHint')}
         </div>
       ) : null}
-
-      {/* 上位机链路（studio → litearm-server）：桥看不到这一半，只有这里能显示 */}
-      <div className="rounded-[0.625rem] border border-line-soft bg-muted/40 px-2.5 py-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <div
-              className="size-[0.4375rem] flex-none rounded-full"
-              style={{ background: ownership.console.connected ? consoleColor : 'var(--line)' }}
-            />
-            <div className="truncate text-[0.75rem] font-semibold text-foreground">{t('control.consoleTitle')}</div>
-            <div className="flex-none text-[0.6875rem]" style={{ color: consoleColor }}>
-              {ownership.console.inControl ? t('control.consoleInControl') : t('control.consoleIdle')}
-            </div>
-          </div>
-          <div className="flex-none truncate font-mono text-[0.625rem] text-ink-muted">
-            {ownership.console.endpoint || '—'}
-          </div>
-        </div>
-        <div className="mt-1 text-[0.6875rem] leading-relaxed text-muted-foreground">
-          {ownership.console.inControl
-            ? t('control.consoleBusyHint')
-            : ownership.console.connected
-              ? t('control.consoleIdleHint')
-              : t('control.consoleOfflineHint')}
-        </div>
-      </div>
-
-      <div className="rounded-[0.625rem] border border-line-soft bg-muted/40 px-2.5 py-2 text-[0.6875rem] leading-relaxed text-muted-foreground">
-        {unavailable
-          ? t('control.bridgeOfflineHint')
-          : offline
-            ? t('control.offlineHint')
-            : t('control.bridgeHint')}
-      </div>
     </Card>
   )
 }

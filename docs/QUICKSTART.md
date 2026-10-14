@@ -83,7 +83,7 @@ litearm-studio-daemon
 litearm-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
 ```
 
-The daemon prints the address it actually bound to (default `http://127.0.0.1:8765/`; if the port is busy it increments and prints the new one) and opens its own embedded application window. No browser needs to be installed. Closing that window quits the program.
+The daemon prints the address it actually bound to (default `http://127.0.0.1:49321/`; if the port is busy it increments and prints the new one) and opens its own embedded application window. No browser needs to be installed. Closing that window quits the program.
 
 | | |
 | --- | --- |
@@ -171,9 +171,9 @@ catch before it ships.
 - Check `http://127.0.0.1:<port>/api/health` — `connected` must be `true`.
 - If `conn.status` is `error`, the `conn.error` field carries the reason (device missing, firmware mismatch, transport failure).
 
-### Port 8765 is already in use
+### Port 49321 is already in use
 
-The daemon automatically picks the next free port and prints it; read the printed console URL rather than assuming 8765.
+The daemon automatically picks the next free port and prints it; read the printed console URL rather than assuming 49321.
 
 ### Closing the window quits the program
 
@@ -183,4 +183,4 @@ Start the program again and you get a clean session. If an instance is still run
 
 ### The window says the port cannot be opened but the arm is connected
 
-The program that holds the arm is still running and you started a second one by naming a specific session (`--port`, `--fake`, `--can-channel`, …). Check `http://127.0.0.1:8765/api/health` for the running one, close the second window, and start the program again without those options to attach to the session that is already up.
+The program that holds the arm is still running and you started a second one by naming a specific session (`--port`, `--fake`, `--can-channel`, …). Check `http://127.0.0.1:49321/api/health` for the running one, close the second window, and start the program again without those options to attach to the session that is already up.

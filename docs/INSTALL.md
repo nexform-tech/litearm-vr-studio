@@ -74,7 +74,7 @@ litearm-studio
 litearm-studio --fake     # offline: a complete session with no hardware
 ```
 
-The program prints the address it listens on, `http://127.0.0.1:8765/` by default, and
+The program prints the address it listens on, `http://127.0.0.1:49321/` by default, and
 opens a window. If that port is taken it picks the next free one, prints it, and **the
 printed address is the one to use**. The window is the whole interface, and it belongs to
 the program: **closing it quits the program**, which de-energises the arm and releases the
@@ -147,7 +147,7 @@ chmod +x litearm-studio-0.12.0-linux-amd64
 ./litearm-studio-0.12.0-linux-amd64
 ```
 
-The program prints the address it listens on, `http://127.0.0.1:8765/` by default, and
+The program prints the address it listens on, `http://127.0.0.1:49321/` by default, and
 opens a window. Use the printed address if that port was taken.
 
 ### 3.4 Requirements

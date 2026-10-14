@@ -15,7 +15,7 @@
 * **只监听 127.0.0.1** —— 越线暴露一个能驱动机械臂的接口是安全事故, 不是配置项。
   该判据由 `run()` 强制 (它只管启动; 应用本身不知道该绑哪儿)。
 * **`/ws` 只接受同源握手** —— 浏览器对 WebSocket **不做同源限制**, 所以任何网页都能连
-  `ws://127.0.0.1:8765/ws` 并驱动机械臂。判据在 `handle_ws` 的第一行 (见
+  `ws://127.0.0.1:<port>/ws` 并驱动机械臂。判据在 `handle_ws` 的第一行 (见
   `origin_allowed`): 没有 Origin 头 = 非浏览器客户端, 放行; 有 Origin 就必须同源,
   且 Host 必须是 loopback (后者挡 DNS rebinding)。
 """
@@ -106,7 +106,7 @@ def _is_loopback(host: str) -> bool:
 
 
 def _hostname_of(netloc: str) -> str:
-    """`localhost:8765` / `[::1]:8765` → `localhost` / `::1`。"""
+    """`localhost:8000` / `[::1]:8000` → `localhost` / `::1`（只是去端口, 与端口号无关）。"""
     text = (netloc or "").strip().lower()
     if text.startswith("["):
         return text[1:].split("]", 1)[0]
@@ -174,13 +174,22 @@ def _is_energy_down_frame(raw: str) -> bool:
     return method in ENERGY_DOWN_COMMANDS or method == "gripper.stop"
 
 
+#: 守护进程默认监听的 HTTP/WS 端口 (`--http-port` 可覆盖)。
+#:
+#: ⚠ 选在 IANA 动态端口段 (49152–65535) 里的一个冷门值, 为的是不和现场的其它常驻服务
+#: 抢端口。**别挪回 8765** —— 那是 `litearm-vr-bridge` 的默认端口, 而它的状态订阅口
+#: 同时也是命令口 (teleop.start / estop): 同机跑 VR 遥操时, 两边抢同一个端口, 先起来的
+#: 赢, 另一个要么悄悄往后挪 (界面地址变了), 要么起不来。两边都用 8765 时, VR 页那条
+#: `ws://localhost:8765/ws/status` 还会打到本进程上, 握手被拒后页面看着像"连不上桥"。
+DEFAULT_HTTP_PORT = 49321
+
 #: `pick_free_http_port` 从 `start` 起最多试几个端口。⚠ 复用探测
-#: (`instance.find_running`) **必须扫同一个范围**: 上一个实例可能因为 8765 被别的程序
-#: 占着而挪到了 8766, 只问 `start` 会漏掉它 (issue #75)。
+#: (`instance.find_running`) **必须扫同一个范围**: 上一个实例可能因为默认端口被别的程序
+#: 占着而挪到了下一个, 只问 `start` 会漏掉它 (issue #75)。
 HTTP_PORT_TRIES = 50
 
 
-def pick_free_http_port(host: str = "127.0.0.1", start: int = 8765,
+def pick_free_http_port(host: str = "127.0.0.1", start: int = DEFAULT_HTTP_PORT,
                         tries: int = HTTP_PORT_TRIES) -> int:
     """从 `start` 起找一个能绑的端口 —— 被占用就 +1, 逐个试。找不到抛 `OSError`。
 
@@ -1323,7 +1332,7 @@ def _stop_server(server: Any, thread: threading.Thread,
 
 
 async def serve(session: Session, *, gripper: Optional[Any] = None,
-                host: str = "127.0.0.1", http_port: int = 8765,
+                host: str = "127.0.0.1", http_port: int = DEFAULT_HTTP_PORT,
                 ui_dir: Optional[str] = None, open_browser: bool = True,
                 version: str = __version__,
                 allow_origins: Iterable[str] = (),

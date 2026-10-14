@@ -152,7 +152,7 @@ make description-locked         # fetch exactly what the lock pins, and verify t
 `src/description.model.test.ts` fails when what is on disk disagrees with the lock, or with
 the link and joint names the viewport drives.
 
-The console prints the URL it bound to (default `http://127.0.0.1:8765/`, auto-incrementing if busy) and opens a window.
+The console prints the URL it bound to (default `http://127.0.0.1:49321/`, auto-incrementing if busy) and opens a window.
 
 **Connecting to the arm is triggered by the UI** — the daemon never starts a connection on its own:
 it waits for the UI to send a `{"t":"connect"}` frame over the WebSocket. Start it before
@@ -169,7 +169,7 @@ To debug the daemon on its own, run `pnpm build` first, or use the UI dev server
 
 ```bash
 pnpm install
-pnpm dev        # http://localhost:5173 — proxies /ws and /api to 127.0.0.1:8765
+pnpm dev        # http://localhost:5173 — proxies /ws and /api to 127.0.0.1:49321
 ```
 
 Run `litearm-studio-daemon --fake --no-open` alongside it.

@@ -91,7 +91,7 @@ litearm-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
 
 | | |
 | --- | --- |
-| 控制台 | `http://127.0.0.1:<port>/`（默认 8765，被占用会自动换并打印实际端口） |
+| 控制台 | `http://127.0.0.1:<port>/`（默认 49321，被占用会自动换并打印实际端口） |
 | WebSocket | `ws://127.0.0.1:<port>/ws` |
 | 健康检查 | `http://127.0.0.1:<port>/api/health` |
 | 导出保存 | `POST http://127.0.0.1:<port>/api/export?name=<建议文件名>` —— 页面把导出的字节放在请求体里，由本进程弹原生保存对话框并写盘（见下） |
@@ -136,7 +136,7 @@ litearm-studio-daemon --allow-origin http://localhost:8000
 硬件故障。
 
 现在启动时会先扫一遍 `--http-port` 起的那一组端口（范围与 `pick_free_http_port` 一致：
-上一个实例可能因为 8765 被别的程序占着而挪到了 8766），探到**同一个构建**的守护进程就
+上一个实例可能因为 49321 被别的程序占着而挪到了 49322），探到**同一个构建**的守护进程就
 `POST /api/focus` 请它**把自己的窗口抬到前面**，然后立即退出，不再起第二个：
 
 ⚠ **这一圈是并发探的，不是逐个探。** 逐个探时整个扫描的上界是"端口数 × 单次超时"
@@ -149,7 +149,7 @@ litearm-studio-daemon --allow-origin http://localhost:8000
 
 ```bash
 $ litearm-studio-daemon
-[litearm-studio-daemon] 已有实例在运行, 复用它: http://127.0.0.1:8765/
+[litearm-studio-daemon] 已有实例在运行, 复用它: http://127.0.0.1:49321/
 [litearm-studio-daemon] 已把它的窗口抬到前面
 ```
 

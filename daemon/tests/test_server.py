@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from litearm_studio_daemon.__main__ import build_parser, main
 from litearm_studio_daemon.dfu import fake as fake_engine
 from litearm_studio_daemon.server import (
+    DEFAULT_HTTP_PORT,
     HTTP_PORT_TRIES,
     Daemon,
     _Client,
@@ -867,7 +868,7 @@ def test_cli_defaults() -> None:
     assert args.fake is False
     assert args.port is None
     assert args.host == "127.0.0.1"
-    assert args.http_port == 8765
+    assert args.http_port == DEFAULT_HTTP_PORT
     assert args.ui_dir is None
     assert args.no_open is False
     assert args.keep_enabled is False       # 默认退出前失能
@@ -1015,7 +1016,7 @@ def test_main_probes_for_this_build_on_the_ports_the_picker_would_use(monkeypatc
     monkeypatch.setattr(cli, "build_gripper_session", lambda args: None)
 
     assert cli.main(["--no-open"]) == 0
-    assert seen == {"host": "127.0.0.1", "start": 8765, "tries": HTTP_PORT_TRIES,
+    assert seen == {"host": "127.0.0.1", "start": DEFAULT_HTTP_PORT, "tries": HTTP_PORT_TRIES,
                     "version": __version__, "fake": False}
 
 

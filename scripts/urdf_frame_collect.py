@@ -56,7 +56,8 @@ DEFAULT_URDF = (
     Path(__file__).resolve().parent.parent
     / "public" / "description" / "urdf" / "litearm_description.urdf"
 )
-DEFAULT_WS = "ws://127.0.0.1:8765/ws"
+#: daemon 的默认端口，见 daemon/src/litearm_studio_daemon/server.py 的 DEFAULT_HTTP_PORT
+DEFAULT_WS = "ws://127.0.0.1:49321/ws"
 
 #: 到位判据: 全部关节速度低于它 (rad/s) 且与指令角之差小于容差。
 SETTLE_DQ = 2e-2

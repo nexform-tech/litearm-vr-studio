@@ -98,7 +98,7 @@ litearm-studio-daemon --fake       # 离线：用 SDK 的假传输跑完整会�
 就能把未激活那条路整条走一遍：注册表单、激活注册信息同意书，以及按
 「使能」时固件回的那句 `ERR{0x10,0x08}`。
 
-启动后会打印实际监听的地址（默认 `http://127.0.0.1:8765/`，被占用会自动换端口）并打开窗口。
+启动后会打印实际监听的地址（默认 `http://127.0.0.1:49321/`，被占用会自动换端口）并打开窗口。
 
 升级 SDK：切到 `sdk/<repo>` 里新版本的 tag，然后提交更新后的 submodule 指针即可 ——
 `.gitmodules` 加这个指针是两个版本号唯一的落点，开发、CI、`.deb`、Windows 四条构建路径
@@ -152,7 +152,7 @@ make description-locked         # 严格按锁文件取，并核对哈希
 
 ```bash
 pnpm install
-pnpm dev        # http://localhost:5173 —— 把 /ws 与 /api 代理到 127.0.0.1:8765
+pnpm dev        # http://localhost:5173 —— 把 /ws 与 /api 代理到 127.0.0.1:49321
 ```
 
 另开一个终端跑 `litearm-studio-daemon --fake --no-open` 即可。

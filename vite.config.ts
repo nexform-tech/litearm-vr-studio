@@ -60,11 +60,12 @@ export default defineConfig({
     },
   },
   server: {
-    // dev 模式把 /ws 与 /api 代理到本机 daemon（默认 8765），这样 dev 与生产
-    // （daemon 托管静态资源）走同一套「由当前页面推导 URL」的逻辑。
+    // dev 模式把 /ws 与 /api 代理到本机 daemon（默认 49321，见 daemon 的
+    // DEFAULT_HTTP_PORT），这样 dev 与生产（daemon 托管静态资源）走同一套
+    // 「由当前页面推导 URL」的逻辑。daemon 换了端口，这里的 target 也要跟着改。
     proxy: {
-      '/ws': { target: 'http://127.0.0.1:8765', ws: true },
-      '/api': { target: 'http://127.0.0.1:8765' },
+      '/ws': { target: 'http://127.0.0.1:49321', ws: true },
+      '/api': { target: 'http://127.0.0.1:49321' },
     },
     watch: {
       // 构建缓存/产物目录不参与监听：Windows SDK 缓存含符号链接循环（ELOOP），

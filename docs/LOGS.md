@@ -124,11 +124,11 @@ litearm-studio-daemon --log-stdout | fluent-bit -i stdin -p parser=json
 Over HTTP, while the daemon is running:
 
 ```bash
-curl -s 'localhost:8765/api/logs?limit=20' | jq '.records[] | {ts,severity,event}'
-curl -s 'localhost:8765/api/logs?level=ERROR&limit=20'
-curl -s 'localhost:8765/api/logs?q=movej'          # event, message or command method
-curl -s 'localhost:8765/api/logs?kind=session'
-curl -s 'localhost:8765/api/logs/events' | jq '.observed'   # what has happened here
+curl -s 'localhost:49321/api/logs?limit=20' | jq '.records[] | {ts,severity,event}'
+curl -s 'localhost:49321/api/logs?level=ERROR&limit=20'
+curl -s 'localhost:49321/api/logs?q=movej'          # event, message or command method
+curl -s 'localhost:49321/api/logs?kind=session'
+curl -s 'localhost:49321/api/logs/events' | jq '.observed'   # what has happened here
 ```
 
 `/api/logs` pages backwards with an opaque `cursor` from the previous response;

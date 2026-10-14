@@ -343,7 +343,7 @@ litearm-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
 ```
 
 #quote-box(rgb("#2563EB"))[
-  启动后会打印实际监听的地址（默认 `http://127.0.0.1:8765/`；被占用会自动往后找并打印新端口），并在检测到 Chromium 系浏览器时以应用窗口打开，否则退回普通标签页。请以打印出的地址为准。
+  启动后会打印实际监听的地址（默认 `http://127.0.0.1:49321/`；被占用会自动往后找并打印新端口），并在检测到 Chromium 系浏览器时以应用窗口打开，否则退回普通标签页。请以打印出的地址为准。
 ]
 
 #heading(level: 3, numbering: none, outlined: false)[2. 监听地址]
@@ -430,7 +430,7 @@ chmod +x "litearm-studio-${version}-linux-amd64"
 + Linux 下确认当前用户能打开串口设备（`dialout` 组）；用 `.deb` 安装时 udev 规则已经装好。
 + 若设备出现在非默认路径，显式指定：`litearm-studio-daemon --port /dev/ttyACM1`。
 + 访问 `http://127.0.0.1:<端口>/api/health`，`connected` 必须为 `true`；`conn.status` 是 `error` 时，`conn.error` 字段就是原因（设备不存在、固件不匹配、链路故障）。
-+ 默认端口 8765 被占用时，程序会自动往后找并打印，请以打印出的地址为准。
++ 默认端口 49321 被占用时，程序会自动往后找并打印，请以打印出的地址为准。
 
 #heading(level: 3, numbering: none)[Q2：启动时报找不到 `litearm` 模块？]
 

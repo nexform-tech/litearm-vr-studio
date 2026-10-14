@@ -17,7 +17,7 @@ from . import __version__, activation, fatal, obs
 from .instance import find_running, focus as focus_running
 from .obs import handlers as obs_handlers
 from .obs import schema as obs_schema
-from .server import HTTP_PORT_TRIES, _is_loopback, serve
+from .server import DEFAULT_HTTP_PORT, HTTP_PORT_TRIES, _is_loopback, serve
 from .session import Session
 from .window import WindowUnavailable
 
@@ -49,8 +49,8 @@ def build_parser() -> argparse.ArgumentParser:
                         " --fake 下无意义)")
     p.add_argument("--host", default="127.0.0.1",
                    help="监听地址 (只允许本机; 默认 127.0.0.1)")
-    p.add_argument("--http-port", type=int, default=8765, metavar="N",
-                   help="HTTP/WS 端口 (默认 8765; 被占用会自动换一个并打印实际端口)")
+    p.add_argument("--http-port", type=int, default=DEFAULT_HTTP_PORT, metavar="N",
+                   help=f"HTTP/WS 端口 (默认 {DEFAULT_HTTP_PORT}; 被占用会自动换一个并打印实际端口)")
     p.add_argument("--ui-dir", metavar="DIR", default=None,
                    help="前端静态目录 (默认找仓库的 dist/; 不存在就只提供健康检查与 /ws)")
     p.add_argument("--no-open", action="store_true",

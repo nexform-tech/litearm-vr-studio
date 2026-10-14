@@ -15,24 +15,26 @@ import { VrProcessPanel } from './VrProcessPanel'
  * 定位：只做「看状态」和「按开关」。手柄数据 90Hz 直接进 metavr 做逆解并驱动
  * 机械臂，控制回路不经过上位机（多一跳就多一份延迟，也把上位机的可用性绑到机械臂上）。
  *
- * 数据源：桥在线时用真实链路（litearm-vr-bridge 的 /ws/status），桥不在时退回本地演示。
- * 见 `vrLink.ts` 与 `__fixtures__/bridgeSnapshots.ts`（真实快照固件）。
+ * 数据源：只有一个 —— litearm-vr-bridge 的 `/ws/status`。桥连不上就显示空态，
+ * 不拿本地编造的数据顶上。见 `vrLink.ts` 与 `__fixtures__/bridgeSnapshots.ts`（真实快照固件）。
  */
 export function VrConsole() {
   const vm = useVrLink()
+  // 关节角不是"当前值"的两种情况：桥断开了，或桥连着但 ping 不到跟随服务
+  const poseStale = !vm.bridgeOnline || !vm.armConnected
 
   return (
     <div style={{ flex: 1, display: 'flex', gap: '0.875rem', padding: '0.875rem', minHeight: '0rem', ...ROW_OVERFLOW }}>
       {/* LEFT: 链路 + 数据 */}
       <div style={{ ...SCROLL_COLUMN, ...SIDE_COL_WIDE, gap: '0.75rem' }}>
         <VrLinkPanel vm={vm} />
-        <VrJointsPanel q={vm.q} stale={vm.dataSource === 'bridge' && !vm.armConnected} />
+        <VrJointsPanel q={vm.q} stale={poseStale} />
         <VrEventsPanel vm={vm} />
       </div>
 
       {/* MIDDLE: 3D 预览 */}
       <div style={{ ...SCROLL_COLUMN, flex: '1 1 30rem', minWidth: '26.25rem', gap: '0.75rem' }}>
-        <VrPreviewPanel armSource={vm.armSource} />
+        <VrPreviewPanel armSource={vm.bridgeOnline ? vm.armSource : null} stale={poseStale} />
       </div>
 
       {/* RIGHT: 控制 + 说明 */}
@@ -58,7 +60,7 @@ function VrAboutCard({ vm }: { vm: ReturnType<typeof useVrLink> }) {
         <div>{t('about.owner')}</div>
       </div>
       <div className="rounded-[0.625rem] border border-line-soft bg-muted/40 px-2.5 py-2 text-[0.71875rem] text-ink-soft">
-        {vm.bridgeOnline ? t('about.noteBridge') : t('about.noteDemo')}
+        {vm.bridgeOnline ? t('about.noteBridge') : t('about.noteOffline')}
       </div>
     </Card>
   )

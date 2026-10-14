@@ -19,8 +19,9 @@ const STATUS_STYLE: Record<VrProcessStatus, { dot: string; fg: string; bg: strin
 /** 受管进程：metavr / arm_follow_server 的一键启停（DESIGN 4.2 process.*）。 */
 export function VrProcessPanel({ vm }: { vm: VrLinkView }) {
   const { t } = useTranslation('vr')
-  const demo = vm.dataSource === 'demo'
-  const names = demo
+  // 桥没连上就没有进程状态可看，也发不出启停指令
+  const unavailable = !vm.bridgeOnline
+  const names = unavailable
     ? PROCESS_ORDER
     : [...new Set([...PROCESS_ORDER, ...Object.keys(vm.processes)])]
 
@@ -30,8 +31,8 @@ export function VrProcessPanel({ vm }: { vm: VrLinkView }) {
         <Server size="0.9375rem" /> {t('processes.title')}
       </div>
 
-      {demo ? (
-        <div className="text-[0.71875rem] text-muted-foreground">{t('processes.demoHint')}</div>
+      {unavailable ? (
+        <div className="text-[0.71875rem] text-muted-foreground">{t('processes.offlineHint')}</div>
       ) : (
         <>
           <div className="flex flex-col gap-1.5">

@@ -4,7 +4,6 @@ import { Glasses, TriangleAlert } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Pill } from '@/components/Pill'
 import { StatCard } from '@/components/StatCard'
-import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { VrLinkView } from './useVrLink'
@@ -73,7 +72,8 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
     },
     {
       name: t('link.bridgeName'),
-      addr: t('link.bridgeAddr'),
+      // 桥地址是操作员填的，端口跟着现场走：写死 "ws 8765" 会在桥不在 8765 时骗人
+      addr: hostPortOf(vm.bridgeEndpoint) || t('link.addrUnset'),
       detail: vm.bridgeOnline ? `${vm.forwardCostMs.toFixed(2)} ms` : t('link.diagOff'),
       active: vm.bridgeOnline,
     },
@@ -91,9 +91,18 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
     },
     {
       name: t('link.armName'),
-      addr: vm.armSource === 'real' ? t('link.armAddrReal') : t('link.armAddrSim'),
-      detail: vm.armSource === 'real' ? t('link.armSubReal') : t('link.armSubSim'),
-      active: vm.armSource === 'real' && vm.following,
+      // 桥没连上时，"仿真还是真机"这一格无从判断：写"仿真"是个我们保不了的断言
+      addr: !vm.bridgeOnline
+        ? t('link.addrUnset')
+        : vm.armSource === 'real'
+          ? t('link.armAddrReal')
+          : t('link.armAddrSim'),
+      detail: !vm.bridgeOnline
+        ? t('link.diagOff')
+        : vm.armSource === 'real'
+          ? t('link.armSubReal')
+          : t('link.armSubSim'),
+      active: vm.bridgeOnline && vm.armSource === 'real' && vm.following,
     },
   ]
 
@@ -138,7 +147,7 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
         </div>
       ) : null}
 
-      {/* 数据源：真实桥还是本地演示（桥在线时页面走桥，演示数据自动退居兜底） */}
+      {/* 数据源：只有真实桥一路。连不上就是连不上，没有兜底数据 */}
       <div
         className="flex items-center justify-between gap-2 rounded-[0.625rem] border px-2.5 py-2"
         style={{
@@ -152,7 +161,7 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
             style={{ background: vm.bridgeOnline ? OK : IDLE }}
           />
           <div className="truncate text-[0.75rem] font-semibold text-foreground">
-            {vm.bridgeOnline ? t('link.sourceBridge') : t('link.sourceDemo')}
+            {vm.bridgeOnline ? t('link.sourceBridge') : t('link.sourceOffline')}
           </div>
         </div>
         <div className="flex flex-none items-center gap-2 font-mono text-[0.625rem] text-ink-muted">
@@ -218,7 +227,9 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
 
       {/* 桥地址：每台机器的地址都可能不同，界面上直接改（存本机） */}
       <div className="flex flex-col gap-1.5 rounded-[0.625rem] border border-line-soft px-2.5 py-2">
-        <div className="text-[0.6875rem] text-muted-foreground">{t('link.endpointHint')}</div>
+        <div className="text-[0.6875rem] text-muted-foreground">
+          {vm.bridgeConfigured ? t('link.endpointHint') : t('link.endpointUnset')}
+        </div>
         <div className="flex items-center gap-2">
           <div className="flex-none text-[0.71875rem] font-medium text-ink-strong">
             {t('link.endpointLabel')}
@@ -229,6 +240,7 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
             onKeyDown={(e) => {
               if (e.key === 'Enter') vm.setBridgeEndpoint(endpoint)
             }}
+            placeholder={t('link.endpointPlaceholder')}
             spellCheck={false}
             aria-label={t('link.endpointLabel')}
             className="h-7 flex-1 font-mono text-[0.6875rem]"
@@ -244,22 +256,6 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
           </Button>
         </div>
       </div>
-
-      <div className="flex items-center justify-between gap-3 rounded-[0.625rem] border border-line-soft bg-muted/40 px-2.5 py-2">
-        <div className="min-w-0">
-          <div className="text-[0.78125rem] font-medium text-ink-strong">{t('link.offlineDemo')}</div>
-          <div className="text-[0.6875rem] text-muted-foreground">
-            {vm.bridgeOnline ? t('link.offlineDemoHintBridge') : t('link.offlineDemoHint')}
-          </div>
-        </div>
-        <Switch
-          size="sm"
-          disabled={vm.bridgeOnline}
-          checked={vm.offlineDemo}
-          onCheckedChange={(checked) => vm.setOfflineDemo(checked)}
-          aria-label={t('link.offlineDemo')}
-        />
-      </div>
     </Card>
   )
 }
@@ -269,4 +265,10 @@ function formatUptime(seconds: number): string {
   if (seconds < 60) return `${seconds.toFixed(0)}s`
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`
   return `${Math.floor(seconds / 3600)}h${Math.floor((seconds % 3600) / 60)}m`
+}
+
+/** `ws://host:8765/ws/status` → `host:8765`（逐跳那一列只放得下这么多） */
+function hostPortOf(endpoint: string): string {
+  const withoutScheme = endpoint.replace(/^wss?:\/\//i, '')
+  return withoutScheme.split('/', 1)[0] ?? ''
 }

@@ -18,7 +18,6 @@ describe('mapBridgeSnapshot · 头显与转发指标', () => {
   it('把跟随态快照映射成页面字段', () => {
     const { fields, q } = mapBridgeSnapshot(SNAP_FOLLOWING)
 
-    expect(fields.dataSource).toBe('bridge')
     expect(fields.bridgeOnline).toBe(true)
     expect(fields.headsetOnline).toBe(true)
     expect(fields.following).toBe(true)
@@ -162,7 +161,6 @@ describe('字段缺失 / 桥换版本时的健壮性', () => {
     expect(q).toBeNull()
     expect(fields).toMatchObject({
       bridgeOnline: false,
-      dataSource: 'bridge',
       linkState: 'idle',
       owner: 'none',
       fallbackReason: null,
@@ -182,7 +180,7 @@ describe('字段缺失 / 桥换版本时的健壮性', () => {
     expect(mapBridgeSnapshot({ arm: { q: null } }).q).toBeNull()
   })
 
-  it('空态基线与演示数据同形（页面不用做空值分支）', () => {
+  it('空态基线里没有任何"看起来像真值"的东西', () => {
     const empty = emptyBridgeFields()
     const keys = Object.keys(empty).sort()
     expect(keys).toContain('forwardCostMs')
@@ -190,6 +188,18 @@ describe('字段缺失 / 桥换版本时的健壮性', () => {
     expect(keys).toContain('processes')
     expect(keys).toContain('owner')
     expect(keys).toContain('linkState')
+
+    // 桥连不上时页面照实显示空态：计数归零、状态归 idle、没有 v/fps/latency 这类
+    // 会被当成"链路正常"的数。以前这里由演示数据填满，正是"数据全是假的"的来源。
+    expect(empty.bridgeOnline).toBe(false)
+    expect(empty.headsetOnline).toBe(false)
+    expect(empty.headsetConnected).toBe(false)
+    expect(empty.following).toBe(false)
+    expect(empty.fps).toBe(0)
+    expect(empty.frames).toBe(0)
+    expect(empty.framesForwarded).toBe(0)
+    expect(empty.bridgeVersion).toBe('')
+    expect(empty.linkState).toBe('idle')
   })
 })
 

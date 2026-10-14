@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import i18n from '@/i18n'
 import { VrControlPanel } from './VrControlPanel'
 import { VrEventsPanel } from './VrEventsPanel'
+import { VrJointsPanel } from './VrJointsPanel'
 import { VrLinkPanel } from './VrLinkPanel'
 import { VrProcessPanel } from './VrProcessPanel'
 import { mapBridgeSnapshot, mergeEvents } from './vrLink'
@@ -31,7 +32,7 @@ function viewOf(snapshot: VrBridgeSnapshot, consoleSignals: VrConsoleSignals = C
   const { fields, q } = mapBridgeSnapshot(snapshot)
   return {
     ...fields,
-    q: q ?? [0, -0.07, -0.09, -1.7, -1.46, -0.03, -0.79],
+    q,
     events: mergeEvents([], (snapshot.events ?? []).filter(Boolean)),
     ownership: synthesizeOwnership({
       bridgeOwner: fields.owner,
@@ -39,18 +40,22 @@ function viewOf(snapshot: VrBridgeSnapshot, consoleSignals: VrConsoleSignals = C
       bridgeArmState: fields.armState,
       console: consoleSignals,
     }),
-    offlineDemo: false,
-    bridgeEndpoint: 'ws://localhost:8765/ws/status',
+    bridgeConfigured: true,
+    bridgeEndpoint: 'ws://192.168.31.139:8765/ws/status',
     startFollow: () => {},
     stopFollow: () => {},
     emergencyStop: () => {},
-    setOfflineDemo: () => {},
     startProcess: () => {},
     stopProcess: () => {},
     dismissEvent: () => {},
     clearEvents: () => {},
     setBridgeEndpoint: () => {},
   }
+}
+
+/** 桥完全连不上时的视图：整份空态，一个真实字节都没收到过，也没填过地址 */
+function offlineView(): VrLinkView {
+  return { ...viewOf({}), bridgeConfigured: false, bridgeEndpoint: '' }
 }
 
 describe('VR 面板 · 真实固件渲染', () => {
@@ -164,5 +169,38 @@ describe('VR 面板 · 真实固件渲染', () => {
     expect(vm.ownership.owner).toBe('none')
     expect(screen.getByText(/当前空闲/)).toBeTruthy()
     expect(screen.queryByText('上位机正在控制机械臂')).toBeNull()
+  })
+})
+
+describe('VR 面板 · 桥连不上时（没有兜底数据）', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('zh')
+  })
+  afterEach(() => cleanup())
+
+  it('链路面板只说"未连接"，不显示桥版本/耗时这类像真值的东西', () => {
+    render(<VrLinkPanel vm={offlineView()} />)
+
+    expect(screen.getByText('数据源 · 未连接')).toBeTruthy()
+    // 没配地址时说清楚是"没填"，而不是含糊的"连不上"
+    expect(screen.getByText(/还没填过桥地址/)).toBeTruthy()
+    // 转发耗时/丢弃/拦截都得是空，不然会被当成链路在跑
+    expect(screen.queryByText(/^v0\./)).toBeNull()
+  })
+
+  it('关节角面板摆出 7 行空位而不是编一组数', () => {
+    render(<VrJointsPanel q={null} stale />)
+
+    expect(screen.getAllByText('—')).toHaveLength(7)
+    expect(screen.getByText('等待桥上报真机姿态…')).toBeTruthy()
+  })
+
+  it('控制面板：三个按钮全禁用，并说明发不出去', () => {
+    render(<VrControlPanel vm={offlineView()} />)
+
+    for (const name of [/开始遥操/, /停止遥操/, /急停/]) {
+      expect((screen.getByRole('button', { name }) as HTMLButtonElement).disabled).toBe(true)
+    }
+    expect(screen.getByText(/桥未连接：三个按钮都发不出去/)).toBeTruthy()
   })
 })

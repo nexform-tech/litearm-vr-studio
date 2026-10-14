@@ -10,7 +10,7 @@
     "headsetAddr": "Quest / Pico · 90 Hz",
     "headsetSub": "Controller pose + trigger",
     "bridgeName": "litearm-vr-bridge",
-    "bridgeAddr": "ws 8765",
+    "addrUnset": "no address set",
     "bridgeSub": "receive → forward → summarize",
     "relayName": "metavr Relay",
     "relayAddr": "ws 8766",
@@ -19,9 +19,9 @@
     "followAddr": "TCP 9001",
     "followSub": "start / latch / ping",
     "armName": "Robot Arm",
-    "armAddrSim": "Local demo data",
+    "armAddrSim": "Bridge not linked to an arm",
     "armAddrReal": "arm_follow_server",
-    "armSubSim": "Simulated pose (this page)",
+    "armSubSim": "Simulated (metavr side)",
     "armSubReal": "Joint-angle following",
     "statFps": "Pose Rate",
     "statLatency": "End-to-End Latency",
@@ -44,14 +44,13 @@
     "endpointLabel": "Bridge URL",
     "endpointApply": "Apply",
     "endpointHint": "Takes effect immediately and is saved locally; you can set it while the bridge is offline",
+    "endpointUnset": "No bridge address set yet. This page never dials a default address: the bridge runs on its own machine and the address differs per site.",
+    "endpointPlaceholder": "ws://192.168.31.139:8765/ws/status",
     "versionLabel": "Bridge Version",
     "uptimeLabel": "Uptime",
     "sourceBridge": "Source · litearm-vr-bridge",
-    "sourceDemo": "Source · local demo",
-    "bridgeOffline": "Bridge offline",
-    "offlineDemo": "Simulate Disconnect",
-    "offlineDemoHint": "Demo switch: simulates a headset drop to check the offline state",
-    "offlineDemoHintBridge": "Bridge connected — demo switch unavailable (data comes from the real link)"
+    "sourceOffline": "Source · not connected",
+    "bridgeOffline": "Bridge offline"
   },
   "joints": {
     "title": "Joint Angles",
@@ -67,8 +66,10 @@
     "sourceLabel": "Source",
     "sourceSim": "Simulated pose",
     "sourceReal": "Real pose",
+    "sourceUnknown": "Unknown (bridge offline)",
     "modelLabel": "Model · {{model}}",
-    "modelHint": "Note: this page currently renders the same URDF as the control page (the studio/SDK one), while the joint angles the bridge reports were solved by metavr against its own model. Joint origins, axes and limits differ between the two, so the pose on screen will not match what metavr believes — a known gap, not bad data."
+    "modelHint": "Note: this page currently renders the same URDF as the control page (the studio/SDK one), while the joint angles the bridge reports were solved by metavr against its own model. Joint origins, axes and limits differ between the two, so the pose on screen will not match what metavr believes — a known gap, not bad data.",
+    "noPose": "The bridge is not reporting an arm pose — this view is not the current pose"
   },
   "control": {
     "title": "Teleop Control",
@@ -78,7 +79,7 @@
     "estopHint": "Sends stop to the follow server and stops forwarding controller frames",
     "offlineHint": "Headset disconnected, cannot start teleoperation",
     "bridgeHint": "These commands go through litearm-vr-bridge to the real link: start / stop / e-stop all affect the arm",
-    "demoHint": "Bridge offline — demo data: these buttons only change page state, nothing is sent to the arm",
+    "bridgeOfflineHint": "Bridge offline: all three buttons are disabled because nothing can be sent. Set the bridge address at the top left and make sure the bridge is running.",
     "rearmHint": "Stopped or e-stopped: press grip again to resume following",
     "ownerLabel": "In Control",
     "owner_vr": "VR headset",
@@ -106,7 +107,7 @@
     "empty": "No events",
     "clear": "Clear",
     "dismiss": "Dismiss",
-    "demoNote": "Bridge offline — showing the last events received before it went away",
+    "staleNote": "Bridge disconnected — these are the last events received before it went away, not live alarms",
     "levelDanger": "Alert",
     "levelWarn": "Warning",
     "levelInfo": "Info"
@@ -116,7 +117,7 @@
     "start": "Start",
     "stop": "Stop",
     "hint": "Managed by the bridge from its environment: VR_REPO or METAVR_CMD / FOLLOW_SERVER_CMD",
-    "demoHint": "Bridge offline — process state unavailable",
+    "offlineHint": "Bridge offline — process state unavailable",
     "notConfigured": "No launch command configured",
     "statusRunning": "Running",
     "statusStopped": "Stopped",
@@ -134,6 +135,6 @@
     "loop": "The control loop is not here: controller frames at 90 Hz go through the bridge into metavr for IK, so the console adds no extra hop of latency",
     "owner": "Ownership is synthesized here: the bridge only sees the VR side (it can only report vr / none), while the console link lives in studio. Only the two together tell who is driving the arm — which is why this page has to stay in the console instead of moving into the bridge",
     "noteBridge": "Data comes from litearm-vr-bridge (live link).",
-    "noteDemo": "Bridge offline — showing local demo data."
+    "noteOffline": "Bridge offline: every value on this page is empty. There is no fallback data source — a fabricated \"connected, 90 Hz\" on a teleoperation page gets taken at face value."
   }
 }

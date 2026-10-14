@@ -21,7 +21,8 @@ const LEVEL_COLOR: Record<VrBridgeEventLevel, string> = {
 export function VrEventsPanel({ vm }: { vm: VrLinkView }) {
   const { t } = useTranslation('vr')
   const events = vm.events
-  const demoWithEvents = vm.dataSource === 'demo' && events.length > 0
+  // 桥断开后事件列表里剩的是"桥离开前最后收到的那批"，说清楚免得当成实时告警
+  const staleEvents = !vm.bridgeOnline && events.length > 0
 
   return (
     <Card className="gap-2.5 rounded-[0.875rem] px-3.5 py-3.5">
@@ -44,9 +45,9 @@ export function VrEventsPanel({ vm }: { vm: VrLinkView }) {
         </Button>
       </div>
 
-      {demoWithEvents ? (
+      {staleEvents ? (
         <div className="rounded-[0.5rem] border border-line-soft bg-muted/40 px-2 py-1.5 text-[0.6875rem] text-muted-foreground">
-          {t('events.demoNote')}
+          {t('events.staleNote')}
         </div>
       ) : null}
 

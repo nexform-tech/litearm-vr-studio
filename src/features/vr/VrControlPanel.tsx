@@ -8,8 +8,8 @@ import type { VrConsoleActivity } from './vrOwnership'
 /**
  * 上位机在 VR 链路里只按开关：开始 / 停止 / 急停。控制回路在 metavr，不在这里。
  *
- * 注意：桥在线时这三个按钮**真的会作用到机械臂**（急停会向跟随服务下发 stop），
- * 所以文案不能再说"演示"。桥离线时才退回本地演示语义。
+ * 注意：这三个按钮**真的会作用到机械臂**（急停会向跟随服务下发 stop），所以桥没连上
+ * 时一律禁用 —— 按钮亮着却发不出去，比直接灰掉更危险。
  *
  * 控制归属不照抄桥的 `owner`：桥只看得见 VR 一侧，上位机这一侧（studio →
  * litearm-server :7449）只有本页知道。合成逻辑见 `vrOwnership.ts`。
@@ -17,7 +17,8 @@ import type { VrConsoleActivity } from './vrOwnership'
 export function VrControlPanel({ vm }: { vm: VrLinkView }) {
   const { t } = useTranslation('vr')
   const offline = !vm.headsetOnline
-  const demo = vm.dataSource === 'demo'
+  // 桥没连上就什么都发不出去：三个按钮一起禁用
+  const unavailable = !vm.bridgeOnline
   const { ownership } = vm
   const consoleActivity = ownership.console.activity
   // 两条链路互斥：只要上位机侧正在驱动机械臂，就不能从这一页再开一路控制
@@ -75,7 +76,7 @@ export function VrControlPanel({ vm }: { vm: VrLinkView }) {
       <div className="flex flex-col gap-2">
         <Button
           type="button"
-          disabled={offline || vm.following || blocked}
+          disabled={unavailable || offline || vm.following || blocked}
           onClick={vm.startFollow}
           title={blocked ? t('control.consoleBusyHint') : undefined}
           className="h-9 w-full rounded-[0.625rem] text-[0.84375rem] font-semibold"
@@ -85,7 +86,7 @@ export function VrControlPanel({ vm }: { vm: VrLinkView }) {
         <Button
           type="button"
           variant="outline"
-          disabled={!vm.following}
+          disabled={unavailable || !vm.following}
           onClick={vm.stopFollow}
           className="h-9 w-full rounded-[0.625rem] text-[0.84375rem] font-semibold"
         >
@@ -93,7 +94,7 @@ export function VrControlPanel({ vm }: { vm: VrLinkView }) {
         </Button>
         <button
           type="button"
-          disabled={offline}
+          disabled={unavailable || offline}
           title={t('control.estopHint')}
           onClick={vm.emergencyStop}
           className="h-11 w-full rounded-[0.625rem] text-[0.9375rem] font-extrabold tracking-[0.125rem] text-white disabled:cursor-not-allowed disabled:opacity-45"
@@ -139,7 +140,11 @@ export function VrControlPanel({ vm }: { vm: VrLinkView }) {
       </div>
 
       <div className="rounded-[0.625rem] border border-line-soft bg-muted/40 px-2.5 py-2 text-[0.6875rem] leading-relaxed text-muted-foreground">
-        {offline ? t('control.offlineHint') : demo ? t('control.demoHint') : t('control.bridgeHint')}
+        {unavailable
+          ? t('control.bridgeOfflineHint')
+          : offline
+            ? t('control.offlineHint')
+            : t('control.bridgeHint')}
       </div>
     </Card>
   )

@@ -2,9 +2,6 @@
 
 export type VrArmSource = 'sim' | 'real'
 
-/** 数据来源：真实的 litearm-vr-bridge，还是本地演示数据 */
-export type VrDataSource = 'bridge' | 'demo'
-
 /** 桥侧遥操状态机（DESIGN 6.4：IDLE → FOLLOWING → LATCHED / FALLBACK） */
 export type VrLinkState = 'idle' | 'following' | 'latched' | 'fallback'
 
@@ -34,10 +31,14 @@ export type VrBridgeEvent = {
 }
 
 /**
- * VR 页消费的链路状态（演示数据与真实桥共用同一形状）。
+ * VR 页消费的链路状态。
  *
  * 字段覆盖桥的整条链路：头显侧 → 桥自身 → metavr → 跟随服务 → 真机，
- * 外加兜底/进程/事件。演示数据也必须填满（页面各处不做空值分支）。
+ * 外加兜底/进程/事件。
+ *
+ * ⚠ 这一页**没有**兜底数据源：桥连不上时下面这些字段就是空态（0 / false / null），
+ * 页面照实显示"未连接"。遥操页上出现编造的「已连接 90Hz」和一条看起来在动的机械臂
+ * 姿态，是会被当真的事故源。
  */
 export type VrLinkSnapshot = {
   // ── 头显侧 ──
@@ -112,8 +113,11 @@ export type VrLinkSnapshot = {
   armLastOkMs: number | null
   /** 故障码个数 */
   faultCount: number
-  /** 机械臂 7 关节角（rad） */
-  q: number[]
+  /**
+   * 机械臂 7 关节角（rad），**只在桥真的报过姿态之后才有值**。
+   * null = 一个真实字节都没收到过，界面显示"—"，而不是拿一个编造的姿态顶上。
+   */
+  q: number[] | null
 
   // ── 进程与归属 ──
   processes: Record<string, VrProcessStatus>
@@ -121,8 +125,6 @@ export type VrLinkSnapshot = {
   /** 谁在控臂：vr / console / none（DESIGN 6.5） */
   owner: string
 
-  /** 当前数据来自哪里 */
-  dataSource: VrDataSource
   /** 桥推来的告警与动作回执（按 id 去重、按时间倒序） */
   events: VrBridgeEvent[]
 }

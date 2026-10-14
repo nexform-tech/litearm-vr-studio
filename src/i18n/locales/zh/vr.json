@@ -10,7 +10,7 @@
     "headsetAddr": "Quest / Pico · 90 Hz",
     "headsetSub": "手柄位姿 + 扳机",
     "bridgeName": "litearm-vr-bridge",
-    "bridgeAddr": "ws 8765",
+    "addrUnset": "未填地址",
     "bridgeSub": "收帧 → 转发 → 汇总",
     "relayName": "metavr 中继",
     "relayAddr": "ws 8766",
@@ -19,9 +19,9 @@
     "followAddr": "TCP 9001",
     "followSub": "start / latch / ping",
     "armName": "机械臂",
-    "armAddrSim": "本地演示数据",
+    "armAddrSim": "桥未连到真机",
     "armAddrReal": "arm_follow_server",
-    "armSubSim": "仿真姿态（本页演示）",
+    "armSubSim": "仿真（metavr 侧）",
     "armSubReal": "关节角跟随",
     "statFps": "位姿帧率",
     "statLatency": "端到端延迟",
@@ -44,14 +44,13 @@
     "endpointLabel": "桥地址",
     "endpointApply": "应用",
     "endpointHint": "改动立即生效并存到本机；桥未连接时也可以先填好",
+    "endpointUnset": "还没填过桥地址 —— 这一页不会去连任何默认地址（桥在自己那台机器上，地址因现场而异）",
+    "endpointPlaceholder": "ws://192.168.31.139:8765/ws/status",
     "versionLabel": "桥版本",
     "uptimeLabel": "运行时长",
     "sourceBridge": "数据源 · litearm-vr-bridge",
-    "sourceDemo": "数据源 · 本地演示",
-    "bridgeOffline": "桥未连接",
-    "offlineDemo": "模拟断线",
-    "offlineDemoHint": "演示开关：模拟头显掉线，用来检查离线态的界面表现",
-    "offlineDemoHintBridge": "桥已连接，演示开关不可用（数据来自真实链路）"
+    "sourceOffline": "数据源 · 未连接",
+    "bridgeOffline": "桥未连接"
   },
   "joints": {
     "title": "关节角",
@@ -67,8 +66,10 @@
     "sourceLabel": "数据源",
     "sourceSim": "仿真姿态",
     "sourceReal": "真机姿态",
+    "sourceUnknown": "未知（桥未连接）",
     "modelLabel": "模型 · {{model}}",
-    "modelHint": "注意：本页当前用控制页同一份 URDF（studio/SDK 那份）渲染，而桥报上来的关节角是 metavr 按它自己那份模型解出来的。两份模型关节 origin/轴向/限位不同，因此画面与 metavr 的认知对不上，看起来会「画歪」——这是已知偏差，不是数据出错。"
+    "modelHint": "注意：本页当前用控制页同一份 URDF（studio/SDK 那份）渲染，而桥报上来的关节角是 metavr 按它自己那份模型解出来的。两份模型关节 origin/轴向/限位不同，因此画面与 metavr 的认知对不上，看起来会「画歪」——这是已知偏差，不是数据出错。",
+    "noPose": "桥没有报来真机姿态 —— 这个画面不是当前姿态"
   },
   "control": {
     "title": "遥操控制",
@@ -78,7 +79,7 @@
     "estopHint": "向跟随服务下发 stop，并停止转发手柄帧",
     "offlineHint": "头显未连接，无法开始遥操",
     "bridgeHint": "按钮经 litearm-vr-bridge 下发到真实链路：开始 / 停止 / 急停都会作用到机械臂",
-    "demoHint": "桥未连接，当前为演示数据：按钮只改页面状态，不会下发到真机",
+    "bridgeOfflineHint": "桥未连接：三个按钮都发不出去，已禁用。先在左上角填上桥地址并确认桥在跑。",
     "rearmHint": "已停止或急停过：重新按 grip 才会恢复跟随",
     "ownerLabel": "当前控制方",
     "owner_vr": "VR 头显",
@@ -106,7 +107,7 @@
     "empty": "暂无事件",
     "clear": "清空",
     "dismiss": "忽略这条",
-    "demoNote": "桥未连接：以下是桥离线前最后收到的事件",
+    "staleNote": "桥已断开：以下是它离开前最后收到的事件，不是实时告警",
     "levelDanger": "告警",
     "levelWarn": "注意",
     "levelInfo": "信息"
@@ -116,7 +117,7 @@
     "start": "启动",
     "stop": "停止",
     "hint": "由桥按环境变量托管：VR_REPO 或 METAVR_CMD / FOLLOW_SERVER_CMD",
-    "demoHint": "桥未连接，进程状态不可用",
+    "offlineHint": "桥未连接，进程状态不可用",
     "notConfigured": "未配置启动命令",
     "statusRunning": "运行中",
     "statusStopped": "已停止",
@@ -134,6 +135,6 @@
     "loop": "控制回路不在这里：手柄数据 90 Hz 经桥转发进 metavr 做逆解，上位机不参与解算，避免多一跳延迟",
     "owner": "归属在这里合成：桥只看得见 VR 一侧（它只能报 vr / none），上位机链路在 studio 手里。两侧合起来才判得出谁在控臂 —— 这也是这一页只能留在上位机、挪不进桥的原因",
     "noteBridge": "数据来自 litearm-vr-bridge（真实链路）。",
-    "noteDemo": "桥未连接，当前显示本地演示数据。"
+    "noteOffline": "桥未连接：这一页的数值都是空的。它没有兜底数据源 —— 遥操页上编造一个「已连接 90Hz」会被当真。"
   }
 }

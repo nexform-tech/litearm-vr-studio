@@ -1,5 +1,4 @@
 import { setBridgeEndpoint as persistBridgeEndpoint, vrBridge } from './vrBridgeClient'
-import { VrDemoSource } from './vrDemoSource'
 import type {
   VrArmSource,
   VrBridgeEvent,
@@ -13,11 +12,11 @@ import type {
 /**
  * VR 页的数据编排层：**唯一**对外暴露的取数口。
  *
- * 两个数据源二选一：
- *   1. litearm-vr-bridge（真实链路）—— 桥在线时优先
- *   2. 本地演示数据 —— 桥不在时兜底，保证页面不空、开发不依赖硬件
+ * 只有一个数据源：litearm-vr-bridge 的 `/ws/status`。桥连不上时页面显示空态，
+ * 不拿任何本地编造的数据顶上 —— 这一页的每个数字都可能是操作员据以判断"机械臂
+ * 现在在不在动"的依据，假数据比没有数据危险得多。
  *
- * 真实链路（见 vr/ 仓库与 litearm-vr-bridge/docs/DESIGN.md）：
+ * 真实链路（见 litearm-vr-bridge/docs/DESIGN.md）：
  *   头显 → 桥 :8765 → metavr（pybullet 逆解）→ TCP 9001 → arm_follow_server → 真机
  *
  * 两条前提别忘：
@@ -35,9 +34,6 @@ const UI_NOTIFY_MS = 200
 const Q_EPSILON = 1e-4
 /** 事件列表上限：桥按 TTL 保留，页面只留最近这些 */
 const MAX_EVENTS = 30
-
-/** metavr 的遥操就绪姿态；桥未连上时的初始显示姿态 */
-const Q_INITIAL = [0, -0.07, -0.09, -1.7, -1.46, -0.03, -0.79]
 
 type Listener = () => void
 type PoseListener = (q: number[]) => void
@@ -132,7 +128,7 @@ export function mergeEvents(
   return [...byId.values()].sort((a, b) => b.ts - a.ts).slice(0, MAX_EVENTS)
 }
 
-/** 桥离线时的基线（页面在演示模式下会把演示值覆上去） */
+/** 桥离线时的基线：所有字段都是空态，页面照实显示"未连接" */
 export function emptyBridgeFields(): VrBridgeFields {
   return {
     headsetOnline: false,
@@ -173,7 +169,6 @@ export function emptyBridgeFields(): VrBridgeFields {
     processes: {},
     processesDetail: {},
     owner: 'none',
-    dataSource: 'demo',
   }
 }
 
@@ -234,7 +229,6 @@ export function mapBridgeSnapshot(snapshot: VrBridgeSnapshot): {
       processes: normalizeProcesses(snapshot.processes),
       processesDetail: normalizeProcessDetails(snapshot.processes_detail),
       owner: asString(snapshot.owner, 'none'),
-      dataSource: 'bridge',
     },
     q,
   }
@@ -249,12 +243,12 @@ function qChanged(a: number[], b: number[]): boolean {
 }
 
 class VrLink {
-  private demo = new VrDemoSource()
   private fields: VrBridgeFields = emptyBridgeFields()
   private events: VrBridgeEvent[] = []
   private dismissedEvents = new Set<number>()
-  private q = [...Q_INITIAL]
-  private cached: VrLinkSnapshot = { ...this.fields, q: [...Q_INITIAL], events: [] }
+  /** 桥报过的最后一组关节角；一个真实字节都没收到过时是 null */
+  private q: number[] | null = null
+  private cached: VrLinkSnapshot = { ...this.fields, q: null, events: [] }
   private tickTimer: number | null = null
   private lastTickAt = 0
   private lastNotifyAt = 0
@@ -266,17 +260,17 @@ class VrLink {
     return this.cached
   }
 
-  get jointAngles(): number[] {
+  get jointAngles(): number[] | null {
     return this.q
-  }
-
-  /** 演示开关当前是否打开（只有走演示数据时才有意义） */
-  get offline(): boolean {
-    return this.demo.isOffline
   }
 
   get bridgeEndpoint(): string {
     return vrBridge.endpoint
+  }
+
+  /** 配过桥地址没有（没配过时页面提示去填，而不是显示"连不上"） */
+  get bridgeConfigured(): boolean {
+    return vrBridge.configured
   }
 
   subscribe = (cb: Listener) => {
@@ -299,13 +293,11 @@ class VrLink {
     const now = performance.now()
     this.lastTickAt = now
     this.lastNotifyAt = 0
-    this.demo.reset(now)
     this.unsubscribeBridge = vrBridge.subscribe(this.handleBridgeChange)
-    // 桥连接是 app 级的（见 vrGuard.installVrGuard，main.tsx 启动时建立）：
-    // 控制页/遥操页也要能知道 VR 在不在控，所以这里只订阅、不负责开关连接。
-    // 兜底 start()：万一本页在没装闸门的场景（测试/独立挂载）单独跑，也还能用。
+    // 桥连接是 app 级的：控制页/遥操页也要能知道 VR 在不在控，所以这里只订阅、
+    // 不负责开关连接（见 vrBridgeClient 的 start()：地址没配就不去连）。
     vrBridge.start()
-    this.update(now, 0)
+    this.update(now)
     this.tickTimer = window.setInterval(this.tick, TICK_MS)
   }
 
@@ -319,37 +311,16 @@ class VrLink {
   }
 
   startFollow = () => {
-    if (this.fields.dataSource === 'bridge') {
-      vrBridge.sendAction('teleop.start')
-      return
-    }
-    this.demo.startFollow()
-    this.refreshNow()
+    vrBridge.sendAction('teleop.start')
   }
 
   stopFollow = () => {
-    if (this.fields.dataSource === 'bridge') {
-      vrBridge.sendAction('teleop.stop')
-      return
-    }
-    this.demo.stopFollow()
-    this.refreshNow()
+    vrBridge.sendAction('teleop.stop')
   }
 
-  /** 急停：桥在线时下发给桥，否则只影响本地演示状态 */
+  /** 急停：下发给桥（桥不在时按钮本就是禁用的，这里只是个兜底） */
   emergencyStop = () => {
-    if (this.fields.dataSource === 'bridge') {
-      vrBridge.sendAction('estop')
-      return
-    }
-    this.demo.stopFollow()
-    this.refreshNow()
-  }
-
-  /** 演示开关：模拟头显掉线，用来检查离线态显示（桥在线时不生效） */
-  setOfflineDemo = (offline: boolean) => {
-    this.demo.setOffline(offline, performance.now())
-    this.refreshNow()
+    vrBridge.sendAction('estop')
   }
 
   /** 进程启停（M3）：桥那边只认 name；未配置的进程会回一条失败事件 */
@@ -368,7 +339,7 @@ class VrLink {
   clearEvents = () => {
     for (const event of this.events) this.dismissedEvents.add(event.id)
     this.events = []
-    if (this.fields.dataSource === 'bridge') vrBridge.sendAction('event.clear')
+    vrBridge.sendAction('event.clear')
     this.refreshNow()
   }
 
@@ -379,27 +350,24 @@ class VrLink {
   }
 
   private sendAction(action: string, payload?: Record<string, unknown>): boolean {
-    if (this.fields.dataSource !== 'bridge') return false
     return vrBridge.sendAction(action, payload)
   }
 
   private handleBridgeChange = () => {
-    this.update(performance.now(), 0)
+    this.update(performance.now())
   }
 
   private refreshNow() {
-    this.update(performance.now(), 0)
+    this.update(performance.now())
     this.emit()
   }
 
   private tick = () => {
-    const now = performance.now()
-    const dt = Math.min((now - this.lastTickAt) / 1000, 0.1)
-    this.lastTickAt = now
-    this.update(now, dt)
+    this.lastTickAt = performance.now()
+    this.update(this.lastTickAt)
   }
 
-  private update(now: number, dt: number) {
+  private update(now: number) {
     const snapshot = vrBridge.snapshot
 
     if (vrBridge.online && snapshot) {
@@ -408,24 +376,9 @@ class VrLink {
       this.events = mergeEvents(this.events, normalizeEvents(snapshot.events), this.dismissedEvents)
       if (q) this.setQ(q)
     } else {
-      const demo = this.demo.step(now, dt)
-      this.fields = {
-        ...emptyBridgeFields(),
-        headsetOnline: demo.headsetOnline,
-        following: demo.following,
-        grip: demo.following,
-        tracked: demo.headsetOnline,
-        fps: demo.fps,
-        latencyMs: demo.latencyMs,
-        sinceFrameMs: demo.sinceFrameMs,
-        frames: demo.frames,
-        framesForwarded: demo.frames,
-        armSource: 'sim',
-        dataSource: 'demo',
-        bridgeOnline: false,
-        linkState: demo.following ? 'following' : 'idle',
-      }
-      this.setQ(demo.q)
+      // 桥不在：整份空态。**不**动 q —— 上一组真值留着比编一组新的诚实，
+      // 页面靠 bridgeOnline 把它标成"不是当前值"。
+      this.fields = emptyBridgeFields()
     }
 
     if (now - this.lastNotifyAt >= UI_NOTIFY_MS) {
@@ -435,14 +388,14 @@ class VrLink {
   }
 
   private setQ(next: number[]) {
-    if (!qChanged(this.q, next)) return
+    if (this.q && !qChanged(this.q, next)) return
     this.q = [...next]
     for (const cb of this.poseListeners) cb(this.q)
   }
 
   private emit() {
     // 每次变更都换一个新对象：useSyncExternalStore 靠引用比较决定是否重渲染
-    this.cached = { ...this.fields, q: [...this.q], events: this.events }
+    this.cached = { ...this.fields, q: this.q ? [...this.q] : null, events: this.events }
     for (const cb of this.stateListeners) cb()
   }
 }

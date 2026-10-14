@@ -183,11 +183,12 @@ describe('VR 面板 · 桥连不上时（没有兜底数据）', () => {
   })
   afterEach(() => cleanup())
 
-  it('桥连不上时：徽标点名"桥未连接"，数据源那一行不出现', () => {
+  it('桥连不上时：徽标不出现（没有状态可报），数据源那一行也不出现', () => {
     render(<VrLinkPanel vm={offlineView()} />)
 
-    // 徽标写清主语：这一页有五跳，笼统一句"未连接"没人知道是谁
-    expect(screen.getByText('桥未连接')).toBeTruthy()
+    // 徽标只报状态机那一档；通断由流程条上每一格自己说，不再重复一句"桥未连接"
+    expect(screen.queryByText('跟随中')).toBeNull()
+    expect(screen.queryByText('已连接 · 待机')).toBeNull()
     // 数据源那一行讲的是"哪一路、什么版本、跑了多久"，桥不在时这三样都没意义
     expect(screen.queryByText(/^数据源 · /)).toBeNull()
     // 五跳逐跳如实报未连接，机械臂那一跳也不能写"仿真"（无从判断，见 useVrLink）
@@ -196,10 +197,12 @@ describe('VR 面板 · 桥连不上时（没有兜底数据）', () => {
     expect(screen.queryByText(/^v0\./)).toBeNull()
   })
 
-  it('桥在、头显不推帧时：徽标说的是头显，不是桥', () => {
+  it('桥在、头显不推帧时：徽标报状态机的"待机"，头显那一格自己说未连接', () => {
     render(<VrLinkPanel vm={viewOf(SNAP_NO_HEADSET)} />)
 
-    expect(screen.getByText('头显未连接')).toBeTruthy()
+    expect(screen.getByText('已连接 · 待机')).toBeTruthy()
+    // 头显那一跳如实报未连接 —— 通断只在流程条上说
+    expect(screen.getByText('未连接')).toBeTruthy()
     // 数据源那一行照常：桥是连着的
     expect(screen.getByText('数据源 · litearm-vr-bridge')).toBeTruthy()
   })

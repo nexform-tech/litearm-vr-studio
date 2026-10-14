@@ -34,19 +34,20 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
 
   const live = vm.headsetOnline
   const style = stateStyle(vm.linkState, live)
-  // 徽标的主语要写出来：这一页有五跳，笼统一句"未连接"没人知道是谁没连上
-  const stateLabel =
-    vm.linkState === 'fallback'
+  /**
+   * 徽标只报遥操状态机那一档（跟随中 / 持位 / 兜底），**不报通断**：
+   * 哪一跳没连上是流程条上那一格自己的事，同一个"未连接"在一张卡片里说两遍只会让人
+   * 怀疑它们不是一个意思。桥不在时没有状态可报，徽标整个不出现。
+   */
+  const stateLabel = !vm.bridgeOnline
+    ? null
+    : vm.linkState === 'fallback'
       ? t('link.stateFallback')
-      : !vm.bridgeOnline
-        ? t('link.stateBridgeOffline')
-        : !live
-          ? t('link.stateHeadsetOffline')
-          : vm.following
-            ? t('link.stateFollowing')
-            : vm.linkState === 'latched'
-              ? t('link.stateLatched')
-              : t('link.stateReady')
+      : vm.following
+        ? t('link.stateFollowing')
+        : vm.linkState === 'latched'
+          ? t('link.stateLatched')
+          : t('link.stateReady')
 
   // 转发耗时是这个服务自己的开销：正常应 < 1ms，变大说明桥卡了（DESIGN 6.2）
   const costWarn = vm.forwardCostMs >= 1
@@ -122,9 +123,11 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
         <div className="flex items-center gap-2 text-[0.90625rem] font-semibold text-foreground">
           <Glasses size="0.9375rem" /> {t('link.title')}
         </div>
-        <Pill dot={style.dot} bg={style.bg} bd={style.bd} fg={style.fg} padding="0.1875rem 0.625rem" fontSize={11.5}>
-          {stateLabel}
-        </Pill>
+        {stateLabel ? (
+          <Pill dot={style.dot} bg={style.bg} bd={style.bd} fg={style.fg} padding="0.1875rem 0.625rem" fontSize={11.5}>
+            {stateLabel}
+          </Pill>
+        ) : null}
       </div>
 
       {/* 兜底：本项目最重要的安全状态，必须一眼看见 */}

@@ -28,9 +28,7 @@
     "fallbackReasonLabel": "原因",
     "guardOff": "兜底已关闭（桥侧 FALLBACK_ENABLED=0）：超过 {{ms}} ms 没有新帧也不会自动持位",
     "rearmHint": "需重新按一次右手 grip（松 → 按）才会恢复跟随",
-    "sourceBridge": "数据源 · litearm-vr-bridge",
-    "stateBridgeOffline": "桥未连接",
-    "stateHeadsetOffline": "头显未连接"
+    "sourceBridge": "数据源 · litearm-vr-bridge"
   },
   "load": {
     "title": "电机负载",

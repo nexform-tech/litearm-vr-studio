@@ -28,9 +28,7 @@
     "fallbackReasonLabel": "Reason",
     "guardOff": "Fallback is off (FALLBACK_ENABLED=0 on the bridge): no automatic hold even after {{ms}} ms without new frames",
     "rearmHint": "Press the right grip again (release → press) to resume following",
-    "sourceBridge": "Source · litearm-vr-bridge",
-    "stateBridgeOffline": "Bridge offline",
-    "stateHeadsetOffline": "Headset offline"
+    "sourceBridge": "Source · litearm-vr-bridge"
   },
   "load": {
     "title": "Motor Load",

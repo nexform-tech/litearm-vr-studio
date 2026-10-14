@@ -14,6 +14,8 @@ import logsZh from './locales/zh/logs.json'
 import logsEn from './locales/en/logs.json'
 import gripperZh from './locales/zh/gripper.json'
 import gripperEn from './locales/en/gripper.json'
+import vrZh from './locales/zh/vr.json'
+import vrEn from './locales/en/vr.json'
 
 export const defaultNS = 'common'
 export const resources = {
@@ -24,6 +26,7 @@ export const resources = {
     settings: settingsZh,
     logs: logsZh,
     gripper: gripperZh,
+    vr: vrZh,
   },
   en: {
     common: commonEn,
@@ -32,6 +35,7 @@ export const resources = {
     settings: settingsEn,
     logs: logsEn,
     gripper: gripperEn,
+    vr: vrEn,
   },
 } as const
 
@@ -42,7 +46,7 @@ i18n
     resources,
     fallbackLng: 'zh',
     defaultNS,
-    ns: ['common', 'nav', 'solo', 'settings', 'logs', 'gripper'],
+    ns: ['common', 'nav', 'solo', 'settings', 'logs', 'gripper', 'vr'],
     interpolation: {
       escapeValue: false,
     },

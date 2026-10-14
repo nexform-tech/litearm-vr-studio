@@ -9,6 +9,7 @@ import type { CSSProperties } from 'react'
 // inside `flex` is the *preferred* fluid size between that floor and the
 // mockup's original px value.
 export const SIDE_COL_WIDE: CSSProperties = { flex: '0 1 clamp(20rem, 27vw, 31rem)', minWidth: '20rem' }
+export const SIDE_COL_TASK: CSSProperties = { flex: '0 1 clamp(18.75rem, 23vw, 26.5rem)', minWidth: '18.75rem' }
 
 // A scrollable flex column: content that doesn't fit the viewport height
 // scrolls inside its own panel instead of being clipped by the page.

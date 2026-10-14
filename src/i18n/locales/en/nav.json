@@ -1,6 +1,8 @@
 {
   "control": "Control",
   "controlTitle": "Robot Arm Console",
+  "vr": "VR",
+  "vrTitle": "VR Teleop Console",
   "log": "Logs",
   "logTitle": "Logs",
   "settings": "Settings",

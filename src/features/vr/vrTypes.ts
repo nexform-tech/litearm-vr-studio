@@ -5,9 +5,7 @@ export type VrArmSource = 'sim' | 'real'
 /** 桥侧遥操状态机（DESIGN 6.4：IDLE → FOLLOWING → LATCHED / FALLBACK） */
 export type VrLinkState = 'idle' | 'following' | 'latched' | 'fallback'
 
-/** 受管进程状态；unknown = 桥那边没配这个进程的命令 */
-export type VrProcessStatus = 'running' | 'stopped' | 'crashed' | 'unknown'
-
+/** 桥托管的进程详情；页面不再展示，保留在载荷类型里是因为桥仍在推（DESIGN 2.1 / M3） */
 export type VrProcessDetail = {
   status?: string
   command?: string
@@ -20,7 +18,10 @@ export type VrProcessDetail = {
 
 export type VrBridgeEventLevel = 'debug' | 'info' | 'warn' | 'danger'
 
-/** 桥推来的一次性事件：告警 + 动作回执（DESIGN 4.1 的 events） */
+/**
+ * 桥推来的一次性事件：告警 + 动作回执（DESIGN 4.1 的 events）。
+ * 页面不再展示，保留在载荷类型里是因为桥仍在推。
+ */
 export type VrBridgeEvent = {
   id: number
   ts: number
@@ -33,8 +34,7 @@ export type VrBridgeEvent = {
 /**
  * VR 页消费的链路状态。
  *
- * 字段覆盖桥的整条链路：头显侧 → 桥自身 → metavr → 跟随服务 → 真机，
- * 外加兜底/进程/事件。
+ * 字段覆盖桥的整条链路：头显侧 → 桥自身 → metavr → 跟随服务 → 真机，外加兜底与归属。
  *
  * ⚠ 这一页**没有**兜底数据源：桥连不上时下面这些字段就是空态（0 / false / null），
  * 页面照实显示"未连接"。遥操页上出现编造的「已连接 90Hz」和一条看起来在动的机械臂
@@ -54,11 +54,11 @@ export type VrLinkSnapshot = {
   tracked: boolean
   /** 手柄位姿帧率（Hz） */
   fps: number
-  /** 端到端延迟（ms）：收到帧时刻 − 帧内 timestamp */
+  /** 无线段延迟（ms）：桥收到帧时刻 − 帧内 timestamp；不含转发与解算（DESIGN 6.2） */
   latencyMs: number
-  /** 延迟是否为估计值（头显时钟与上位机不可比时的退化口径） */
+  /** 头显时钟与上位机不可比：上面的数是相对窗口内最小值的增量，不是绝对延迟 */
   latencyEstimated: boolean
-  /** 距最近一帧的时间（ms） */
+  /** 距上一帧的时间（ms） */
   sinceFrameMs: number
   /** 累计收到的帧数 */
   frames: number
@@ -93,7 +93,7 @@ export type VrLinkSnapshot = {
   rearmRequired: boolean
   fallbackActive: boolean
   fallbackReason: string | null
-  /** 兜底护栏是否启用（关掉后只告警不自动 latch） */
+  /** 兜底是否启用（桥侧 FALLBACK_ENABLED；关掉后无帧超时只记事件、不自动 latch） */
   fallbackGuardEnabled: boolean
   /** 帧流异常告警阈值（ms） */
   warnMs: number
@@ -119,14 +119,9 @@ export type VrLinkSnapshot = {
    */
   q: number[] | null
 
-  // ── 进程与归属 ──
-  processes: Record<string, VrProcessStatus>
-  processesDetail: Record<string, VrProcessDetail>
+  // ── 归属 ──
   /** 谁在控臂：vr / console / none（DESIGN 6.5） */
   owner: string
-
-  /** 桥推来的告警与动作回执（按 id 去重、按时间倒序） */
-  events: VrBridgeEvent[]
 }
 
 /**

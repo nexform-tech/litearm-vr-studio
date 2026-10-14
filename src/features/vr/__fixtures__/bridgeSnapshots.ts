@@ -10,7 +10,7 @@ import type { VrBridgeSnapshot } from '../vrTypes'
  * **`null` 保持 `null`** —— 桥在没有样本时就是这么发的（见 no_headset 固件），
  * 页面对 null 的容忍度必须一起钉住。
  *
- * 五个状态分别是：头显未接入 / 正常跟随 / 受管进程崩溃 / 无帧兜底 / 停止遥操。
+ * 四个状态分别是：头显未接入 / 正常跟随 / 无帧兜底 / 停止遥操。
  * 桥端字段增删时，这份固件会先在类型检查上暴露出来。
  */
 
@@ -184,124 +184,6 @@ export const SNAP_FOLLOWING: VrBridgeSnapshot = {
       "starts": 0,
       "status": "stopped",
       "uptime_s": null
-    }
-  }
-}
-
-/** process_crashed */
-export const SNAP_PROCESS_CRASHED: VrBridgeSnapshot = {
-  "arm": {
-    "connected": true,
-    "error": null,
-    "fault": [],
-    "q": [
-      -0.0069,
-      -0.4295,
-      -0.09,
-      -1.9774,
-      -1.46,
-      -0.0355,
-      -0.79
-    ],
-    "source": "follow_server",
-    "state": "following"
-  },
-  "bridge": {
-    "clients": {
-      "headset": 1,
-      "status": 1
-    },
-    "forward_cost_last_ms": 0.08,
-    "forward_cost_max_ms": 0.281,
-    "forward_cost_ms": 0.104,
-    "metavr_connected": true,
-    "online": true
-  },
-  "events": [
-    {
-      "code": "follow_started",
-      "id": 1,
-      "level": "info",
-      "message": "grip 按下：开始跟随",
-      "ts": 1789637801347
-    },
-    {
-      "code": "process_started",
-      "data": {
-        "log": "logs/metavr.log",
-        "pid": 453862,
-        "process": "metavr"
-      },
-      "id": 2,
-      "level": "info",
-      "message": "进程 metavr 已启动",
-      "ts": 1789637804339
-    },
-    {
-      "code": "process_crashed",
-      "data": {
-        "exit_code": 3,
-        "process": "metavr"
-      },
-      "id": 3,
-      "level": "danger",
-      "message": "进程 metavr 意外退出（code=3）；本服务不会自动重启它",
-      "ts": 1789637804377
-    }
-  ],
-  "fallback": {
-    "active": false,
-    "guard_enabled": true,
-    "reason": null
-  },
-  "headset": {
-    "bad_frames": 0,
-    "connected": true,
-    "following": true,
-    "fps": 82.9,
-    "frames": 282,
-    "frames_blocked": 0,
-    "frames_dropped": 0,
-    "frames_forwarded": 282,
-    "grip": true,
-    "last_frame_age_ms": 4.2,
-    "last_frame_ts": 1789637804326,
-    "latency_estimated": false,
-    "latency_ms": 12.3,
-    "online": true,
-    "tracked": true
-  },
-  "link": {
-    "enabled": true,
-    "fallback_ms": 500.0,
-    "forward_enabled": true,
-    "rearm_required": false,
-    "state": "following",
-    "warn_ms": 200.0
-  },
-  "owner": "vr",
-  "processes": {
-    "follow_server": "stopped",
-    "metavr": "crashed"
-  },
-  "processes_detail": {
-    "follow_server": {
-      "command": "python3 /opt/litearm/vr/arm_follow_server_sdk.py --host 127.0.0.1 --tcp-port 9001 --iface can0",
-      "exit_code": null,
-      "last_error": null,
-      "pid": null,
-      "starts": 0,
-      "status": "stopped",
-      "uptime_s": null
-    },
-    "metavr": {
-      "command": "/usr/bin/python3 -c import sys; sys.exit(3)",
-      "exit_code": 3,
-      "last_error": "退出码 3",
-      "pid": null,
-      "starts": 1,
-      "status": "crashed",
-      "uptime_s": 0.1
     }
   }
 }

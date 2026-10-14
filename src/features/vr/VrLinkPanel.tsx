@@ -52,7 +52,14 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
   const costWarn = vm.forwardCostMs >= 1
   const stats = [
     { k: t('link.statFps'), v: live ? vm.fps.toFixed(0) : '—', u: live ? 'Hz' : '', c: live ? 'var(--ink)' : 'var(--ink-faint)' },
-    { k: t('link.statLatency'), v: live ? vm.latencyMs.toFixed(0) : '—', u: live ? 'ms' : '', c: live ? 'var(--ink)' : 'var(--ink-faint)' },
+    {
+      // 头显时钟与上位机不可比时（latency_estimated），桥报的是"相对窗口内最小值的增量"，
+      // 不是一个绝对延迟：口径得跟着数字一起换，否则会被读成"链路只有 3ms"
+      k: vm.latencyEstimated ? t('link.statLatencyEstimated') : t('link.statLatency'),
+      v: live ? vm.latencyMs.toFixed(0) : '—',
+      u: live ? 'ms' : '',
+      c: live ? 'var(--ink)' : 'var(--ink-faint)',
+    },
     {
       k: t('link.statSinceFrame'),
       // 桥还没收到过帧时它发 null，这里显示 "—" 而不是假的 0
@@ -91,9 +98,10 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
     },
     {
       name: t('link.armName'),
-      // 桥没连上时，"仿真还是真机"这一格无从判断：写"仿真"是个我们保不了的断言
+      // 桥没连上时，"仿真还是真机"这一格无从判断：写"仿真"是个我们保不了的断言，
+      // 写"未填地址"说的又不是这张表这一格的事
       addr: !vm.bridgeOnline
-        ? t('link.addrUnset')
+        ? t('link.armAddrUnknown')
         : vm.armSource === 'real'
           ? t('link.armAddrReal')
           : t('link.armAddrSim'),
@@ -137,7 +145,7 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
 
       {!vm.fallbackGuardEnabled ? (
         <div className="rounded-[0.625rem] border border-warn-line bg-warn-soft px-2.5 py-2 text-[0.71875rem] text-warn">
-          {t('link.guardOff')}
+          {t('link.guardOff', { ms: vm.fallbackMs.toFixed(0) })}
         </div>
       ) : null}
 
@@ -199,6 +207,12 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
           <StatCard key={m.k} k={m.k} v={m.v} u={m.u} valueColor={m.c} valueFontSize={15} />
         ))}
       </div>
+
+      {live && vm.latencyEstimated ? (
+        <div className="text-[0.65625rem] leading-relaxed text-muted-foreground">
+          {t('link.statLatencyNote')}
+        </div>
+      ) : null}
 
       {/* 桥自身的开销与拦截情况（DESIGN 6.1/6.2） */}
       <div className="grid grid-cols-3 gap-2">

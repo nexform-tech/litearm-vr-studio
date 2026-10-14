@@ -18,12 +18,6 @@ export type VrLinkView = VrLinkSnapshot & {
   startFollow: () => void
   stopFollow: () => void
   emergencyStop: () => void
-  /** 受管进程启停（M3） */
-  startProcess: (name: string) => void
-  stopProcess: (name: string) => void
-  /** 事件列表操作 */
-  dismissEvent: (id: number) => void
-  clearEvents: () => void
   /** 修改桥地址（存本地并重连） */
   setBridgeEndpoint: (endpoint: string) => void
 }
@@ -70,10 +64,6 @@ export function useVrLink(): VrLinkView {
     startFollow: vrLink.startFollow,
     stopFollow: vrLink.stopFollow,
     emergencyStop: vrLink.emergencyStop,
-    startProcess: vrLink.startProcess,
-    stopProcess: vrLink.stopProcess,
-    dismissEvent: vrLink.dismissEvent,
-    clearEvents: vrLink.clearEvents,
     setBridgeEndpoint: vrLink.setBridgeEndpoint,
   }
 }

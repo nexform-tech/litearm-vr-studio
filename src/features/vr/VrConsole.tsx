@@ -1,13 +1,9 @@
-import { useTranslation } from 'react-i18next'
-import { Card } from '@/components/ui/card'
 import { ROW_OVERFLOW, SCROLL_COLUMN, SIDE_COL_TASK, SIDE_COL_WIDE } from '../../lib/responsive'
 import { useVrLink } from './useVrLink'
 import { VrLinkPanel } from './VrLinkPanel'
 import { VrJointsPanel } from './VrJointsPanel'
-import { VrEventsPanel } from './VrEventsPanel'
 import { VrPreviewPanel } from './VrPreviewPanel'
 import { VrControlPanel } from './VrControlPanel'
-import { VrProcessPanel } from './VrProcessPanel'
 
 /**
  * VR 遥操控制台。
@@ -29,7 +25,6 @@ export function VrConsole() {
       <div style={{ ...SCROLL_COLUMN, ...SIDE_COL_WIDE, gap: '0.75rem' }}>
         <VrLinkPanel vm={vm} />
         <VrJointsPanel q={vm.q} stale={poseStale} />
-        <VrEventsPanel vm={vm} />
       </div>
 
       {/* MIDDLE: 3D 预览 */}
@@ -37,31 +32,10 @@ export function VrConsole() {
         <VrPreviewPanel armSource={vm.bridgeOnline ? vm.armSource : null} stale={poseStale} />
       </div>
 
-      {/* RIGHT: 控制 + 说明 */}
+      {/* RIGHT: 控制 */}
       <div style={{ ...SCROLL_COLUMN, ...SIDE_COL_TASK, gap: '0.75rem' }}>
         <VrControlPanel vm={vm} />
-        <VrProcessPanel vm={vm} />
-        <VrAboutCard vm={vm} />
       </div>
     </div>
-  )
-}
-
-function VrAboutCard({ vm }: { vm: ReturnType<typeof useVrLink> }) {
-  const { t } = useTranslation('vr')
-
-  return (
-    <Card className="gap-2.5 rounded-[0.875rem] px-3.5 py-3.5">
-      <div className="text-[0.90625rem] font-semibold text-foreground">{t('about.title')}</div>
-      <div className="flex flex-col gap-2 text-[0.71875rem] leading-relaxed text-muted-foreground">
-        <div>{t('about.view')}</div>
-        <div>{t('about.switch')}</div>
-        <div>{t('about.loop')}</div>
-        <div>{t('about.owner')}</div>
-      </div>
-      <div className="rounded-[0.625rem] border border-line-soft bg-muted/40 px-2.5 py-2 text-[0.71875rem] text-ink-soft">
-        {vm.bridgeOnline ? t('about.noteBridge') : t('about.noteOffline')}
-      </div>
-    </Card>
   )
 }

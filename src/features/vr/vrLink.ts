@@ -1,13 +1,5 @@
 import { setBridgeEndpoint as persistBridgeEndpoint, vrBridge } from './vrBridgeClient'
-import type {
-  VrArmSource,
-  VrBridgeEvent,
-  VrBridgeSnapshot,
-  VrLinkSnapshot,
-  VrLinkState,
-  VrProcessDetail,
-  VrProcessStatus,
-} from './vrTypes'
+import type { VrArmSource, VrBridgeSnapshot, VrLinkSnapshot, VrLinkState } from './vrTypes'
 
 /**
  * VR 页的数据编排层：**唯一**对外暴露的取数口。
@@ -32,14 +24,12 @@ const TICK_MS = 16
 const UI_NOTIFY_MS = 200
 /** 判定"关节角变了"的阈值，避免浮点噪声造成无意义重绘 */
 const Q_EPSILON = 1e-4
-/** 事件列表上限：桥按 TTL 保留，页面只留最近这些 */
-const MAX_EVENTS = 30
 
 type Listener = () => void
 type PoseListener = (q: number[]) => void
 
-/** 页面字段里除 q / events 之外的部分（events 单独做去重合并） */
-export type VrBridgeFields = Omit<VrLinkSnapshot, 'q' | 'events'>
+/** 页面字段里除 q 之外的部分（q 走 3D 视口的高频通道，单独通知） */
+export type VrBridgeFields = Omit<VrLinkSnapshot, 'q'>
 
 function finite(value: unknown, fallback = 0): number {
   const n = Number(value)
@@ -64,68 +54,6 @@ const LINK_STATES: readonly VrLinkState[] = ['idle', 'following', 'latched', 'fa
 
 function linkStateOf(value: unknown, fallback: VrLinkState): VrLinkState {
   return LINK_STATES.includes(value as VrLinkState) ? (value as VrLinkState) : fallback
-}
-
-function processStatusOf(value: unknown): VrProcessStatus {
-  return value === 'running' || value === 'stopped' || value === 'crashed'
-    ? value
-    : 'unknown'
-}
-
-function normalizeProcesses(raw: Record<string, string> | undefined): Record<string, VrProcessStatus> {
-  const out: Record<string, VrProcessStatus> = {}
-  for (const [name, status] of Object.entries(raw ?? {})) out[name] = processStatusOf(status)
-  return out
-}
-
-function normalizeProcessDetails(
-  raw: Record<string, VrProcessDetail> | undefined,
-): Record<string, VrProcessDetail> {
-  const out: Record<string, VrProcessDetail> = {}
-  for (const [name, detail] of Object.entries(raw ?? {})) {
-    if (detail && typeof detail === 'object') out[name] = detail
-  }
-  return out
-}
-
-function normalizeEvents(raw: unknown): VrBridgeEvent[] {
-  if (!Array.isArray(raw)) return []
-  const out: VrBridgeEvent[] = []
-  for (const item of raw) {
-    if (!item || typeof item !== 'object') continue
-    const e = item as Partial<VrBridgeEvent>
-    if (typeof e.code !== 'string' || !e.code) continue
-    out.push({
-      id: Number.isFinite(Number(e.id)) ? Number(e.id) : 0,
-      ts: Number.isFinite(Number(e.ts)) ? Number(e.ts) : 0,
-      level: e.level === 'debug' || e.level === 'warn' || e.level === 'danger' ? e.level : 'info',
-      code: e.code,
-      message: typeof e.message === 'string' ? e.message : '',
-      data: e.data && typeof e.data === 'object' ? e.data : undefined,
-    })
-  }
-  return out
-}
-
-/**
- * 合并桥推来的事件：按 id 去重、按时间倒序、封顶 `MAX_EVENTS`。
- *
- * 桥那边按 TTL 重复推同一批事件（见 bridge 的 EventLog），所以这里必须是幂等的；
- * 操作员手动关掉的事件进 `dismissed`，不会再被同一份快照带回来。
- */
-export function mergeEvents(
-  current: VrBridgeEvent[],
-  incoming: VrBridgeEvent[],
-  dismissed: ReadonlySet<number> = new Set(),
-): VrBridgeEvent[] {
-  const byId = new Map<number, VrBridgeEvent>()
-  for (const event of current) if (!dismissed.has(event.id)) byId.set(event.id, event)
-  for (const event of incoming) {
-    if (dismissed.has(event.id)) continue
-    // 同一 id 以桥的最新一份为准（消息里可能带"×N"合并计数）
-    byId.set(event.id, event)
-  }
-  return [...byId.values()].sort((a, b) => b.ts - a.ts).slice(0, MAX_EVENTS)
 }
 
 /** 桥离线时的基线：所有字段都是空态，页面照实显示"未连接" */
@@ -166,8 +94,6 @@ export function emptyBridgeFields(): VrBridgeFields {
     armError: null,
     armLastOkMs: null,
     faultCount: 0,
-    processes: {},
-    processesDetail: {},
     owner: 'none',
   }
 }
@@ -226,8 +152,6 @@ export function mapBridgeSnapshot(snapshot: VrBridgeSnapshot): {
       armError: typeof arm.error === 'string' ? arm.error : null,
       armLastOkMs: optionalMs(arm.last_ok_age_ms),
       faultCount: Array.isArray(arm.fault) ? arm.fault.length : 0,
-      processes: normalizeProcesses(snapshot.processes),
-      processesDetail: normalizeProcessDetails(snapshot.processes_detail),
       owner: asString(snapshot.owner, 'none'),
     },
     q,
@@ -244,11 +168,9 @@ function qChanged(a: number[], b: number[]): boolean {
 
 class VrLink {
   private fields: VrBridgeFields = emptyBridgeFields()
-  private events: VrBridgeEvent[] = []
-  private dismissedEvents = new Set<number>()
   /** 桥报过的最后一组关节角；一个真实字节都没收到过时是 null */
   private q: number[] | null = null
-  private cached: VrLinkSnapshot = { ...this.fields, q: null, events: [] }
+  private cached: VrLinkSnapshot = { ...this.fields, q: null }
   private tickTimer: number | null = null
   private lastTickAt = 0
   private lastNotifyAt = 0
@@ -323,34 +245,10 @@ class VrLink {
     vrBridge.sendAction('estop')
   }
 
-  /** 进程启停（M3）：桥那边只认 name；未配置的进程会回一条失败事件 */
-  startProcess = (name: string) => this.sendAction('process.start', { name })
-
-  stopProcess = (name: string) => this.sendAction('process.stop', { name })
-
-  /** 关掉一条事件（只影响本页显示；桥那边仍按 TTL 保留） */
-  dismissEvent = (id: number) => {
-    this.dismissedEvents.add(id)
-    this.events = this.events.filter((event) => event.id !== id)
-    this.refreshNow()
-  }
-
-  /** 清空事件：本地先清干净，顺带让桥也清（event.clear） */
-  clearEvents = () => {
-    for (const event of this.events) this.dismissedEvents.add(event.id)
-    this.events = []
-    vrBridge.sendAction('event.clear')
-    this.refreshNow()
-  }
-
   /** 切换桥地址（存 localStorage，立即重连） */
   setBridgeEndpoint = (endpoint: string) => {
     persistBridgeEndpoint(endpoint)
     this.refreshNow()
-  }
-
-  private sendAction(action: string, payload?: Record<string, unknown>): boolean {
-    return vrBridge.sendAction(action, payload)
   }
 
   private handleBridgeChange = () => {
@@ -373,7 +271,6 @@ class VrLink {
     if (vrBridge.online && snapshot) {
       const { fields, q } = mapBridgeSnapshot(snapshot)
       this.fields = fields
-      this.events = mergeEvents(this.events, normalizeEvents(snapshot.events), this.dismissedEvents)
       if (q) this.setQ(q)
     } else {
       // 桥不在：整份空态。**不**动 q —— 上一组真值留着比编一组新的诚实，
@@ -395,7 +292,7 @@ class VrLink {
 
   private emit() {
     // 每次变更都换一个新对象：useSyncExternalStore 靠引用比较决定是否重渲染
-    this.cached = { ...this.fields, q: this.q ? [...this.q] : null, events: this.events }
+    this.cached = { ...this.fields, q: this.q ? [...this.q] : null }
     for (const cb of this.stateListeners) cb()
   }
 }

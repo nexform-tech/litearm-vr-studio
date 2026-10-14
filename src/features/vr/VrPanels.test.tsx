@@ -2,20 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import i18n from '@/i18n'
 import { VrControlPanel } from './VrControlPanel'
-import { VrEventsPanel } from './VrEventsPanel'
 import { VrJointsPanel } from './VrJointsPanel'
 import { VrLinkPanel } from './VrLinkPanel'
-import { VrProcessPanel } from './VrProcessPanel'
-import { mapBridgeSnapshot, mergeEvents } from './vrLink'
+import { mapBridgeSnapshot } from './vrLink'
 import type { VrBridgeSnapshot } from './vrTypes'
 import type { VrLinkView } from './useVrLink'
 import { synthesizeOwnership, type VrConsoleSignals } from './vrOwnership'
-import {
-  SNAP_FALLBACK,
-  SNAP_FOLLOWING,
-  SNAP_PROCESS_CRASHED,
-  SNAP_STOPPED,
-} from './__fixtures__/bridgeSnapshots'
+import { SNAP_FALLBACK, SNAP_FOLLOWING, SNAP_STOPPED } from './__fixtures__/bridgeSnapshots'
 
 /**
  * 用真实固件把三个面板渲染一遍：i18n 键写错、字段改名、条件分支漏判都会在这里炸。
@@ -33,7 +26,6 @@ function viewOf(snapshot: VrBridgeSnapshot, consoleSignals: VrConsoleSignals = C
   return {
     ...fields,
     q,
-    events: mergeEvents([], (snapshot.events ?? []).filter(Boolean)),
     ownership: synthesizeOwnership({
       bridgeOwner: fields.owner,
       bridgeFollowing: fields.following,
@@ -45,10 +37,6 @@ function viewOf(snapshot: VrBridgeSnapshot, consoleSignals: VrConsoleSignals = C
     startFollow: () => {},
     stopFollow: () => {},
     emergencyStop: () => {},
-    startProcess: () => {},
-    stopProcess: () => {},
-    dismissEvent: () => {},
-    clearEvents: () => {},
     setBridgeEndpoint: () => {},
   }
 }
@@ -68,9 +56,11 @@ describe('VR 面板 · 真实固件渲染', () => {
     render(<VrLinkPanel vm={viewOf(SNAP_FOLLOWING)} />)
 
     expect(screen.getByText('跟随中')).toBeTruthy()
-    expect(screen.getByText('litearm-vr-bridge')).toBeTruthy()
-    expect(screen.getByText('metavr 中继')).toBeTruthy()
+    // 逐跳叫的是各自职责（两字 + 服务）；产品名留在「数据源」那一行
+    expect(screen.getByText('桥接服务')).toBeTruthy()
+    expect(screen.getByText('逆解服务')).toBeTruthy()
     expect(screen.getByText('跟随服务')).toBeTruthy()
+    expect(screen.getByText('数据源 · litearm-vr-bridge')).toBeTruthy()
     expect(screen.getByText('桥转发耗时')).toBeTruthy()
     expect(screen.getByText('转发帧数')).toBeTruthy()
   })
@@ -94,23 +84,29 @@ describe('VR 面板 · 真实固件渲染', () => {
     expect(screen.getByText(/需重新按一次右手 grip/)).toBeTruthy()
   })
 
-  it('事件面板把桥的告警原样列出来', () => {
-    render(<VrEventsPanel vm={viewOf(SNAP_FALLBACK)} />)
+  it('兜底关闭时按桥的开关说话：写清阈值，不承诺页面上有告警', () => {
+    // 桥侧 FALLBACK_ENABLED=0：无帧超时只记事件、不下发 latch，页面没有告警面板可显示
+    const snapshot: VrBridgeSnapshot = {
+      ...SNAP_FOLLOWING,
+      fallback: { active: false, reason: null, guard_enabled: false },
+    }
+    render(<VrLinkPanel vm={viewOf(snapshot)} />)
 
-    expect(screen.getByText('fallback_latch')).toBeTruthy()
-    expect(screen.getByText('frame_stall')).toBeTruthy()
-    expect(screen.getByText('latch_done')).toBeTruthy()
+    expect(screen.getByText(/FALLBACK_ENABLED=0/)).toBeTruthy()
+    expect(screen.getByText(/500 ms 没有新帧也不会自动持位/)).toBeTruthy()
   })
 
-  it('进程面板：崩溃进程显示退出码，未运行的可启动', () => {
-    const vm = viewOf(SNAP_PROCESS_CRASHED)
-    render(<VrProcessPanel vm={vm} />)
+  it('头显时钟不可比时，延迟换成"相对基线"的口径并说明', () => {
+    const snapshot: VrBridgeSnapshot = {
+      ...SNAP_FOLLOWING,
+      headset: { ...SNAP_FOLLOWING.headset, latency_estimated: true },
+    }
+    render(<VrLinkPanel vm={viewOf(snapshot)} />)
 
-    expect(screen.getByText('metavr')).toBeTruthy()
-    expect(screen.getByText('follow_server')).toBeTruthy()
-    expect(screen.getByText('已崩溃')).toBeTruthy()
-    expect(screen.getByText('已停止')).toBeTruthy()
-    expect(screen.getByText(/退出码 3/)).toBeTruthy()
+    expect(screen.getByText('无线段延迟（相对基线）')).toBeTruthy()
+    expect(screen.getByText(/不是绝对延迟/)).toBeTruthy()
+    // 不能再挂着"无线段延迟"这个绝对值口径的标签
+    expect(screen.queryByText('无线段延迟')).toBeNull()
   })
 
   it('控制面板：桥在线时提示语说的是真实链路，不是演示', () => {
@@ -184,6 +180,8 @@ describe('VR 面板 · 桥连不上时（没有兜底数据）', () => {
     expect(screen.getByText('数据源 · 未连接')).toBeTruthy()
     // 没配地址时说清楚是"没填"，而不是含糊的"连不上"
     expect(screen.getByText(/还没填过桥地址/)).toBeTruthy()
+    // 机械臂那一格：桥都没连上，真机还是仿真无从判断，不能写"未填地址"或"仿真"
+    expect(screen.getByText('无从判断')).toBeTruthy()
     // 转发耗时/丢弃/拦截都得是空，不然会被当成链路在跑
     expect(screen.queryByText(/^v0\./)).toBeNull()
   })

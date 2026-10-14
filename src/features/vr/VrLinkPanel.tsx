@@ -1,11 +1,8 @@
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Glasses, TriangleAlert } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Pill } from '@/components/Pill'
 import { StatCard } from '@/components/StatCard'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import type { VrLinkView } from './useVrLink'
 import type { VrLinkState } from './vrTypes'
 
@@ -33,7 +30,6 @@ function stateStyle(state: VrLinkState, live: boolean) {
 
 export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
   const { t } = useTranslation('vr')
-  const [endpoint, setEndpoint] = useState(vm.bridgeEndpoint)
 
   const live = vm.headsetOnline
   const style = stateStyle(vm.linkState, live)
@@ -68,43 +64,41 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
       c: live ? 'var(--ink)' : 'var(--danger)',
     },
     { k: t('link.statFrames'), v: vm.framesForwarded.toLocaleString('en-US'), u: '', c: 'var(--ink)' },
+    // 桥自身的开销与拦截情况（DESIGN 6.1/6.2）
+    {
+      k: t('link.statForwardCost'),
+      v: vm.bridgeOnline ? vm.forwardCostMs.toFixed(2) : '—',
+      u: vm.bridgeOnline ? 'ms' : '',
+      c: costWarn ? DANGER : 'var(--ink)',
+    },
+    { k: t('link.statDropped'), v: vm.framesDropped, u: '', c: vm.framesDropped > 0 ? WARN : 'var(--ink)' },
+    { k: t('link.statBlocked'), v: vm.framesBlocked, u: '', c: vm.framesBlocked > 0 ? WARN : 'var(--ink)' },
   ]
 
+  /**
+   * 逐跳只报两件事：这一跳通没通、它自己的开销是多少。
+   * 端口与地址不在这里 —— 它们是各服务的配置，不是这一页要看的状态。
+   */
   const hops = [
-    {
-      name: t('link.headsetName'),
-      addr: t('link.headsetAddr'),
-      detail: live ? `${vm.fps.toFixed(0)} Hz` : t('link.diagOff'),
-      active: live,
-    },
+    { name: t('link.headsetName'), detail: live ? `${vm.fps.toFixed(0)} Hz` : t('link.diagOff'), active: live },
     {
       name: t('link.bridgeName'),
-      // 桥地址是操作员填的，端口跟着现场走：写死 "ws 8765" 会在桥不在 8765 时骗人
-      addr: hostPortOf(vm.bridgeEndpoint) || t('link.addrUnset'),
       detail: vm.bridgeOnline ? `${vm.forwardCostMs.toFixed(2)} ms` : t('link.diagOff'),
       active: vm.bridgeOnline,
     },
     {
       name: t('link.relayName'),
-      addr: t('link.relayAddr'),
       detail: vm.metavrConnected ? t('link.diagOn') : t('link.diagOff'),
       active: vm.metavrConnected,
     },
     {
       name: t('link.followName'),
-      addr: t('link.followAddr'),
       detail: vm.armConnected ? (vm.armState ?? t('link.diagOn')) : t('link.diagOff'),
       active: vm.armConnected,
     },
     {
       name: t('link.armName'),
-      // 桥没连上时，"仿真还是真机"这一格无从判断：写"仿真"是个我们保不了的断言，
-      // 写"未填地址"说的又不是这张表这一格的事
-      addr: !vm.bridgeOnline
-        ? t('link.armAddrUnknown')
-        : vm.armSource === 'real'
-          ? t('link.armAddrReal')
-          : t('link.armAddrSim'),
+      // 桥没连上时，"仿真还是真机"这一格无从判断：写"仿真"是个我们保不了的断言
       detail: !vm.bridgeOnline
         ? t('link.diagOff')
         : vm.armSource === 'real'
@@ -178,96 +172,39 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
         </div>
       </div>
 
-      {/* 链路逐跳：头显 → 桥 → metavr → 跟随服务 → 机械臂 */}
-      <div className="flex flex-col gap-1">
-        {hops.map((hop) => (
-          <div key={hop.name} className="flex items-center gap-2 rounded-[0.5rem] px-1.5 py-1 odd:bg-muted/40">
-            <div
-              className="size-[0.4375rem] flex-none rounded-full"
-              style={{ background: hop.active ? OK : IDLE }}
-            />
-            <div className="w-[7.5rem] flex-none truncate text-[0.75rem] font-semibold text-foreground">
-              {hop.name}
+      {/* 主体左右排：左＝逐跳连接状态（名称 / 状态两列），右＝指标卡片。
+          格子窄到放不下两栏时（basis 13rem 兜底）自己竖排，不硬挤 */}
+      <div className="flex flex-wrap gap-3">
+        <div className="flex flex-col gap-1" style={{ flex: '1 1 13rem', minWidth: 0 }}>
+          {hops.map((hop) => (
+            <div key={hop.name} className="flex items-center gap-2 rounded-[0.5rem] px-1.5 py-1 odd:bg-muted/40">
+              <div
+                className="size-[0.4375rem] flex-none rounded-full"
+                style={{ background: hop.active ? OK : IDLE }}
+              />
+              <div className="flex-none text-[0.75rem] font-semibold text-foreground">{hop.name}</div>
+              <div
+                className="min-w-0 flex-1 truncate text-right text-[0.6875rem]"
+                style={{ color: hop.active ? 'var(--ok)' : 'var(--ink-subtle)' }}
+              >
+                {hop.detail}
+              </div>
             </div>
-            <div className="min-w-0 flex-1 truncate font-mono text-[0.625rem] text-ink-muted">
-              {hop.addr}
-            </div>
-            <div
-              className="flex-none truncate text-[0.6875rem]"
-              style={{ color: hop.active ? 'var(--ok)' : 'var(--ink-subtle)' }}
-            >
-              {hop.detail}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-4 gap-2">
-        {stats.map((m) => (
-          <StatCard key={m.k} k={m.k} v={m.v} u={m.u} valueColor={m.c} valueFontSize={15} />
-        ))}
-      </div>
-
-      {live && vm.latencyEstimated ? (
-        <div className="text-[0.65625rem] leading-relaxed text-muted-foreground">
-          {t('link.statLatencyNote')}
+          ))}
         </div>
-      ) : null}
 
-      {/* 桥自身的开销与拦截情况（DESIGN 6.1/6.2） */}
-      <div className="grid grid-cols-3 gap-2">
-        <StatCard
-          k={t('link.statForwardCost')}
-          v={vm.bridgeOnline ? vm.forwardCostMs.toFixed(2) : '—'}
-          u={vm.bridgeOnline ? 'ms' : ''}
-          valueColor={costWarn ? DANGER : 'var(--ink)'}
-          valueFontSize={14}
-        />
-        <StatCard
-          k={t('link.statDropped')}
-          v={vm.framesDropped}
-          u=""
-          valueColor={vm.framesDropped > 0 ? WARN : 'var(--ink)'}
-          valueFontSize={14}
-        />
-        <StatCard
-          k={t('link.statBlocked')}
-          v={vm.framesBlocked}
-          u=""
-          valueColor={vm.framesBlocked > 0 ? WARN : 'var(--ink)'}
-          valueFontSize={14}
-        />
-      </div>
-
-      {/* 桥地址：每台机器的地址都可能不同，界面上直接改（存本机） */}
-      <div className="flex flex-col gap-1.5 rounded-[0.625rem] border border-line-soft px-2.5 py-2">
-        <div className="text-[0.6875rem] text-muted-foreground">
-          {vm.bridgeConfigured ? t('link.endpointHint') : t('link.endpointUnset')}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex-none text-[0.71875rem] font-medium text-ink-strong">
-            {t('link.endpointLabel')}
+        <div className="flex flex-col gap-2" style={{ flex: '1 1 13rem', minWidth: 0 }}>
+          <div className="grid grid-cols-2 gap-2">
+            {stats.map((m) => (
+              <StatCard key={m.k} k={m.k} v={m.v} u={m.u} valueColor={m.c} valueFontSize={14} />
+            ))}
           </div>
-          <Input
-            value={endpoint}
-            onChange={(e) => setEndpoint(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') vm.setBridgeEndpoint(endpoint)
-            }}
-            placeholder={t('link.endpointPlaceholder')}
-            spellCheck={false}
-            aria-label={t('link.endpointLabel')}
-            className="h-7 flex-1 font-mono text-[0.6875rem]"
-          />
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => vm.setBridgeEndpoint(endpoint)}
-            className="h-7 flex-none rounded-[0.5rem] px-2 text-[0.75rem]"
-          >
-            {t('link.endpointApply')}
-          </Button>
+
+          {live && vm.latencyEstimated ? (
+            <div className="text-[0.65625rem] leading-relaxed text-muted-foreground">
+              {t('link.statLatencyNote')}
+            </div>
+          ) : null}
         </div>
       </div>
     </Card>
@@ -279,10 +216,4 @@ function formatUptime(seconds: number): string {
   if (seconds < 60) return `${seconds.toFixed(0)}s`
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`
   return `${Math.floor(seconds / 3600)}h${Math.floor((seconds % 3600) / 60)}m`
-}
-
-/** `ws://host:8765/ws/status` → `host:8765`（逐跳那一列只放得下这么多） */
-function hostPortOf(endpoint: string): string {
-  const withoutScheme = endpoint.replace(/^wss?:\/\//i, '')
-  return withoutScheme.split('/', 1)[0] ?? ''
 }

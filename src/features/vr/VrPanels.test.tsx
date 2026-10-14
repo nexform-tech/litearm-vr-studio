@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import i18n from '@/i18n'
 import { VrControlPanel } from './VrControlPanel'
-import { VrJointsPanel } from './VrJointsPanel'
 import { VrLinkPanel } from './VrLinkPanel'
 import { mapBridgeSnapshot } from './vrLink'
 import type { VrBridgeSnapshot } from './vrTypes'
@@ -32,18 +31,15 @@ function viewOf(snapshot: VrBridgeSnapshot, consoleSignals: VrConsoleSignals = C
       bridgeArmState: fields.armState,
       console: consoleSignals,
     }),
-    bridgeConfigured: true,
-    bridgeEndpoint: 'ws://192.168.31.139:8765/ws/status',
     startFollow: () => {},
     stopFollow: () => {},
     emergencyStop: () => {},
-    setBridgeEndpoint: () => {},
   }
 }
 
-/** 桥完全连不上时的视图：整份空态，一个真实字节都没收到过，也没填过地址 */
+/** 桥完全连不上时的视图：整份空态，一个真实字节都没收到过 */
 function offlineView(): VrLinkView {
-  return { ...viewOf({}), bridgeConfigured: false, bridgeEndpoint: '' }
+  return viewOf({})
 }
 
 describe('VR 面板 · 真实固件渲染', () => {
@@ -63,6 +59,15 @@ describe('VR 面板 · 真实固件渲染', () => {
     expect(screen.getByText('数据源 · litearm-vr-bridge')).toBeTruthy()
     expect(screen.getByText('桥转发耗时')).toBeTruthy()
     expect(screen.getByText('转发帧数')).toBeTruthy()
+    // 逐跳只剩「名称 / 状态」两列：端口是各服务的配置，不在这张表里
+    expect(screen.queryByText(/8766/)).toBeNull()
+    expect(screen.queryByText(/9001/)).toBeNull()
+  })
+
+  it('本页不再就地改桥地址：输入框已移除', () => {
+    render(<VrLinkPanel vm={viewOf(SNAP_FOLLOWING)} />)
+
+    expect(screen.queryByRole('textbox')).toBeNull()
   })
 
   it('兜底态：徽标与红条都指向兜底（而不是"未连接"）', () => {
@@ -178,19 +183,10 @@ describe('VR 面板 · 桥连不上时（没有兜底数据）', () => {
     render(<VrLinkPanel vm={offlineView()} />)
 
     expect(screen.getByText('数据源 · 未连接')).toBeTruthy()
-    // 没配地址时说清楚是"没填"，而不是含糊的"连不上"
-    expect(screen.getByText(/还没填过桥地址/)).toBeTruthy()
-    // 机械臂那一格：桥都没连上，真机还是仿真无从判断，不能写"未填地址"或"仿真"
-    expect(screen.getByText('无从判断')).toBeTruthy()
+    // 逐跳如实报未连接，机械臂那一跳也不能写"仿真"（无从判断，见 useVrLink）
+    expect(screen.getAllByText('未连接').length).toBeGreaterThanOrEqual(5)
     // 转发耗时/丢弃/拦截都得是空，不然会被当成链路在跑
     expect(screen.queryByText(/^v0\./)).toBeNull()
-  })
-
-  it('关节角面板摆出 7 行空位而不是编一组数', () => {
-    render(<VrJointsPanel q={null} stale />)
-
-    expect(screen.getAllByText('—')).toHaveLength(7)
-    expect(screen.getByText('等待桥上报真机姿态…')).toBeTruthy()
   })
 
   it('控制面板：三个按钮全禁用，并说明发不出去', () => {

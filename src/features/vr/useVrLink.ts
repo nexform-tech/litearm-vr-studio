@@ -11,15 +11,9 @@ export type VrLinkView = VrLinkSnapshot & {
    * （桥看不见上位机链路），见 `vrOwnership.ts`。
    */
   ownership: VrOwnership
-  /** 桥地址（用于在界面上显示/排障） */
-  bridgeEndpoint: string
-  /** 配过桥地址没有；没配过时页面提示去填，而不是显示"连不上" */
-  bridgeConfigured: boolean
   startFollow: () => void
   stopFollow: () => void
   emergencyStop: () => void
-  /** 修改桥地址（存本地并重连） */
-  setBridgeEndpoint: (endpoint: string) => void
 }
 
 /**
@@ -59,11 +53,8 @@ export function useVrLink(): VrLinkView {
   return {
     ...snapshot,
     ownership,
-    bridgeEndpoint: vrLink.bridgeEndpoint,
-    bridgeConfigured: vrLink.bridgeConfigured,
     startFollow: vrLink.startFollow,
     stopFollow: vrLink.stopFollow,
     emergencyStop: vrLink.emergencyStop,
-    setBridgeEndpoint: vrLink.setBridgeEndpoint,
   }
 }

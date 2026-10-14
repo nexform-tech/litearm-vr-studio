@@ -1,4 +1,4 @@
-import { setBridgeEndpoint as persistBridgeEndpoint, vrBridge } from './vrBridgeClient'
+import { vrBridge } from './vrBridgeClient'
 import type { VrArmSource, VrBridgeSnapshot, VrLinkSnapshot, VrLinkState } from './vrTypes'
 
 /**
@@ -186,15 +186,6 @@ class VrLink {
     return this.q
   }
 
-  get bridgeEndpoint(): string {
-    return vrBridge.endpoint
-  }
-
-  /** 配过桥地址没有（没配过时页面提示去填，而不是显示"连不上"） */
-  get bridgeConfigured(): boolean {
-    return vrBridge.configured
-  }
-
   subscribe = (cb: Listener) => {
     this.stateListeners.add(cb)
     return () => {
@@ -245,19 +236,8 @@ class VrLink {
     vrBridge.sendAction('estop')
   }
 
-  /** 切换桥地址（存 localStorage，立即重连） */
-  setBridgeEndpoint = (endpoint: string) => {
-    persistBridgeEndpoint(endpoint)
-    this.refreshNow()
-  }
-
   private handleBridgeChange = () => {
     this.update(performance.now())
-  }
-
-  private refreshNow() {
-    this.update(performance.now())
-    this.emit()
   }
 
   private tick = () => {

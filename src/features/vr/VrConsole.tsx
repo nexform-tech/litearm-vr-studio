@@ -55,17 +55,15 @@ export function VrConsole() {
         <VrMotorLoadPanel left={leftArm} right={rightArm} />
       </div>
 
-      {/* 上排中/右：机械臂预览 · 遥操控制 */}
-      <div style={{ ...CELL, gridColumn: '2', gridRow: '1' }}>
+      {/* 中列：3D 预览吃掉余下的高度，链路卡片按自然高度贴在它下面 */}
+      <div style={{ ...CELL, gridColumn: '2', gridRow: '1 / span 2' }}>
         <VrPreviewPanel armSource={vm.bridgeOnline ? vm.armSource : null} stale={poseStale} />
-      </div>
-      <div style={{ ...CELL, gridColumn: '3', gridRow: '1' }}>
-        <VrControlPanel vm={vm} />
+        <VrLinkPanel vm={vm} />
       </div>
 
-      {/* 下排中格：VR 链路在预览正下方；右下角先空着 */}
-      <div style={{ ...CELL, gridColumn: '2', gridRow: '2' }}>
-        <VrLinkPanel vm={vm} />
+      {/* 右上：遥操控制；右下角先空着 */}
+      <div style={{ ...CELL, gridColumn: '3', gridRow: '1' }}>
+        <VrControlPanel vm={vm} />
       </div>
     </div>
   )

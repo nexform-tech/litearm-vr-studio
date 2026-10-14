@@ -55,7 +55,9 @@ export function VrPreviewPanel({
         : t('preview.sourceUnknown')
 
   return (
-    <Card className="min-h-0 flex-1 gap-2.5 rounded-[0.875rem] p-3">
+    // flex-1：吃掉中列除链路卡片之外的高度；min-h-16rem 是下限 —— 再挤就让格子滚动，
+    // 而不是把 3D 视口压成一条缝
+    <Card className="min-h-[16rem] flex-1 gap-2.5 rounded-[0.875rem] p-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-[0.90625rem] font-semibold text-foreground">
           <Box size="0.9375rem" /> {t('preview.title')}

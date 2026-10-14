@@ -1,18 +1,17 @@
 {
   "link": {
     "title": "VR Link",
-    "stateOffline": "Disconnected",
     "stateReady": "Connected · Idle",
     "stateFollowing": "Following",
     "stateLatched": "Connected · Holding",
     "stateFallback": "Safe Hold",
-    "headsetName": "VR Headset",
-    "bridgeName": "Bridge Service",
-    "relayName": "IK Service",
-    "followName": "Follow Service",
-    "armName": "Robot Arm",
-    "armSubSim": "Simulated (metavr side)",
-    "armSubReal": "Joint-angle following",
+    "headsetName": "Headset",
+    "bridgeName": "Bridge",
+    "relayName": "IK",
+    "followName": "Follow",
+    "armName": "Arm",
+    "armSubSim": "Simulated",
+    "armSubReal": "Following",
     "statFps": "Pose Rate",
     "statLatency": "Wireless Latency",
     "statLatencyEstimated": "Wireless Latency (vs baseline)",
@@ -30,7 +29,8 @@
     "guardOff": "Fallback is off (FALLBACK_ENABLED=0 on the bridge): no automatic hold even after {{ms}} ms without new frames",
     "rearmHint": "Press the right grip again (release → press) to resume following",
     "sourceBridge": "Source · litearm-vr-bridge",
-    "sourceOffline": "Source · not connected"
+    "stateBridgeOffline": "Bridge offline",
+    "stateHeadsetOffline": "Headset offline"
   },
   "load": {
     "title": "Motor Load",
@@ -75,7 +75,6 @@
     "offlineHint": "Headset disconnected, cannot start teleoperation",
     "bridgeHint": "These commands go through litearm-vr-bridge to the real link: start / stop / e-stop all affect the arm",
     "bridgeOfflineHint": "Bridge offline: all three buttons are disabled because nothing can be sent. Make sure the bridge is running on its own machine.",
-    "rearmHint": "Stopped or e-stopped: press grip again to resume following",
     "ownerLabel": "In Control",
     "owner_vr": "VR headset",
     "owner_console": "Console",
@@ -95,6 +94,7 @@
     "consoleActivityImpedance": "impedance mode",
     "consoleActivityStopping": "stopping",
     "conflictTitle": "Both links are driving the arm",
-    "conflictBody": "The bridge reports the VR side is following while the console side is also driving the arm. The two links are mutually exclusive — the same motors cannot be commanded by two controllers. Stop one side now and verify the arm state."
+    "conflictBody": "The bridge reports the VR side is following while the console side is also driving the arm. The two links are mutually exclusive — the same motors cannot be commanded by two controllers. Stop one side now and verify the arm state.",
+    "rearmHint": "Stopped or e-stopped: press grip again to resume following"
   }
 }

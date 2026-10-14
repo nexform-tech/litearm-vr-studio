@@ -1,7 +1,6 @@
 {
   "link": {
     "title": "VR 链路",
-    "stateOffline": "未连接",
     "stateReady": "已连接 · 待机",
     "stateFollowing": "跟随中",
     "stateLatched": "已连接 · 持位",
@@ -11,7 +10,7 @@
     "relayName": "逆解服务",
     "followName": "跟随服务",
     "armName": "机械臂",
-    "armSubSim": "仿真（metavr 侧）",
+    "armSubSim": "仿真",
     "armSubReal": "关节角跟随",
     "statFps": "位姿帧率",
     "statLatency": "无线段延迟",
@@ -30,7 +29,8 @@
     "guardOff": "兜底已关闭（桥侧 FALLBACK_ENABLED=0）：超过 {{ms}} ms 没有新帧也不会自动持位",
     "rearmHint": "需重新按一次右手 grip（松 → 按）才会恢复跟随",
     "sourceBridge": "数据源 · litearm-vr-bridge",
-    "sourceOffline": "数据源 · 未连接"
+    "stateBridgeOffline": "桥未连接",
+    "stateHeadsetOffline": "头显未连接"
   },
   "load": {
     "title": "电机负载",
@@ -75,7 +75,6 @@
     "offlineHint": "头显未连接，无法开始遥操",
     "bridgeHint": "按钮经 litearm-vr-bridge 下发到真实链路：开始 / 停止 / 急停都会作用到机械臂",
     "bridgeOfflineHint": "桥未连接：三个按钮都发不出去，已禁用。先确认桥那台机器上的服务在跑。",
-    "rearmHint": "已停止或急停过：重新按 grip 才会恢复跟随",
     "ownerLabel": "当前控制方",
     "owner_vr": "VR 头显",
     "owner_console": "上位机",
@@ -95,6 +94,7 @@
     "consoleActivityImpedance": "阻抗模式中",
     "consoleActivityStopping": "正在停止",
     "conflictTitle": "两条链路同时在控机械臂",
-    "conflictBody": "桥报 VR 侧在跟随，同时上位机侧也在驱动机械臂。两条链路互斥，同一批电机不能被两个控制器同时占用 —— 立即停掉其中一侧，并确认机械臂状态。"
+    "conflictBody": "桥报 VR 侧在跟随，同时上位机侧也在驱动机械臂。两条链路互斥，同一批电机不能被两个控制器同时占用 —— 立即停掉其中一侧，并确认机械臂状态。",
+    "rearmHint": "已停止或急停过：重新按 grip 才会恢复跟随"
   }
 }

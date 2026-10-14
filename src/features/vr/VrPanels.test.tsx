@@ -7,7 +7,12 @@ import { mapBridgeSnapshot } from './vrLink'
 import type { VrBridgeSnapshot } from './vrTypes'
 import type { VrLinkView } from './useVrLink'
 import { synthesizeOwnership, type VrConsoleSignals } from './vrOwnership'
-import { SNAP_FALLBACK, SNAP_FOLLOWING, SNAP_STOPPED } from './__fixtures__/bridgeSnapshots'
+import {
+  SNAP_FALLBACK,
+  SNAP_FOLLOWING,
+  SNAP_NO_HEADSET,
+  SNAP_STOPPED,
+} from './__fixtures__/bridgeSnapshots'
 
 /**
  * 用真实固件把三个面板渲染一遍：i18n 键写错、字段改名、条件分支漏判都会在这里炸。
@@ -179,14 +184,25 @@ describe('VR 面板 · 桥连不上时（没有兜底数据）', () => {
   })
   afterEach(() => cleanup())
 
-  it('链路面板只说"未连接"，不显示桥版本/耗时这类像真值的东西', () => {
+  it('桥连不上时：徽标点名"桥未连接"，数据源那一行不出现', () => {
     render(<VrLinkPanel vm={offlineView()} />)
 
-    expect(screen.getByText('数据源 · 未连接')).toBeTruthy()
-    // 逐跳如实报未连接，机械臂那一跳也不能写"仿真"（无从判断，见 useVrLink）
-    expect(screen.getAllByText('未连接').length).toBeGreaterThanOrEqual(5)
+    // 徽标写清主语：这一页有五跳，笼统一句"未连接"没人知道是谁
+    expect(screen.getByText('桥未连接')).toBeTruthy()
+    // 数据源那一行讲的是"哪一路、什么版本、跑了多久"，桥不在时这三样都没意义
+    expect(screen.queryByText(/^数据源 · /)).toBeNull()
+    // 五跳逐跳如实报未连接，机械臂那一跳也不能写"仿真"（无从判断，见 useVrLink）
+    expect(screen.getAllByText('未连接')).toHaveLength(5)
     // 转发耗时/丢弃/拦截都得是空，不然会被当成链路在跑
     expect(screen.queryByText(/^v0\./)).toBeNull()
+  })
+
+  it('桥在、头显不推帧时：徽标说的是头显，不是桥', () => {
+    render(<VrLinkPanel vm={viewOf(SNAP_NO_HEADSET)} />)
+
+    expect(screen.getByText('头显未连接')).toBeTruthy()
+    // 数据源那一行照常：桥是连着的
+    expect(screen.getByText('数据源 · litearm-vr-bridge')).toBeTruthy()
   })
 
   it('控制面板：三个按钮全禁用，并说明发不出去', () => {

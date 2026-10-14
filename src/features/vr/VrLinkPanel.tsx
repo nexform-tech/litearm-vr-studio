@@ -1,5 +1,6 @@
+import { Fragment } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Glasses, TriangleAlert } from 'lucide-react'
+import { ChevronRight, Glasses, TriangleAlert } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Pill } from '@/components/Pill'
 import { StatCard } from '@/components/StatCard'
@@ -33,20 +34,23 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
 
   const live = vm.headsetOnline
   const style = stateStyle(vm.linkState, live)
+  // 徽标的主语要写出来：这一页有五跳，笼统一句"未连接"没人知道是谁没连上
   const stateLabel =
     vm.linkState === 'fallback'
       ? t('link.stateFallback')
-      : !live
-        ? t('link.stateOffline')
-        : vm.following
-          ? t('link.stateFollowing')
-          : vm.linkState === 'latched'
-            ? t('link.stateLatched')
-            : t('link.stateReady')
+      : !vm.bridgeOnline
+        ? t('link.stateBridgeOffline')
+        : !live
+          ? t('link.stateHeadsetOffline')
+          : vm.following
+            ? t('link.stateFollowing')
+            : vm.linkState === 'latched'
+              ? t('link.stateLatched')
+              : t('link.stateReady')
 
   // 转发耗时是这个服务自己的开销：正常应 < 1ms，变大说明桥卡了（DESIGN 6.2）
   const costWarn = vm.forwardCostMs >= 1
-  const stats = [
+  const linkStats = [
     { k: t('link.statFps'), v: live ? vm.fps.toFixed(0) : '—', u: live ? 'Hz' : '', c: live ? 'var(--ink)' : 'var(--ink-faint)' },
     {
       // 头显时钟与上位机不可比时（latency_estimated），桥报的是"相对窗口内最小值的增量"，
@@ -64,7 +68,9 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
       c: live ? 'var(--ink)' : 'var(--danger)',
     },
     { k: t('link.statFrames'), v: vm.framesForwarded.toLocaleString('en-US'), u: '', c: 'var(--ink)' },
-    // 桥自身的开销与拦截情况（DESIGN 6.1/6.2）
+  ]
+  // 桥自身的开销与拦截情况（DESIGN 6.1/6.2）
+  const bridgeStats = [
     {
       k: t('link.statForwardCost'),
       v: vm.bridgeOnline ? vm.forwardCostMs.toFixed(2) : '—',
@@ -76,8 +82,9 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
   ]
 
   /**
-   * 逐跳只报两件事：这一跳通没通、它自己的开销是多少。
-   * 端口与地址不在这里 —— 它们是各服务的配置，不是这一页要看的状态。
+   * 链路逐跳，按数据流方向排：头显 → 桥 → metavr → 跟随服务 → 机械臂。
+   * 每跳只报两件事：这一跳通没通、它自己的开销是多少 —— 端口与地址是各服务的配置，
+   * 不是这一页要看的状态。
    */
   const hops = [
     { name: t('link.headsetName'), detail: live ? `${vm.fps.toFixed(0)} Hz` : t('link.diagOff'), active: live },
@@ -109,6 +116,7 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
   ]
 
   return (
+    // 按内容取自然高度：中列余下的高度归 3D 预览（见 VrConsole）
     <Card className="gap-3 rounded-[0.875rem] px-3.5 py-3.5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-[0.90625rem] font-semibold text-foreground">
@@ -149,64 +157,78 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
         </div>
       ) : null}
 
-      {/* 数据源：只有真实桥一路。连不上就是连不上，没有兜底数据 */}
-      <div
-        className="flex items-center justify-between gap-2 rounded-[0.625rem] border px-2.5 py-2"
-        style={{
-          borderColor: vm.bridgeOnline ? 'var(--ok-line)' : 'var(--line)',
-          background: vm.bridgeOnline ? 'var(--ok-soft)' : 'transparent',
-        }}
-      >
-        <div className="flex min-w-0 items-center gap-1.5">
-          <div
-            className="size-[0.4375rem] flex-none rounded-full"
-            style={{ background: vm.bridgeOnline ? OK : IDLE }}
-          />
-          <div className="truncate text-[0.75rem] font-semibold text-foreground">
-            {vm.bridgeOnline ? t('link.sourceBridge') : t('link.sourceOffline')}
+      {/* 数据源：只有真实桥一路。这一行讲的是"哪一路、什么版本、跑了多久"，
+          桥不在时那三样都没意义 —— 直接不显示，免得和上面那颗徽标各说一句"未连接" */}
+      {vm.bridgeOnline ? (
+        <div
+          className="flex items-center justify-between gap-2 rounded-[0.625rem] border px-2.5 py-2"
+          style={{ borderColor: 'var(--ok-line)', background: 'var(--ok-soft)' }}
+        >
+          <div className="flex min-w-0 items-center gap-1.5">
+            <div className="size-[0.4375rem] flex-none rounded-full" style={{ background: OK }} />
+            <div className="truncate text-[0.75rem] font-semibold text-foreground">
+              {t('link.sourceBridge')}
+            </div>
+          </div>
+          <div className="flex flex-none items-center gap-2 font-mono text-[0.625rem] text-ink-muted">
+            {vm.bridgeVersion ? <span>v{vm.bridgeVersion}</span> : null}
+            <span>{formatUptime(vm.bridgeUptimeS)}</span>
           </div>
         </div>
-        <div className="flex flex-none items-center gap-2 font-mono text-[0.625rem] text-ink-muted">
-          {vm.bridgeOnline && vm.bridgeVersion ? <span>v{vm.bridgeVersion}</span> : null}
-          {vm.bridgeOnline ? <span>{formatUptime(vm.bridgeUptimeS)}</span> : null}
-        </div>
-      </div>
+      ) : null}
 
-      {/* 主体左右排：左＝逐跳连接状态（名称 / 状态两列），右＝指标卡片。
-          格子窄到放不下两栏时（basis 13rem 兜底）自己竖排，不硬挤 */}
-      <div className="flex flex-wrap gap-3">
-        <div className="flex flex-col gap-1" style={{ flex: '1 1 13rem', minWidth: 0 }}>
-          {hops.map((hop) => (
-            <div key={hop.name} className="flex items-center gap-2 rounded-[0.5rem] px-1.5 py-1 odd:bg-muted/40">
+      {/* 逐跳流程条：五跳横排成一条链，箭头即数据流方向 */}
+      <div className="flex items-stretch gap-1">
+        {hops.map((hop, i) => (
+          <Fragment key={hop.name}>
+            {i > 0 ? (
+              <div className="flex flex-none items-center text-ink-faint">
+                <ChevronRight size="0.75rem" />
+              </div>
+            ) : null}
+            <div
+              data-testid="link-hop"
+              className="flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-[0.5rem] border border-line-soft bg-muted/40 px-1 py-1.5"
+            >
+              <div className="flex min-w-0 max-w-full items-center gap-1">
+                <div
+                  className="size-[0.375rem] flex-none rounded-full"
+                  style={{ background: hop.active ? OK : IDLE }}
+                />
+                <div className="truncate text-[0.6875rem] font-semibold text-foreground">{hop.name}</div>
+              </div>
               <div
-                className="size-[0.4375rem] flex-none rounded-full"
-                style={{ background: hop.active ? OK : IDLE }}
-              />
-              <div className="flex-none text-[0.75rem] font-semibold text-foreground">{hop.name}</div>
-              <div
-                className="min-w-0 flex-1 truncate text-right text-[0.6875rem]"
+                className="w-full truncate text-center font-mono text-[0.65625rem]"
                 style={{ color: hop.active ? 'var(--ok)' : 'var(--ink-subtle)' }}
               >
                 {hop.detail}
               </div>
             </div>
+          </Fragment>
+        ))}
+      </div>
+
+      {/* 指标铺底：链路四个在上、桥自身三个在下。卡片余下的高度由 justify-between
+          均分到各段之间，指标卡自己保持自然高度（拉高会变成一排空盒子） */}
+      <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-4 gap-2">
+          {linkStats.map((m) => (
+            <StatCard key={m.k} k={m.k} v={m.v} u={m.u} valueColor={m.c} valueFontSize={15} />
+          ))}
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {bridgeStats.map((m) => (
+            <StatCard key={m.k} k={m.k} v={m.v} u={m.u} valueColor={m.c} valueFontSize={14} />
           ))}
         </div>
 
-        <div className="flex flex-col gap-2" style={{ flex: '1 1 13rem', minWidth: 0 }}>
-          <div className="grid grid-cols-2 gap-2">
-            {stats.map((m) => (
-              <StatCard key={m.k} k={m.k} v={m.v} u={m.u} valueColor={m.c} valueFontSize={14} />
-            ))}
+        {live && vm.latencyEstimated ? (
+          <div className="text-[0.65625rem] leading-relaxed text-muted-foreground">
+            {t('link.statLatencyNote')}
           </div>
-
-          {live && vm.latencyEstimated ? (
-            <div className="text-[0.65625rem] leading-relaxed text-muted-foreground">
-              {t('link.statLatencyNote')}
-            </div>
-          ) : null}
-        </div>
+        ) : null}
       </div>
+
     </Card>
   )
 }

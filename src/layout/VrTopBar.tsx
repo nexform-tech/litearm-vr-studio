@@ -1,8 +1,10 @@
-import { useSyncExternalStore } from 'react'
+import { useReducer, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { armClient, useArmConnection } from '@/lib/arm'
-import { vrBridge } from '@/features/vr/vrBridgeClient'
+import { setBridgeEndpoint, vrBridge } from '@/features/vr/vrBridgeClient'
 import { consoleActivityLabel, consoleActivityOf } from '@/features/vr/vrOwnership'
 
 /**
@@ -44,6 +46,26 @@ export function VrTopBar() {
   const bridgeConfigured = vrBridge.configured
   const bridgeEndpoint = vrBridge.endpoint
   const bridgeVersion = vrBridge.snapshot?.bridge?.version ?? ''
+
+  /**
+   * 桥地址是**可填的**。
+   *
+   * 桥跑在机械臂那台机器上，地址因现场而异；装机时若忘了注入构建期的
+   * `VITE_VR_BRIDGE_ENDPOINT`，操作员原先只能去改 localStorage —— 页面上连个入口都没有
+   * （`a651cb5` 删输入框时自己把这条标成了 Breaking）。填在这里，存本机，立刻重连。
+   */
+  const [draft, setDraft] = useState(() => vrBridge.endpoint)
+  // ⚠ 提交之后强制重渲染一次：`switchEndpoint` 走 `markOnline(false)`，而那个函数在
+  //   值没变时**提前返回、不发通知**。桥本来就离线时改地址一个通知都不会来，
+  //   状态点与地址文字会停在旧值上。
+  const [, rerender] = useReducer((n: number) => n + 1, 0)
+
+  const applyEndpoint = () => {
+    setBridgeEndpoint(draft)
+    // 取回客户端归一化后的值（去空白、去尾斜杠），让输入框显示的就是真正存下的那个
+    setDraft(vrBridge.endpoint)
+    rerender()
+  }
 
   // 上位机链路：与 VR 页自己读的是同一批字段（`useVrLink.ts` 的口径），这样顶栏说的
   // "上位机在不在动"和页面里那条互斥告警永远是同一件事。
@@ -90,11 +112,26 @@ export function VrTopBar() {
             {t('vr:topbar.bridgeLabel')}
           </span>
           <span className="flex-none text-xs font-semibold text-foreground">{bridgeState}</span>
-          {bridgeConfigured ? (
-            <span className="truncate font-mono text-[0.6875rem] text-muted-foreground">
-              {bridgeEndpoint}
-            </span>
-          ) : null}
+          <Input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') applyEndpoint()
+            }}
+            placeholder={t('vr:topbar.addressPlaceholder')}
+            spellCheck={false}
+            aria-label={t('vr:topbar.addressLabel')}
+            className="h-7 w-[17rem] flex-none font-mono text-[0.6875rem]"
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={applyEndpoint}
+            className="h-7 flex-none rounded-[0.5rem] px-2 text-[0.75rem]"
+          >
+            {t('vr:topbar.addressApply')}
+          </Button>
           {bridgeOnline && bridgeVersion ? (
             <span className="flex-none font-mono text-[0.6875rem] text-muted-foreground">
               v{bridgeVersion}

@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import i18n from '@/i18n'
 
@@ -23,11 +23,19 @@ const mocks = vi.hoisted(() => ({
     snapshot: null as unknown,
     subscribe: () => () => {},
   },
+  setBridgeEndpoint: vi.fn((value: string) => {
+    // 真的那个会归一化、存本机并重连；这里只把"客户端记住了新地址"这件事模拟出来。
+    mocks.bridge.endpoint = value.trim().replace(/\/+$/, '')
+    mocks.bridge.configured = mocks.bridge.endpoint !== ''
+  }),
 }))
 
 vi.mock('react-router-dom', () => ({ useLocation: () => ({ pathname: mocks.pathname.current }) }))
 
-vi.mock('@/features/vr/vrBridgeClient', () => ({ vrBridge: mocks.bridge }))
+vi.mock('@/features/vr/vrBridgeClient', () => ({
+  vrBridge: mocks.bridge,
+  setBridgeEndpoint: mocks.setBridgeEndpoint,
+}))
 
 vi.mock('@/lib/arm', () => ({
   useArmConnection: () => ({
@@ -49,6 +57,7 @@ const { TopBar } = await import('./TopBar')
 
 const bridgeCell = () => within(screen.getByTestId('vr-topbar-bridge'))
 const consoleCell = () => within(screen.getByTestId('vr-topbar-console'))
+const addressInput = () => screen.getByLabelText('桥地址') as HTMLInputElement
 
 beforeEach(async () => {
   mocks.pathname.current = '/vr'
@@ -60,6 +69,7 @@ beforeEach(async () => {
   mocks.bridge.configured = false
   mocks.bridge.endpoint = ''
   mocks.bridge.snapshot = null
+  mocks.setBridgeEndpoint.mockClear()
   await i18n.changeLanguage('zh')
 })
 
@@ -72,7 +82,10 @@ describe('VR 页顶栏', () => {
     expect(document.getElementById('topbar-port')).toBeNull()
     expect(document.getElementById('topbar-connect-btn')).toBeNull()
     expect(document.getElementById('topbar-disconnect-btn')).toBeNull()
-    expect(screen.queryByRole('button')).toBeNull()
+    // 这一页唯一的按钮是「应用」（填桥地址）
+    const buttons = screen.getAllByRole('button')
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0].textContent).toBe('应用')
   })
 
   it('桥没配过地址时说「未设置」，不说「未连接」', () => {
@@ -90,8 +103,30 @@ describe('VR 页顶栏', () => {
     render(<TopBar />)
 
     expect(bridgeCell().getByText('已连接')).toBeTruthy()
-    expect(bridgeCell().getByText('ws://192.168.31.139:8765/ws/status')).toBeTruthy()
+    expect(addressInput().value).toBe('ws://192.168.31.139:8765/ws/status')
     expect(bridgeCell().getByText('v0.1.0')).toBeTruthy()
+  })
+
+  it('填了地址点「应用」：交给客户端去存并重连，状态立刻改口', () => {
+    render(<TopBar />)
+    expect(bridgeCell().getByText('未设置')).toBeTruthy()
+
+    fireEvent.change(addressInput(), { target: { value: 'ws://192.168.31.139:8765/ws/status' } })
+    fireEvent.click(screen.getByRole('button', { name: '应用' }))
+
+    expect(mocks.setBridgeEndpoint).toHaveBeenCalledWith('ws://192.168.31.139:8765/ws/status')
+    // 客户端记下了新地址：状态从「未设置」变成「未连接」（还没连上），输入框留着的也是它
+    expect(bridgeCell().getByText('未连接')).toBeTruthy()
+    expect(addressInput().value).toBe('ws://192.168.31.139:8765/ws/status')
+  })
+
+  it('回车与点「应用」是同一件事', () => {
+    render(<TopBar />)
+
+    fireEvent.change(addressInput(), { target: { value: 'ws://10.0.0.2:8765/ws/status' } })
+    fireEvent.keyDown(addressInput(), { key: 'Enter' })
+
+    expect(mocks.setBridgeEndpoint).toHaveBeenCalledWith('ws://10.0.0.2:8765/ws/status')
   })
 
   it('上位机链路连着时给端口，没连时只说未连接', () => {

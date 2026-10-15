@@ -2,7 +2,10 @@
   "topbar": {
     "bridgeLabel": "Bridge",
     "bridgeUnset": "Not set",
-    "bridgeHint": "The bridge runs on the machine that owns the arm, so its address differs per site — this page never connects to a default",
+    "bridgeHint": "The bridge runs on the machine that owns the arm, so its address differs per site — this page never connects to a default; put the site's address here",
+    "addressLabel": "Bridge URL",
+    "addressApply": "Apply",
+    "addressPlaceholder": "ws://192.168.31.139:8765/ws/status",
     "consoleLabel": "Console link",
     "consoleBusy": "Active"
   },

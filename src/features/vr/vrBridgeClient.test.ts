@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getInitialBridgeEndpoint, vrBridge } from './vrBridgeClient'
+import { getInitialBridgeEndpoint, setBridgeEndpoint, vrBridge } from './vrBridgeClient'
 
 /**
  * 桥地址的默认值。
@@ -41,5 +41,35 @@ describe('桥地址默认值', () => {
 
     expect(vrBridge.configured).toBe(false)
     expect(ctor).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * 存地址这一手（页面上那个输入框走的就是它）。
+ *
+ * 归一化在**存的时候**做：操作员从别处粘来的地址常带尾斜杠或前后空格，存进去的是
+ * 真正会用的那一个，下次开机读到的也就是它。
+ */
+describe('setBridgeEndpoint', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+  afterEach(() => {
+    localStorage.clear()
+    vrBridge.switchEndpoint('')
+  })
+
+  it('存的是去掉空白与尾斜杠的那个', () => {
+    setBridgeEndpoint('  ws://192.168.31.139:8765/ws/status/  ')
+    expect(localStorage.getItem(LS_KEY)).toBe('ws://192.168.31.139:8765/ws/status')
+    expect(vrBridge.endpoint).toBe('ws://192.168.31.139:8765/ws/status')
+  })
+
+  it('清空 = 删掉这一项，也等于"不去连任何地址"', () => {
+    localStorage.setItem(LS_KEY, 'ws://192.168.31.139:8765/ws/status')
+    setBridgeEndpoint('')
+
+    expect(localStorage.getItem(LS_KEY)).toBeNull()
+    expect(vrBridge.configured).toBe(false)
   })
 })

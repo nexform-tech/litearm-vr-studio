@@ -28,6 +28,7 @@ import time
 from typing import Any, Callable, Optional
 
 from ..errors import UnknownCommandError, VrBridgeUnreachableError
+from .follow import FollowPoller
 
 log = logging.getLogger(__name__)
 
@@ -74,7 +75,7 @@ class VrSession:
     """到桥的一条 zenoh 通道：订快照、发动作。"""
 
     def __init__(self, *, endpoint: str = DEFAULT_ENDPOINT,
-                 arm_hint: str = "armA") -> None:
+                 arm_hint: str = "armA", poll_follow: bool = True) -> None:
         self._endpoint = endpoint
         #: 还没收到任何快照时，动作发给谁（约定里的第一条臂）。
         self._arm_hint = arm_hint
@@ -91,6 +92,13 @@ class VrSession:
         self._closing = False
         self._wake = threading.Event()
 
+        # 真机状态（q / 力矩 / 温度）走**另一条路**：桥不再照下游，所以这里按桥
+        # 快照里给的端点（`arm.follow`）直接去问 follow —— 只读，可与遥操并行。
+        # 与 zenoh 那条链路分开成两个对象，但同生共死：桥不在时它也学不到端点。
+        self._poller: Optional[FollowPoller] = FollowPoller() if poll_follow else None
+        if self._poller is not None:
+            self._poller.add_listener(self._broadcast)
+
     # ------------------------------------------------------------------ 生命周期
     def start(self) -> None:
         if self._thread is not None:
@@ -98,6 +106,8 @@ class VrSession:
         self._thread = threading.Thread(target=self._run, name="litearm-vr-session",
                                         daemon=True)
         self._thread.start()
+        if self._poller is not None:
+            self._poller.start()
 
     def _run(self) -> None:
         """开会话、订快照，然后守着连接态 —— 直到 `close()`。"""
@@ -146,6 +156,8 @@ class VrSession:
 
     def close(self, timeout_s: float = 5.0) -> None:
         """停线程。同步阻塞 —— 从事件循环调用请用 `to_thread`。"""
+        if self._poller is not None:
+            self._poller.close(timeout_s)
         self._closing = True
         self._wake.set()
         thread, self._thread = self._thread, None
@@ -164,6 +176,9 @@ class VrSession:
             "status": status,
             "endpoint": self._endpoint,
             "arms": arms,
+            # 真机状态问的是谁（排障：桥报了端点、轮询这头有没有认到）
+            "follow": ({arm: target for arm, target in self._poller.arms().items()}
+                       if self._poller is not None else {}),
             "lastStateAgeMs": (
                 None if last is None else round((time.monotonic() - last) * 1000.0, 1)
             ),
@@ -273,8 +288,11 @@ class VrSession:
                 self._error = None
         if became_online:
             self._publish_conn()
-        self._broadcast({"t": "vr_state", "stamp": round(now, 4), "arm": arm,
-                         "state": snap})
+        event = {"t": "vr_state", "stamp": round(now, 4), "arm": arm, "state": snap}
+        if self._poller is not None:
+            # 桥的快照里带着"这条臂的 follow 在哪个端点" —— 轮询据此认路
+            self._poller.observe(event)
+        self._broadcast(event)
 
     def _refresh_status(self) -> None:
         """守着连接态：快照过期就退回 waiting（桥挂了不该一直显示"在线"）。"""

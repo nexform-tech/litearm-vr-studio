@@ -1,4 +1,4 @@
-import { vrBridge } from './vrBridgeClient'
+import { vrBridge } from './vrDaemonClient'
 import type { VrArmSource, VrBridgeSnapshot, VrLinkSnapshot, VrLinkState } from './vrTypes'
 
 /**

@@ -1,19 +1,20 @@
-import { useState, useSyncExternalStore } from 'react'
+import { useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { armClient, useArmConnection } from '@/lib/arm'
-import { setBridgeEndpoint, vrBridge } from '@/features/vr/vrBridgeClient'
 import { consoleActivityLabel, consoleActivityOf } from '@/features/vr/vrOwnership'
 
 /**
  * VR 页的顶栏。
  *
- * 它只放**页面别处说不了的两件事**，不做任何"总览"：
+ * 它只放**页面别处说不了的那一件事**，不做任何"总览"：
  *
- *   * **桥地址**：现场相关的输入项（桥跑在机械臂那台机器上），页面上只此一处；
  *   * **上位机正在驱动机械臂**：这是 VR 与上位机互斥判定的输入，也是操作员在按下
  *     "开始遥操"之前必须知道的事。
+ *
+ * ⚠ 桥地址**不再是输入项**（2026-10-15）：页面不再自己连桥 —— 桥说的是 zenoh，
+ * 浏览器说不了，替它说的是 daemon（`vrDaemonClient`），而 daemon 与页面同源、
+ * 端点属于那台机器的配置（同机默认 `tcp/127.0.0.1:7447`）。"连上了没有"由链路卡
+ * 按事实说，不需要操作员填一个字。
  *
  * ⚠ 桥的在线状态与版本**故意不在这里**：链路卡的数据源那一行与它自己那颗徽标已经把
  * 这两样说全了，顶栏再说一遍就成了"同一句话在一张页面里说两遍"——那正是这一页
@@ -24,21 +25,6 @@ import { consoleActivityLabel, consoleActivityOf } from '@/features/vr/vrOwnersh
  */
 export function VrTopBar() {
   const { t } = useTranslation(['common', 'nav', 'vr'])
-
-  /**
-   * 桥地址是**可填的**。
-   *
-   * 装机时若忘了注入构建期的 `VITE_VR_BRIDGE_ENDPOINT`，操作员原先只能去改
-   * localStorage —— 页面上连个入口都没有（`a651cb5` 删输入框时自己把这条标成了
-   * Breaking）。填在这里，存本机，立刻重连。
-   */
-  const [draft, setDraft] = useState(() => vrBridge.endpoint)
-
-  const applyEndpoint = () => {
-    setBridgeEndpoint(draft)
-    // 取回客户端归一化后的值（去空白、去尾斜杠），让输入框显示的就是真正存下的那个
-    setDraft(vrBridge.endpoint)
-  }
 
   // 上位机链路：与 VR 页自己读的是同一批字段（`useVrLink.ts` 的口径），
   // 这样顶栏说的"在动"和页面里那条互斥告警永远是同一件事。
@@ -58,36 +44,6 @@ export function VrTopBar() {
     <div className="flex h-14 flex-none basis-14 items-center justify-between border-b bg-card px-[1.125rem]">
       <div className="flex min-w-0 flex-1 items-center gap-3.5">
         <div className="flex-none text-base font-bold text-foreground">{t('nav:vrTitle')}</div>
-
-        <div className="flex min-w-0 items-center gap-2" title={t('vr:topbar.bridgeHint')}>
-          <span className="flex-none text-xs font-medium text-muted-foreground">
-            {t('vr:topbar.bridgeLabel')}
-          </span>
-          {/* ⚠ 宽度定在外层：`Input` 自带 `w-full`，同一个工具类再写一遍谁赢由样式表顺序
-              决定，不由类名顺序决定 —— 直接把宽度写在它身上会被 `w-full` 压成父容器的宽。 */}
-          <div className="w-[20rem] flex-none">
-            <Input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') applyEndpoint()
-              }}
-              placeholder={t('vr:topbar.addressPlaceholder')}
-              spellCheck={false}
-              aria-label={t('vr:topbar.addressLabel')}
-              className="h-7 font-mono text-[0.6875rem]"
-            />
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={applyEndpoint}
-            className="h-7 flex-none rounded-[0.5rem] px-2 text-[0.75rem]"
-          >
-            {t('vr:topbar.addressApply')}
-          </Button>
-        </div>
 
         {/* 只在真在动的时候出现：空闲是常态，写成常驻标签只会让人不再看它 */}
         {activity ? (

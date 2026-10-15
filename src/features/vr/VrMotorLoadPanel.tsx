@@ -36,6 +36,15 @@ function loadLevel(ratio: number | null): LoadLevel {
 }
 
 /**
+ * 桥一条臂都没认到时摆的那一段：**只有骨架，没有读数**。
+ *
+ * 臂身份是空串 —— `vrBridge.arms` 里的臂身份不会为空，所以空串在这里就是"没有臂"的记号
+ * （`ArmSection` 照它把段头改写成"未认到臂"，也不再叠一句"没数据"）。轴数取内置轴数，
+ * 与"两条臂都没读数"那一段同一条路：摆的是位置，不是数。
+ */
+const NO_ARM: ArmLoadView = { arm: '', device: '', status: 'missing', joints: [], gripper: null }
+
+/**
  * 电机负载表（照 OpenArmX 负载监控那张图）：**每条臂一段**，每段：臂身份与设备名 →
  * 电机 / 实时负载条 / 当前 / 本次峰值，末尾一行是夹爪。
  *
@@ -45,6 +54,10 @@ function loadLevel(ratio: number | null): LoadLevel {
  *
  * 没有读数的那一段（真机状态还没到，或跟随服务自己报了断开）照常摆出整张表：
  * 空条 + "—"，并在段头写明是"未连接"还是"没数据"。空条与"负载为 0"必须看得出区别。
+ *
+ * 桥一条臂都没认到（桥没起来、快照还没到）时同样摆出一段（见 {@link NO_ARM}）：段头写
+ * "未认到臂"，7 行 + 夹爪每格"—"。结构在不在是"这一页在监控什么"的说明，缺的只是格子里的
+ * 读数 —— 把表收成一句空态，操作员读到的会是"这个功能不在这台机器上"。
  */
 export function VrMotorLoadPanel({
   arms,
@@ -72,11 +85,9 @@ export function VrMotorLoadPanel({
       </div>
 
       {arms.length === 0 ? (
-        // 桥一条臂都没报：没有可监控的量。这里**不**摆空表 —— 一行行空条会被读成
-        // "还没接线"或"负载都是 0"，而成因是这段数据本身没到
-        <div className="rounded-[0.625rem] border border-line-soft px-2.5 py-2 text-[0.75rem] text-ink-subtle">
-          {t('load.noArms')}
-        </div>
+        // 桥一条臂都没认到：没有臂可分段，但仍然摆一段（见 NO_ARM）。
+        // 这里**不**收成一句空态：表在不在本身就是"这一页在监控什么"的说明
+        <ArmSection arm={NO_ARM} rated={rated} placeholderRows={placeholderRows} />
       ) : (
         arms.map((arm) => (
           <ArmSection key={arm.arm} arm={arm} rated={rated} placeholderRows={placeholderRows} />
@@ -98,9 +109,14 @@ function ArmSection({
 }) {
   const { t } = useTranslation('vr')
   const rowCount = arm.joints.length || placeholderRows
-  // 断开与"没收到过"要分开说：前者的责任在跟随服务那一侧，后者是这一帧还没来
+  // 断开与"没收到过"要分开说：前者的责任在跟随服务那一侧，后者是这一帧还没来。
+  // 臂身份为空（桥一条臂都没认到）时不再叠一句状态：段头已经写明"未认到臂"
   const state =
-    arm.status === 'offline' ? t('load.offline') : arm.status === 'missing' ? t('load.noData') : null
+    arm.status === 'offline'
+      ? t('load.offline')
+      : arm.status === 'missing' && arm.arm
+        ? t('load.noData')
+        : null
 
   return (
     <div
@@ -112,7 +128,9 @@ function ArmSection({
       <div className="flex items-center justify-between gap-2">
         {/* 臂身份与设备名：双臂时一眼分得清这两段说的是哪条臂 */}
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <span className="truncate text-[0.78125rem] font-semibold text-foreground">{arm.arm}</span>
+          <span className="truncate text-[0.78125rem] font-semibold text-foreground">
+            {arm.arm || t('load.noArmName')}
+          </span>
           {arm.device ? (
             <span className="truncate font-mono text-[0.65625rem] text-ink-muted">{arm.device}</span>
           ) : null}
@@ -131,7 +149,8 @@ function ArmSection({
         <div className="w-[5rem] flex-none text-right">{t('load.colPeak')}</div>
       </div>
 
-      <div className="flex flex-col gap-1">
+      {/* 行容器单独挂个 testid：用例要断言"骨架里一个数字都没有"，得把段头的设备名排除在外 */}
+      <div data-testid="load-rows" className="flex flex-col gap-1">
         {jointIndexes(rowCount).map((i) => (
           <MotorRow key={i} name={`J${i + 1}`} row={arm.joints[i] ?? null} rated={rated?.[i] ?? null} />
         ))}

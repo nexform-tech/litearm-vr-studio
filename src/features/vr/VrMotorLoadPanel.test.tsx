@@ -101,6 +101,29 @@ function levels(scope: HTMLElement = document.body): (string | null)[] {
     .map((el) => el.getAttribute('data-level'))
 }
 
+/** 内置轴数 7 的那套行名 + 夹爪：认不到轴数时摆的就是这几行（面板的 `DEFAULT_JOINT_COUNT`）。 */
+const EMPTY_ROWS = ['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'J7', '夹爪']
+
+/**
+ * 断言"这一段摆着完整骨架、每个格子写"—""。
+ *
+ * 行名一个不少（顺序也钉住：关节行在前、夹爪在末）、条的个数就是行数（每个关节行和夹爪
+ * 各一条）、"—"的个数＝3 格 × 行数，末一条最严：整段的行文就是"行名 + 三个—"。
+ * 换句话说骨架里**一个数字都不许有** —— `0` / `0.00` / 百分比都是编数，"负载为 0"和
+ * "没读到"在操作员眼里是两件事。
+ *
+ * 断在行容器（`load-rows`）上，不带段头的设备名：`/dev/ttyACM0` 自己带数字。
+ */
+function expectEmptyRows(rowsRoot: HTMLElement, names: string[]) {
+  expect(within(rowsRoot).getAllByTestId('load-track')).toHaveLength(names.length)
+  for (const name of names) expect(within(rowsRoot).getByText(name)).toBeTruthy()
+  expect(within(rowsRoot).getAllByText('—')).toHaveLength(names.length * 3)
+  expect(rowsRoot.textContent).toBe(names.map((name) => `${name}———`).join(''))
+  // 不配色、不画额定标线：没有读数就没有档位与百分比可言
+  expect(within(rowsRoot).queryAllByTestId('load-fill')).toHaveLength(0)
+  expect(within(rowsRoot).queryAllByTestId('load-tick')).toHaveLength(0)
+}
+
 /**
  * 读数来源：真机状态里有什么就是什么。
  *
@@ -264,16 +287,36 @@ describe('电机负载表 · 双臂', () => {
     expect(within(grip).getAllByText('1.25 N·m')).toHaveLength(2)
   })
 
-  it('没读到数的那一段照常摆表：空条 + "—"，段头写明状态', () => {
+  it('没读到数的那一段照常摆表：7 行 + 夹爪都在，每格是"—"', () => {
     render(<VrMotorLoadPanel arms={dual()} rated={Array(7).fill(RATED)} />)
 
     // 另一条臂没读数：跟着有读数那条的轴数摆 7 行空位（同一台机器两臂同构）+ 夹爪
     const b = sectionOf('armB')
     expect(within(b).getByText('没数据')).toBeTruthy()
-    expect(within(b).getAllByTestId('load-track')).toHaveLength(8)
+    expectEmptyRows(within(b).getByTestId('load-rows'), EMPTY_ROWS)
     // 一个色条都不画：空条与"负载为 0"必须看得出区别
     expect(levels(b)).toEqual([])
-    expect(b.textContent).not.toContain('0.00')
+  })
+
+  it('有臂、但没收到过 / 报断开 / 这一版不发 joints：三种都照摆 7 行', () => {
+    const views = loadsOf(
+      sourceOf(['armA', 'armB', 'armC'], {
+        armA: null, // 真机状态一个字节都还没收到过
+        armB: armState([1.2], { connected: false }), // 跟随服务自己报断开
+        armC: armState([], { joints: null }), // sdk 版跟随服务根本不发 joints
+      }),
+    )
+    render(<VrMotorLoadPanel arms={views} rated={Array(7).fill(RATED)} />)
+
+    // 认得到臂就有它的段：一条不少，每段里 7 行 + 夹爪照摆
+    expect(screen.getAllByTestId('load-arm')).toHaveLength(3)
+    for (const arm of ['armA', 'armB', 'armC']) {
+      expectEmptyRows(within(sectionOf(arm)).getByTestId('load-rows'), EMPTY_ROWS)
+    }
+    // 段头各自说清是哪种"没读到"
+    expect(within(sectionOf('armA')).getByText('没数据')).toBeTruthy()
+    expect(within(sectionOf('armB')).getByText('未连接')).toBeTruthy()
+    expect(within(sectionOf('armC')).getByText('没数据')).toBeTruthy()
   })
 
   it('跟随服务报断开的那一段写"未连接"，同样不编数', () => {
@@ -288,20 +331,37 @@ describe('电机负载表 · 双臂', () => {
     const b = sectionOf('armB')
     expect(b.getAttribute('data-status')).toBe('offline')
     expect(within(b).getByText('未连接')).toBeTruthy()
+    // 断开的一臂照摆骨架（轴数跟着另一条有数的臂：1 轴 → J1 + 夹爪），
+    // 上一帧的 1.2 不拿来当当前值
+    expectEmptyRows(within(b).getByTestId('load-rows'), ['J1', '夹爪'])
     expect(levels(b)).toEqual([])
-    expect(b.textContent).not.toContain('1.20')
   })
 
-  it('两条臂都没读数：两段都按内置轴数摆空位', () => {
+  it('两条臂都没读数：两段都摆成 7 行 + 夹爪的空骨架', () => {
     const views = loadsOf(
       sourceOf(['armA', 'armB'], { armA: null, armB: null }, {}),
     )
     render(<VrMotorLoadPanel arms={views} rated={null} />)
 
-    expect(levels()).toEqual([])
-    // 2 ×（7 轴 + 夹爪）
-    expect(screen.getAllByTestId('load-track')).toHaveLength(16)
+    for (const arm of ['armA', 'armB']) {
+      const section = sectionOf(arm)
+      expectEmptyRows(within(section).getByTestId('load-rows'), EMPTY_ROWS)
+      expect(levels(section)).toEqual([])
+    }
     expect(screen.getAllByText('没数据')).toHaveLength(2)
+  })
+
+  it('没有 vr_grip 读数：夹爪那行还在，值写"—"', () => {
+    // 这条臂有读数，但桥一帧夹爪状态都没报过：夹爪行不跟着消失
+    const views = loadsOf(sourceOf(['armA'], { armA: armState([1.2, 0.4]) }))
+    render(<VrMotorLoadPanel arms={views} rated={[RATED, RATED]} />)
+
+    const rows = screen.getByTestId('load-rows')
+    const grip = within(rows).getByText('夹爪').parentElement as HTMLElement
+    expect(within(grip).getAllByText('—')).toHaveLength(3)
+    expect(within(grip).queryAllByTestId('load-fill')).toHaveLength(0)
+    // 关节那几行照旧有数（这一条只管夹爪那行在不在）
+    expect(within(rows).getByText('1.20 / 120 N·m')).toBeTruthy()
   })
 })
 
@@ -354,7 +414,7 @@ describe('电机负载表 · 分档与额定', () => {
   })
 })
 
-describe('电机负载表 · 空态与已删掉的输入', () => {
+describe('电机负载表 · 认不到臂与已删掉的输入', () => {
   beforeEach(async () => {
     localStorage.clear()
     await i18n.changeLanguage('zh')
@@ -364,12 +424,28 @@ describe('电机负载表 · 空态与已删掉的输入', () => {
     cleanup()
   })
 
-  it('一条臂都没认到：不摆空表，直说没有可监控的量', () => {
+  it('一条臂都没认到：照样摆一段表，7 行 + 夹爪全写"—"，段头写"未认到臂"', () => {
     render(<VrMotorLoadPanel arms={[]} rated={null} />)
 
-    expect(screen.queryAllByTestId('load-arm')).toHaveLength(0)
-    expect(screen.queryAllByTestId('load-track')).toHaveLength(0)
-    expect(screen.getByText(/没收到机械臂快照/)).toBeTruthy()
+    // 桥没起来只是"现在还没有数"，不是"没有可监控的量"：表收成一句空态，操作员读到的
+    // 会是"这个功能不在这台机器上"，而结构在不在本身才是"这一页在监控什么"的说明
+    expect(screen.getAllByTestId('load-arm')).toHaveLength(1)
+    expect(screen.getByText('未认到臂')).toBeTruthy()
+    // 表头那四列也在，和别的段一模一样
+    expect(screen.getByText('电机')).toBeTruthy()
+    expect(screen.getByText('实时负载条')).toBeTruthy()
+    expect(screen.getByText('当前')).toBeTruthy()
+    expect(screen.getByText('本次峰值')).toBeTruthy()
+    expectEmptyRows(screen.getByTestId('load-rows'), EMPTY_ROWS)
+  })
+
+  it('英文下这一段也说得出来（i18n 两种语言都要有）', async () => {
+    await i18n.changeLanguage('en')
+    render(<VrMotorLoadPanel arms={[]} rated={null} />)
+
+    // "未认到臂"与夹爪行的名字在 en 里都要有：漏一个键，界面就会直接印出 `load.noArmName`
+    expect(screen.getByText('No arm recognized')).toBeTruthy()
+    expectEmptyRows(screen.getByTestId('load-rows'), ['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'J7', 'Gripper'])
   })
 
   it('数据话题那四个输入框已经不在了，本机也不再存话题', () => {

@@ -48,7 +48,7 @@
     "source": "Source · live arm state",
     "offline": "not connected",
     "noData": "no data",
-    "noArms": "No arm snapshot yet: with no arm recognized there is nothing to monitor.",
+    "noArmName": "No arm recognized",
     "gripper": "Gripper",
     "colMotor": "Motor",
     "colBar": "Live load",

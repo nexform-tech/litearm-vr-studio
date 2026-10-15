@@ -48,7 +48,7 @@
     "source": "数据源 · 真机状态",
     "offline": "未连接",
     "noData": "没数据",
-    "noArms": "没收到机械臂快照：认不到臂，就没有可监控的量。",
+    "noArmName": "未认到臂",
     "gripper": "夹爪",
     "colMotor": "电机",
     "colBar": "实时负载条",

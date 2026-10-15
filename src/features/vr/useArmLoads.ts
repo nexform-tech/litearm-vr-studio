@@ -146,8 +146,9 @@ function armLoadOf(arm: string, state: Frame | null, grip: Frame | null, peaks: 
 /**
  * 按臂读一遍 —— 一次采样就是一次调用。
  *
- * 臂清单来自 `vrBridge.arms`（桥认到快照的那几条，已排序）：认不到臂就没有可监控的量，
- * 卡如实说"没收到臂"，而不是摆几段长时间不会变的空位。只动峰值本，其余是纯读。
+ * 臂清单来自 `vrBridge.arms`（桥认到快照的那几条，已排序）：一条都没认到时这里就是空数组 ——
+ * 读数这一层不替桥编一条臂出来，界面上那段空骨架由负载卡自己摆（它摆的是结构，不是数据）。
+ * 只动峰值本，其余是纯读。
  */
 export function readArmLoads(bridge: ArmReadoutSource, peaks: PeakBook): ArmLoadView[] {
   const arms = bridge.arms

@@ -23,19 +23,9 @@ import type { VrArmSource } from './vrTypes'
  */
 const RENDERED_MODEL_LABEL = 'studio'
 /**
- * `stale`：画面上的姿态不是"当前值"（桥断了，或桥连着但 ping 不到跟随服务）。
- * 此时把最后一个已知姿态留在画面上，但盖一层说明——一条看着在动、其实是旧值的
- * 机械臂，比一块写着"没数据"的空画面更容易被当真。
- *
  * `armSource` 为 null = 桥没连上，这一侧是仿真还是真机**无从判断**，别猜。
  */
-export function VrPreviewPanel({
-  armSource,
-  stale = false,
-}: {
-  armSource: VrArmSource | null
-  stale?: boolean
-}) {
+export function VrPreviewPanel({ armSource }: { armSource: VrArmSource | null }) {
   const { t } = useTranslation('vr')
   const viewRef = useRef<RobotViewportHandle>(null)
   const [showAxes, setShowAxes] = useState(true)
@@ -108,11 +98,6 @@ export function VrPreviewPanel({
         >
           <RobotViewport ref={viewRef} showAxes={showAxes} />
         </Suspense>
-        {stale ? (
-          <div className="absolute inset-0 z-2 flex items-center justify-center bg-[var(--overlay)] px-4 text-center text-[0.75rem] text-ink-muted">
-            {t('preview.noPose')}
-          </div>
-        ) : null}
         <div className="absolute bottom-3 left-3.5 z-2 rounded-[0.375rem] bg-[var(--overlay)] px-[0.4375rem] py-[0.1875rem] font-mono text-[0.6875rem] text-ink-muted">
           {sourceLabel}
         </div>

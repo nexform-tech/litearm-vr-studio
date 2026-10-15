@@ -45,8 +45,6 @@ export function VrConsole() {
   // 现场连的是右臂、或以后 daemon 扩成两路，改的就是这两行。
   const leftArm = { live: motorLoad.live, rows: motorLoad.loads, gripper: null }
   const rightArm = { live: false, rows: [], gripper: null }
-  // 关节角不是"当前值"的两种情况：桥断开了，或桥连着但 ping 不到跟随服务
-  const poseStale = !vm.bridgeOnline || !vm.armConnected
 
   return (
     <div style={GRID}>
@@ -57,7 +55,7 @@ export function VrConsole() {
 
       {/* 中列：3D 预览吃掉余下的高度，链路卡片按自然高度贴在它下面 */}
       <div style={{ ...CELL, gridColumn: '2', gridRow: '1 / span 2' }}>
-        <VrPreviewPanel armSource={vm.bridgeOnline ? vm.armSource : null} stale={poseStale} />
+        <VrPreviewPanel armSource={vm.bridgeOnline ? vm.armSource : null} />
         <VrLinkPanel vm={vm} />
       </div>
 

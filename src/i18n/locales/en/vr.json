@@ -61,8 +61,7 @@
     "sourceReal": "Real pose",
     "sourceUnknown": "Unknown (bridge offline)",
     "modelLabel": "Model · {{model}}",
-    "modelHint": "Note: this page currently renders the same URDF as the control page (the studio/SDK one), while the joint angles the bridge reports were solved by metavr against its own model. Joint origins, axes and limits differ between the two, so the pose on screen will not match what metavr believes — a known gap, not bad data.",
-    "noPose": "The bridge is not reporting an arm pose — this view is not the current pose"
+    "modelHint": "Note: this page currently renders the same URDF as the control page (the studio/SDK one), while the joint angles the bridge reports were solved by metavr against its own model. Joint origins, axes and limits differ between the two, so the pose on screen will not match what metavr believes — a known gap, not bad data."
   },
   "control": {
     "title": "Teleop Control",

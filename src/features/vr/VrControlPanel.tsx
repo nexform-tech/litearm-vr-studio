@@ -3,7 +3,7 @@ import { TriangleAlert } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import type { VrLinkView } from './useVrLink'
-import type { VrConsoleActivity } from './vrOwnership'
+import { consoleActivityLabel } from './vrOwnership'
 
 /**
  * 上位机在 VR 链路里只按开关：开始 / 停止 / 急停。控制回路在 metavr，不在这里。
@@ -112,20 +112,5 @@ export function VrControlPanel({ vm }: { vm: VrLinkView }) {
   )
 }
 
-/** 上位机侧"在动"的文案（用于告警条） */
-function activityLabel(t: (key: string) => string, activity: VrConsoleActivity | null): string {
-  switch (activity) {
-    case 'motion':
-      return t('control.consoleActivityMotion')
-    case 'following':
-      return t('control.consoleActivityFollowing')
-    case 'zero_gravity':
-      return t('control.consoleActivityZeroGravity')
-    case 'impedance':
-      return t('control.consoleActivityImpedance')
-    case 'stopping':
-      return t('control.consoleActivityStopping')
-    default:
-      return t('control.consoleIdle')
-  }
-}
+/** 上位机侧"在动"的文案：与顶栏共用一份，见 `vrOwnership.consoleActivityLabel` */
+const activityLabel = consoleActivityLabel

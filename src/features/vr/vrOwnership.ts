@@ -102,6 +102,30 @@ export function consoleActivityOf(signals: VrConsoleSignals): VrConsoleActivity 
 }
 
 /**
+ * 「在动」的文案。`activity` 为 null 时给的是「空闲」——调用方负责决定此时还要不要显示。
+ *
+ * 放在这里而不是面板里：顶栏与控制卡都要说这件事，两处各写一份 switch 迟早会对不上。
+ * `t` 由调用方传进来（这个模块不依赖 i18n 实例），键里**写死 `vr:` 前缀**——本模块不是
+ * 组件、没有 `useTranslation`，静态扫键器推断不出默认命名空间（i18n 那条用例会红）。
+ */
+export function consoleActivityLabel(t: (key: string) => string, activity: VrConsoleActivity | null): string {
+  switch (activity) {
+    case 'motion':
+      return t('vr:control.consoleActivityMotion')
+    case 'following':
+      return t('vr:control.consoleActivityFollowing')
+    case 'zero_gravity':
+      return t('vr:control.consoleActivityZeroGravity')
+    case 'impedance':
+      return t('vr:control.consoleActivityImpedance')
+    case 'stopping':
+      return t('vr:control.consoleActivityStopping')
+    default:
+      return t('vr:control.consoleIdle')
+  }
+}
+
+/**
  * 把桥（VR 侧，只有 vr/none）与 studio 自己（上位机侧）合成为最终归属。
  *
  * 之所以不能只看桥：桥报 `none` 时机械臂完全可能正被上位机的 movej 或拖动

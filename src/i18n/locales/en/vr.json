@@ -1,4 +1,11 @@
 {
+  "topbar": {
+    "bridgeLabel": "Bridge",
+    "bridgeUnset": "Not set",
+    "bridgeHint": "The bridge runs on the machine that owns the arm, so its address differs per site — this page never connects to a default",
+    "consoleLabel": "Console link",
+    "consoleBusy": "Active"
+  },
   "link": {
     "title": "VR Link",
     "stateReady": "Connected · Idle",

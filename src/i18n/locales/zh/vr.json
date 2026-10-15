@@ -1,4 +1,11 @@
 {
+  "topbar": {
+    "bridgeLabel": "桥",
+    "bridgeUnset": "未设置",
+    "bridgeHint": "桥跑在机械臂那台机器上，地址因现场而异 —— 这一页不会去连任何默认地址",
+    "consoleLabel": "上位机链路",
+    "consoleBusy": "在动"
+  },
   "link": {
     "title": "VR 链路",
     "stateReady": "已连接 · 待机",

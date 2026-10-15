@@ -38,6 +38,8 @@
     "fallbackReasonLabel": "Reason",
     "faultTitle": "Follow server faults ({{count}})",
     "armErrorTitle": "Follow server error",
+    "versionMismatch": "Version mismatch",
+    "versionMismatchHint": "The bridge reports {{version}} while this page is written against {{supported}} — some fields may already be read wrongly. Bring one side up to match.",
     "guardOff": "Fallback is off (FALLBACK_ENABLED=0 on the bridge): no automatic hold even after {{ms}} ms without new frames",
     "rearmHint": "Press the right grip again (release → press) to resume following",
     "sourceBridge": "Source · litearm-vr-bridge"

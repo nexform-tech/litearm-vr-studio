@@ -38,6 +38,8 @@
     "fallbackReasonLabel": "原因",
     "faultTitle": "跟随服务报故障（{{count}} 条）",
     "armErrorTitle": "跟随服务报错",
+    "versionMismatch": "版本不匹配",
+    "versionMismatchHint": "桥报的是 {{version}}，而这一版页面是对着 {{supported}} 写的：有些字段的解读可能已经过时，把其中一边升到同一版本再对齐。",
     "guardOff": "兜底已关闭（桥侧 FALLBACK_ENABLED=0）：超过 {{ms}} ms 没有新帧也不会自动持位",
     "rearmHint": "需重新按一次右手 grip（松 → 按）才会恢复跟随",
     "sourceBridge": "数据源 · litearm-vr-bridge"

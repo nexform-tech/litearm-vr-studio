@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { armClient, useArmConnection } from '@/lib/arm'
+import { bridgeCompat, SUPPORTED_BRIDGE_VERSION } from '@/features/vr/bridgeCompat'
 import { setBridgeEndpoint, vrBridge } from '@/features/vr/vrBridgeClient'
 import { consoleActivityLabel, consoleActivityOf } from '@/features/vr/vrOwnership'
 
@@ -46,6 +47,8 @@ export function VrTopBar() {
   const bridgeConfigured = vrBridge.configured
   const bridgeEndpoint = vrBridge.endpoint
   const bridgeVersion = vrBridge.snapshot?.bridge?.version ?? ''
+  // 桥报的版本对不对得上这版页面（补丁号不算），见 bridgeCompat
+  const compat = bridgeCompat(bridgeVersion)
 
   /**
    * 桥地址是**可填的**。
@@ -133,7 +136,20 @@ export function VrTopBar() {
             {t('vr:topbar.addressApply')}
           </Button>
           {bridgeOnline && bridgeVersion ? (
-            <span className="flex-none font-mono text-[0.6875rem] text-muted-foreground">
+            <span
+              className={cn(
+                'flex-none font-mono text-[0.6875rem]',
+                compat === 'mismatch' ? 'font-semibold text-warn' : 'text-muted-foreground',
+              )}
+              title={
+                compat === 'mismatch'
+                  ? t('vr:link.versionMismatchHint', {
+                      version: bridgeVersion,
+                      supported: SUPPORTED_BRIDGE_VERSION,
+                    })
+                  : undefined
+              }
+            >
               v{bridgeVersion}
             </span>
           ) : null}

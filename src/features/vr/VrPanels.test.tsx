@@ -256,3 +256,36 @@ describe('VR 链路卡 · 跟随服务的故障与错误', () => {
     expect(screen.queryByTestId('vr-arm-fault')).toBeNull()
   })
 })
+
+/**
+ * 桥版本护栏：契约哪天变了，页面得说出来，而不是静默少显示几样。
+ */
+describe('VR 链路卡 · 桥版本', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('zh')
+  })
+  afterEach(() => cleanup())
+
+  it('对得上（含补丁号不同）就不吵', () => {
+    render(<VrLinkPanel vm={viewOf({ bridge: { online: true, version: '0.1.7' } })} />)
+
+    expect(screen.queryByTestId('vr-version-warning')).toBeNull()
+    expect(screen.getByText('v0.1.7')).toBeTruthy()
+  })
+
+  it('minor 变了就挂一枚徽标，并在悬停里说清对着哪一版写的', () => {
+    render(<VrLinkPanel vm={viewOf({ bridge: { online: true, version: '0.2.0' } })} />)
+
+    const chip = screen.getByTestId('vr-version-warning')
+    expect(chip.textContent).toBe('版本不匹配')
+    expect(chip.getAttribute('title')).toContain('0.2.0')
+    expect(chip.getAttribute('title')).toContain('0.1')
+  })
+
+  it('桥没报版本就什么都不说', () => {
+    // 真固件就是没有 version 的那种（早起版本没发这个字段）
+    render(<VrLinkPanel vm={viewOf(SNAP_FOLLOWING)} />)
+
+    expect(screen.queryByTestId('vr-version-warning')).toBeNull()
+  })
+})

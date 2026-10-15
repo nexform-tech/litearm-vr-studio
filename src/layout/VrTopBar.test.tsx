@@ -107,8 +107,7 @@ describe('VR 页顶栏', () => {
     expect(bridgeCell().getByText('v0.1.0')).toBeTruthy()
   })
 
-  it('填了地址点「应用」：交给客户端去存并重连，状态立刻改口', () => {
-    render(<TopBar />)
+  it('填了地址点「应用」：交给客户端去存并重连，状态立刻改口', () => {    render(<TopBar />)
     expect(bridgeCell().getByText('未设置')).toBeTruthy()
 
     fireEvent.change(addressInput(), { target: { value: 'ws://192.168.31.139:8765/ws/status' } })
@@ -127,6 +126,19 @@ describe('VR 页顶栏', () => {
     fireEvent.keyDown(addressInput(), { key: 'Enter' })
 
     expect(mocks.setBridgeEndpoint).toHaveBeenCalledWith('ws://10.0.0.2:8765/ws/status')
+  })
+
+  it('桥版本对不上时，版本号按告警色显示并说明对着哪一版写的', () => {
+    mocks.bridge.configured = true
+    mocks.bridge.online = true
+    mocks.bridge.endpoint = 'ws://127.0.0.1:8765/ws/status'
+    mocks.bridge.snapshot = { bridge: { version: '0.2.0' } }
+    render(<TopBar />)
+
+    const version = bridgeCell().getByText('v0.2.0')
+    expect(version.className).toContain('text-warn')
+    expect(version.getAttribute('title')).toContain('0.2.0')
+    expect(version.getAttribute('title')).toContain('0.1')
   })
 
   it('上位机链路连着时给端口，没连时只说未连接', () => {

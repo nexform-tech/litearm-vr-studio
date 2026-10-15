@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card'
 import { Pill } from '@/components/Pill'
 import { StatCard } from '@/components/StatCard'
 import type { VrLinkView } from './useVrLink'
+import { bridgeCompat, SUPPORTED_BRIDGE_VERSION } from './bridgeCompat'
 import { formatArmFault } from './vrLink'
 import type { VrLinkState } from './vrTypes'
 
@@ -32,6 +33,9 @@ function stateStyle(state: VrLinkState, live: boolean) {
 
 export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
   const { t } = useTranslation('vr')
+
+  // 桥报的版本对不对得上这版页面（补丁号不算），见 bridgeCompat
+  const compat = bridgeCompat(vm.bridgeVersion)
 
   const live = vm.headsetOnline
   const style = stateStyle(vm.linkState, live)
@@ -206,6 +210,19 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
           </div>
           <div className="flex flex-none items-center gap-2 font-mono text-[0.625rem] text-ink-muted">
             {vm.bridgeVersion ? <span>v{vm.bridgeVersion}</span> : null}
+            {/* 版本对不上：链接本身是好的，所以只加一枚徽标，不把这一行改成告警色 */}
+            {compat === 'mismatch' ? (
+              <span
+                data-testid="vr-version-warning"
+                className="flex-none rounded-full bg-warn-soft px-1.5 py-0.5 font-sans text-[0.625rem] font-medium text-warn"
+                title={t('link.versionMismatchHint', {
+                  version: vm.bridgeVersion,
+                  supported: SUPPORTED_BRIDGE_VERSION,
+                })}
+              >
+                {t('link.versionMismatch')}
+              </span>
+            ) : null}
             <span>{formatUptime(vm.bridgeUptimeS)}</span>
           </div>
         </div>

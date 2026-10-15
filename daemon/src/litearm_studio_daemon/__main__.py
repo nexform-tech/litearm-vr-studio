@@ -19,6 +19,7 @@ from .obs import handlers as obs_handlers
 from .obs import schema as obs_schema
 from .server import DEFAULT_HTTP_PORT, HTTP_PORT_TRIES, _is_loopback, serve
 from .session import Session
+from .vr import DEFAULT_ENDPOINT as VR_DEFAULT_ENDPOINT, VrSession
 from .window import WindowUnavailable
 
 
@@ -101,6 +102,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--log-stdout", action="store_true",
                    help="把同样的 JSONL 记录也写到 stderr —— 前台运行或交给 "
                         "Fluent Bit / 容器运行时采集时用; 不改变文件行为")
+    p.add_argument("--no-vr", action="store_true",
+                   help="不起 VR 通道 (默认会连 litearm-vr-bridge 的 zenoh 端点)")
+    p.add_argument("--vr-endpoint", default=None, metavar="tcp/HOST:PORT",
+                   help=f"VR 桥的 zenoh 端点 (默认 {VR_DEFAULT_ENDPOINT})")
     return p
 
 
@@ -116,6 +121,8 @@ def build_parser() -> argparse.ArgumentParser:
 _SESSION_SHAPING = (
     "fake", "fake_activated", "port", "ui_dir", "keep_enabled", "no_reconnect",
     "no_gripper", "can_channel", "no_can_setup", "activation_url", "allow_origin",
+    # VR 那条通道描述的是"这次要连谁" —— 与 `port` 同理, 显式改过就不该被静默丢掉。
+    "no_vr", "vr_endpoint",
 )
 
 
@@ -148,6 +155,26 @@ def _reuse_the_running_instance(args: argparse.Namespace,
     else:
         print(f"[litearm-studio-daemon] 它没有窗口可抬起 (无界面运行?); 界面在 {url}")
     return 0
+
+
+def build_vr_session(args: argparse.Namespace):
+    """起 VR 通道；本构建没有 zenoh 时返回 ``None``（缺席，不是坏掉）。
+
+    与夹爪同一套取舍：**没有就不提供**，而不是给一个按下去只会失败的按钮。
+    VR 这条通道没有硬件依赖（只连 zenoh 端点），所以"打不开"不是"不提供" ——
+    桥不在时它停在 `waiting`，界面照实显示"桥不在线"，桥一起来自己就通了。
+    """
+    if args.no_vr:
+        return None
+    try:
+        import zenoh  # noqa: F401 - 只问一句"这个构建有没有它"
+    except ImportError:
+        logging.getLogger("litearm_studio_daemon").warning(
+            "没有 zenoh（eclipse-zenoh），本次不提供 VR 通道")
+        return None
+    session = VrSession(endpoint=args.vr_endpoint or VR_DEFAULT_ENDPOINT)
+    session.start()
+    return session
 
 
 def build_gripper_session(args: argparse.Namespace):
@@ -245,8 +272,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                       disable_on_exit=not args.keep_enabled,
                       activation_url=args.activation_url)
     gripper = build_gripper_session(args)
+    vr_session = build_vr_session(args)
     try:
-        asyncio.run(serve(session, gripper=gripper, host=args.host,
+        asyncio.run(serve(session, gripper=gripper, vr=vr_session, host=args.host,
                           http_port=args.http_port, ui_dir=args.ui_dir,
                           open_browser=not args.no_open,
                           allow_origins=args.allow_origin))

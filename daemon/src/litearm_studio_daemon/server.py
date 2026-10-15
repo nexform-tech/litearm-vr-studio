@@ -64,6 +64,14 @@ DEV_ORIGINS = frozenset({"http://localhost:5173", "http://127.0.0.1:5173"})
 #: (`move_timeout` 默认 15s), `enable` 的重试上界约 3.3s。
 COMMAND_TIMEOUT_S = 60.0
 
+#: `vr.*` 动作的应答上限。**跟着桥走**：桥的 `ZENOH_REPLY_TIMEOUT_S` 默认 20s
+#: （冷启动 `teleop.start` 要等端口 + 等上游，十几秒），这边别比它小，否则会出现
+#: "动作其实成功了、上位机却报超时"。
+VR_ACTION_TIMEOUT_S = 32.0
+
+#: 把臂交给 VR 那条 follow 之前，等"已失能"确认的上限（照 `session` 里 DFU 那条）。
+VR_DISARM_TIMEOUT_S = 3.0
+
 #: 每个客户端**上行**队列的上限, 与下行队列的 256 同一条纪律 (见 `_enqueue_uplink`)。
 UPLINK_QUEUE_MAX = 256
 
@@ -268,6 +276,7 @@ class Daemon:
     """
 
     def __init__(self, session: Session, *, gripper: Optional[Any] = None,
+                 vr: Optional[Any] = None,
                  version: str = __version__,
                  ui_dir: Optional[Path] = None,
                  allow_origins: Iterable[str] = ()) -> None:
@@ -275,6 +284,9 @@ class Daemon:
         #: 夹爪会话 (§3) —— 与臂会话并列, 各推各的帧、各走各的命令白名单。
         #: `None` = 本进程没有夹爪 (非 Linux, 或 `--no-gripper`)。
         self.gripper = gripper
+        #: VR 通道 —— 桥是**另一台进程**, 这条会话只订它的快照（`vr_status`）、
+        #: 发它的动作（`vr_rpc`）。`None` = 本进程不带 VR（`--no-vr`, 或没有 zenoh）。
+        self.vr = vr
         self.version = version
         self.ui_dir = ui_dir
         #: **额外**放行的跨源源 (命令行 `--allow-origin`)。`DEV_ORIGINS` 由
@@ -294,6 +306,8 @@ class Daemon:
         session.add_listener(self._on_session_event)
         if gripper is not None:
             gripper.add_listener(self._on_gripper_event)
+        if vr is not None:
+            vr.add_listener(self._on_vr_event)
         # 结构化记录 → `log` 帧 (issue #79 第 2 点)。文件仍是权威历史, 这一路只让页面
         # 实时跟上; 没有客户端时 `_on_log_record` 立刻返回, 不排任何东西。
         obs.set_sink(self._on_log_record)
@@ -305,6 +319,10 @@ class Daemon:
 
     def _on_gripper_event(self, event: dict) -> None:
         """夹爪会话监听器 —— 同样只做线程安全的投递。"""
+        self.broadcast_threadsafe(event)
+
+    def _on_vr_event(self, event: dict) -> None:
+        """VR 通道监听器 —— 回调来自 **zenoh 的线程**, 同样只做线程安全的投递。"""
         self.broadcast_threadsafe(event)
 
     # ------------------------------------------------------------ 夹爪心跳
@@ -569,6 +587,17 @@ class Daemon:
                 if self.gripper.connected() and gs is not None:
                     await self._send_direct(ws, client, {
                         "t": "gripper_state", "stamp": 0.0, "state": gs,
+                    })
+            if self.vr is not None:
+                # VR 的握手帧与夹爪同构: `vr_conn` 是这条通道连接态的唯一真相。
+                await self._send_direct(ws, client, {
+                    "t": "vr_conn", **self.vr.conn_info(),
+                })
+                for arm_id, snap in sorted(self.vr.snapshots().items()):
+                    # 已收到过快照的臂各补一条 —— 新窗口要立刻画出 3D 与链路, 而不是
+                    # 等下一拍（桥 10Hz, 最坏 100ms; 双臂时两拍的间隔还不一样）。
+                    await self._send_direct(ws, client, {
+                        "t": "vr_state", "stamp": 0.0, "arm": arm_id, "state": snap,
                     })
             self.clients.append(client)
             registered = True
@@ -846,6 +875,12 @@ class Daemon:
             await self._run_gripper_command(ws, client, mid, method, params, trace_id)
             return
 
+        # VR 通道走同一条分流规矩: `vr.` 前缀是唯一判据。它落在**桥**那边
+        # （另一个进程），与臂的命令表、夹爪的命令表都不共用。
+        if method.startswith("vr."):
+            await self._run_vr_command(ws, client, mid, method, params, trace_id)
+            return
+
         # `Session.execute` 是**阻塞**的 (它在单线程执行器上等 SDK 调用), 所以这里
         # 必须丢到线程里, 否则整个事件循环 (含状态推送/急停) 会被一条 movej 憋住。
         # `Session.execute` 内部先做准入判定 (白名单/运动互斥/连接态), 那几步在提交
@@ -923,6 +958,129 @@ class Daemon:
         await self._send_direct(ws, client, {
             "t": "res", "id": mid, "ok": True, "v": jsonable(value),
         })
+
+
+    async def _run_vr_command(self, ws: WebSocket, client: _Client, mid: Any,
+                              method: str, params: dict,
+                              trace_id: Optional[str] = None) -> None:
+        """`vr.*` → 桥的 `vr_rpc` → `res` 帧。
+
+        两处与夹爪那条路不同：
+
+        * **`vr.teleop_start` 之前要把臂交出去** —— 串口是独占的, 而桥起来的
+          follow 要打开同一个口。见 `_hand_arm_to_vr`。
+        * **`ok` 取自桥的回执** —— 桥那边 `ok` 的判据是"下发给跟随服务的每条命令
+          的结果", 不是"桥收到了"。急停这种动作, 界面必须看到是不是真的停下来了；
+          所以桥说 `ok: false` 时这里也回 `ok: false`，把桥的原话放进 `err`。
+        """
+        if self.vr is None:
+            await self._send_direct(ws, client, {
+                "t": "res", "id": mid, "ok": False,
+                "err": {"kind": "VrNotAvailableError",
+                        "msg": "本进程没有 VR 通道（--no-vr，或没装 zenoh）",
+                        "method": method},
+            })
+            return
+
+        handover: dict = {}
+        if method == "vr.teleop_start":
+            handover = await self._hand_arm_to_vr(trace_id)
+
+        try:
+            value = await asyncio.wait_for(
+                asyncio.to_thread(self.vr.execute, method, params),
+                timeout=VR_ACTION_TIMEOUT_S)
+        except asyncio.TimeoutError:
+            obs.error(obs.COMMAND_TIMEOUT,
+                      body=f"{method} 超过 {VR_ACTION_TIMEOUT_S:.0f}s 未返回",
+                      fields={"method": method, "timeout_s": VR_ACTION_TIMEOUT_S,
+                              "scope": "vr"},
+                      trace_id=trace_id)
+            await self._send_direct(ws, client, {
+                "t": "res", "id": mid, "ok": False,
+                "err": {"kind": "CommandTimeoutError",
+                        "msg": f"{method} 超过 {VR_ACTION_TIMEOUT_S:.0f}s 未返回",
+                        "method": method},
+            })
+            return
+        except Exception as e:  # noqa: BLE001 - 任何失败都回一条结构化 err
+            await self._send_direct(ws, client, {
+                "t": "res", "id": mid, "ok": False,
+                "err": error_to_dict(e, method=method),
+            })
+            return
+
+        ok = bool(isinstance(value, dict) and value.get("ok"))
+        if not ok:
+            detail = value if isinstance(value, dict) else {"raw": value}
+            await self._send_direct(ws, client, {
+                "t": "res", "id": mid, "ok": False,
+                "err": {
+                    "kind": "VrActionRefused" if isinstance(value, dict)
+                            else "VrActionFailed",
+                    "msg": _vr_refusal_message(value),
+                    "method": method,
+                    "receipt": detail,
+                    "handover": handover,
+                },
+            })
+            return
+        await self._send_direct(ws, client, {
+            "t": "res", "id": mid, "ok": True,
+            "v": {"receipt": value, "handover": handover},
+        })
+
+    async def _hand_arm_to_vr(self, trace_id: Optional[str]) -> dict:
+        """把机械臂从"上位机这条会话"交给桥那边的 follow。
+
+        顺序照 DFU 那条交棒的教训（`Session._dfu_disarm`）：**先失能并等状态帧
+        确认, 再断开释放串口**。把一个还在使能的臂直接交给 follow, 等于两个主人
+        同时握着它；而 `Session.disconnect()` 本身**不降能量**（那是刻意的, 见它的
+        注释：断开只是结束这次会话），所以失能这一步必须在这里显式做。
+
+        交棒失败**不拦**后续动作: 臂本来就没连上时没什么可交的, 而真拦下来会让
+        "先起桥、再连臂"这种顺序用不了。失败原因随回执一起回给界面。
+        """
+        if not self.session.connected:
+            return {"released": False, "reason": "未连接"}
+        try:
+            await asyncio.to_thread(self.session.execute, "disable", {})
+            disabled = await asyncio.to_thread(
+                _wait_arm_disabled, self.session, VR_DISARM_TIMEOUT_S)
+            await asyncio.to_thread(self.session.disconnect)
+        except Exception as e:  # noqa: BLE001 - 交棒失败如实上报, 让操作员决定
+            log.warning("把臂交给 VR 时出错（已忽略，继续起 VR）", exc_info=True)
+            return {"released": False, "reason": f"{type(e).__name__}: {e}"}
+        if not disabled:
+            log.warning("机械臂在 %.0fs 内没有失能 —— 仍然把串口交给了 VR",
+                        VR_DISARM_TIMEOUT_S)
+        return {"released": True, "disabled": disabled}
+
+
+def _vr_refusal_message(value: Any) -> str:
+    """桥拒绝/失败时给人看的一句话（桥的回执里已经有 `error.message` 就用它）。"""
+    if isinstance(value, dict):
+        error = value.get("error")
+        if isinstance(error, dict) and error.get("message"):
+            return str(error["message"])
+        if value.get("code"):
+            return f"桥拒绝了这次动作（{value['code']}）"
+    return "桥没有接受这次动作"
+
+
+def _wait_arm_disabled(session: Session, timeout_s: float) -> bool:
+    """等状态帧确认 `enabled` 已经是 False。
+
+    读不到状态帧就**不拦**（同 `Session._dfu_disarm` 的判据）：门禁的权威在固件，
+    本地这一眼只为可读性。
+    """
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        doc = session.state() or {}
+        if not doc.get("enabled"):
+            return True
+        time.sleep(0.05)
+    return False
 
 
 def _reserved_path(path: str) -> bool:
@@ -1058,6 +1216,7 @@ def _open_picker(handles: List[Any], *, window: bool
 
 
 def create_app(session: Session, *, gripper: Optional[Any] = None,
+               vr: Optional[Any] = None,
                version: str = __version__,
                ui_dir: Optional[str] = None,
                repo_dist: Optional[Path] = None,
@@ -1078,7 +1237,7 @@ def create_app(session: Session, *, gripper: Optional[Any] = None,
     无界面运行时它是 `None`, `/api/pick-file` 如实回 `no-window`。
     """
     resolved = resolve_ui_dir(ui_dir, repo_dist=repo_dist)
-    daemon = Daemon(session, gripper=gripper, version=version, ui_dir=resolved,
+    daemon = Daemon(session, gripper=gripper, vr=vr, version=version, ui_dir=resolved,
                     allow_origins=allow_origins)
 
     @asynccontextmanager
@@ -1281,12 +1440,20 @@ def _health(daemon: Daemon) -> dict:
     return out
 
 
-def _teardown(gripper: Optional[Any], session: Session) -> None:
+def _teardown(gripper: Optional[Any], session: Session,
+              vr: Optional[Any] = None) -> None:
     """进程退出前的收尾 —— **唯一一处**, 两条启动路径都走它。
 
     ⚠ 夹爪**总是**失能退出: `--keep-enabled` 只对臂有效 (§5.1 第 5 条) —— 一个还夹着
     东西的夹爪不该因为"保存使能"而留在原地。
     """
+    if vr is not None:
+        try:
+            # 只是断一条订阅, 与机械臂无关 —— 但别忘了它: zenoh 的线程不关会
+            # 拖住进程退出（那条线程是 daemon 线程, 所以最坏也只是日志里少一句）。
+            vr.close()
+        except Exception:  # noqa: BLE001 - 收尾失败不该盖住真正的退出原因
+            log.warning("关闭 VR 通道时出错 (已忽略)", exc_info=True)
     if gripper is not None:
         try:
             gripper.close()
@@ -1332,6 +1499,7 @@ def _stop_server(server: Any, thread: threading.Thread,
 
 
 async def serve(session: Session, *, gripper: Optional[Any] = None,
+                vr: Optional[Any] = None,
                 host: str = "127.0.0.1", http_port: int = DEFAULT_HTTP_PORT,
                 ui_dir: Optional[str] = None, open_browser: bool = True,
                 version: str = __version__,
@@ -1382,7 +1550,7 @@ async def serve(session: Session, *, gripper: Optional[Any] = None,
             return False
         handles[0].raise_window()
         return True
-    app = create_app(session, gripper=gripper, version=version, ui_dir=ui_dir,
+    app = create_app(session, gripper=gripper, vr=vr, version=version, ui_dir=ui_dir,
                      allow_origins=allow_origins, focus=_focus,
                      save_path=_export_saver(handles, window=open_browser),
                      pick_path=_open_picker(handles, window=open_browser))
@@ -1419,4 +1587,4 @@ async def serve(session: Session, *, gripper: Optional[Any] = None,
             _stop_server(server, thread)
         obs.info(obs.DAEMON_WINDOW_CLOSED, body="应用窗口已关闭, 程序退出")
     finally:
-        _teardown(gripper, session)
+        _teardown(gripper, session, vr)

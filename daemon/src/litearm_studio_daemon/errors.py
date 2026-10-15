@@ -161,6 +161,21 @@ NOT_CONNECTED_NO_SESSION = "no_session"
 NOT_CONNECTED_DFU_PRESENT = "dfu_present"
 
 
+class VrBridgeUnreachableError(DaemonError):
+    """VR 桥**没有回执**（不可达 / 挂了 / 卡死）—— 与"桥听见了但拒绝"分开。
+
+    这条区分正是桥把动作做成 query（而不是 pub）换来的：pub 下去没人处理时，调用方
+    只能等状态超时、分不清是"没送到"还是"链路断了"；query 超时就能给出结论。
+    所以这里宁可如实报"没送到"，也不假装动作成功 —— 界面上的按钮要能说清是哪一种。
+    """
+
+    def __init__(self, endpoint: str, action: str, detail: str = ""):
+        message = f"VR 桥 {endpoint} 没有回执（{action}）"
+        super().__init__(f"{message}：{detail}" if detail else message)
+        self.endpoint = endpoint
+        self.action = action
+
+
 class NotConnectedCommandError(DaemonError):
     """会话未连接时就发命令。
 

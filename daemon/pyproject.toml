@@ -44,6 +44,12 @@ dependencies = [
     #   按绝对路径加载；`dfu/engine.py` 的 `_load_backend()` **优先**用它。
     "pyusb",
     "libusb-package",
+    # VR 通道（`vr/`）：订 litearm-vr-bridge 的 zenoh 快照、发它的动作。
+    # **在 PyPI 上**（各平台都有预编译轮子），所以正常声明 —— 与 `litearm` /
+    # `litegrip` 那两个必须从 checkout 装的 SDK 不同。
+    # 运行时仍然容缺：没装就是不提供这条通道（`build_vr_session` 会说明原因），
+    # 而不是给出一个按下去只会失败的按钮。
+    "eclipse-zenoh",
 ]
 
 [project.optional-dependencies]

@@ -178,6 +178,25 @@ def gripper_build_args() -> list[str]:
     return ["--collect-all", "litegrip"]
 
 
+def vr_build_args() -> list[str]:
+    """VR 通道（zenoh）的 PyInstaller 参数。
+
+    `zenoh` 是**原生扩展**（Rust 编出来的模块 + 一坨 .so/.dll），PyInstaller 的静态
+    分析看不见它内部的东西 —— 必须 `--collect-all`，否则冻结产物里 `import zenoh`
+    直接失败，而失败的样子是"VR 页面永远显示桥不在线"（与 DFU 那条 `libusb-package`
+    是同一个教训）。
+
+    ⚠ 缺 zenoh 时**判失败**：没有它，产物里的 VR 通道永远是缺席的，而"缺席"在界面上
+    与"桥没开"长得一模一样 —— 一个静默残缺的能力比一次构建失败难查得多。
+    """
+    if not sdk_available("zenoh"):
+        raise SystemExit(
+            "找不到 zenoh（eclipse-zenoh），发布出来的产物**没有 VR 通道**。\n"
+            "    pip install eclipse-zenoh")
+    print("[package] 收集 zenoh（VR 通道：订桥的快照、发动作）")
+    return ["--collect-all", "zenoh"]
+
+
 def dfu_build_args() -> list[str]:
     """固件升级（USB DFU）引擎的 PyInstaller 参数。
 
@@ -662,6 +681,7 @@ def main() -> int:
             # SDK 不在 PyPI 上, 连数据文件一起收进来（缺了判失败, 见 arm_build_args）
             *arm_build_args(),
             *gripper_build_args(),
+            *vr_build_args(),
             *dfu_build_args(),
             *window_build_args(),
             *activation_build_args(activation_url),

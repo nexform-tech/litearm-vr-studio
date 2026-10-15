@@ -1,13 +1,11 @@
 {
   "topbar": {
     "bridgeLabel": "桥",
-    "bridgeUnset": "未设置",
     "bridgeHint": "桥跑在机械臂那台机器上，地址因现场而异 —— 这一页不会去连任何默认地址，请把现场的地址填在这里",
     "addressLabel": "桥地址",
     "addressApply": "应用",
     "addressPlaceholder": "ws://192.168.31.139:8765/ws/status",
-    "consoleLabel": "上位机链路",
-    "consoleBusy": "在动"
+    "consoleBusy": "上位机在动"
   },
   "link": {
     "title": "VR 链路",

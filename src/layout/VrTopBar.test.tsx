@@ -1,12 +1,12 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import i18n from '@/i18n'
 
 /**
- * 顶栏在 VR 页上是另一副内容：只报两条链路的通断，**一个控制都不给**。
+ * VR 页的顶栏只放页面别处说不了的两件事：桥地址、上位机正在驱动机械臂。
  *
- * 这里钉两件事：控制页那条的控制件在 /vr 上真的不见了（不是被 CSS 藏了），
- * 以及桥/上位机两条链路各自的读数取自哪里、未配置时怎么说。
+ * 所以这里既钉"有什么"（地址可填、在动会亮），也钉"没有什么"——控制页那几个控制，
+ * 以及桥的在线状态与版本（那两样归下面链路卡说，说两遍会让人怀疑它们不是一个意思）。
  */
 afterEach(cleanup)
 
@@ -16,17 +16,10 @@ const mocks = vi.hoisted(() => ({
   conn: { current: null as Record<string, unknown> | null },
   motionBusy: { current: false },
   robotState: { current: null as string | null },
-  bridge: {
-    online: false,
-    configured: false,
-    endpoint: '',
-    snapshot: null as unknown,
-    subscribe: () => () => {},
-  },
+  bridge: { endpoint: '' },
   setBridgeEndpoint: vi.fn((value: string) => {
-    // 真的那个会归一化、存本机并重连；这里只把"客户端记住了新地址"这件事模拟出来。
+    // 真的那个会归一化、存本机并重连；这里只模拟"客户端记住了新地址"。
     mocks.bridge.endpoint = value.trim().replace(/\/+$/, '')
-    mocks.bridge.configured = mocks.bridge.endpoint !== ''
   }),
 }))
 
@@ -55,9 +48,8 @@ vi.mock('@/lib/arm', () => ({
 
 const { TopBar } = await import('./TopBar')
 
-const bridgeCell = () => within(screen.getByTestId('vr-topbar-bridge'))
-const consoleCell = () => within(screen.getByTestId('vr-topbar-console'))
 const addressInput = () => screen.getByLabelText('桥地址') as HTMLInputElement
+const activityChip = () => screen.queryByTestId('vr-topbar-console-activity')
 
 beforeEach(async () => {
   mocks.pathname.current = '/vr'
@@ -65,20 +57,17 @@ beforeEach(async () => {
   mocks.conn.current = null
   mocks.motionBusy.current = false
   mocks.robotState.current = null
-  mocks.bridge.online = false
-  mocks.bridge.configured = false
   mocks.bridge.endpoint = ''
-  mocks.bridge.snapshot = null
   mocks.setBridgeEndpoint.mockClear()
   await i18n.changeLanguage('zh')
 })
 
 describe('VR 页顶栏', () => {
-  it('写的是 VR 页的标题，且控制页那几个控制一个都不在', () => {
+  it('写的是 VR 页的标题，控制页那几个控制一个都不在', () => {
     render(<TopBar />)
 
     expect(screen.getByText('VR 遥操控制台')).toBeTruthy()
-    // 串口下拉、连接、断开：这些都是"本控制台驱动哪台设备"，与 VR 链路无关
+    // 串口下拉、连接、断开：这些是"本控制台驱动哪台设备"，与 VR 链路无关
     expect(document.getElementById('topbar-port')).toBeNull()
     expect(document.getElementById('topbar-connect-btn')).toBeNull()
     expect(document.getElementById('topbar-disconnect-btn')).toBeNull()
@@ -88,34 +77,33 @@ describe('VR 页顶栏', () => {
     expect(buttons[0].textContent).toBe('应用')
   })
 
-  it('桥没配过地址时说「未设置」，不说「未连接」', () => {
+  it('桥的在线状态与版本不在这里说（那是链路卡的事）', () => {
     render(<TopBar />)
 
-    expect(bridgeCell().getByText('未设置')).toBeTruthy()
-    expect(bridgeCell().queryByText('未连接')).toBeNull()
+    for (const word of ['已连接', '未连接', '未设置']) {
+      expect(screen.queryByText(word)).toBeNull()
+    }
+    expect(screen.queryByText(/^v\d/)).toBeNull()
   })
 
-  it('桥配过且在线时，地址与版本都在', () => {
-    mocks.bridge.configured = true
-    mocks.bridge.online = true
+  it('配过地址就把地址摆在输入框里，没配过就只有占位符', () => {
+    render(<TopBar />)
+    expect(addressInput().value).toBe('')
+
+    cleanup()
     mocks.bridge.endpoint = 'ws://192.168.31.139:8765/ws/status'
-    mocks.bridge.snapshot = { bridge: { version: '0.1.0' } }
     render(<TopBar />)
-
-    expect(bridgeCell().getByText('已连接')).toBeTruthy()
     expect(addressInput().value).toBe('ws://192.168.31.139:8765/ws/status')
-    expect(bridgeCell().getByText('v0.1.0')).toBeTruthy()
   })
 
-  it('填了地址点「应用」：交给客户端去存并重连，状态立刻改口', () => {    render(<TopBar />)
-    expect(bridgeCell().getByText('未设置')).toBeTruthy()
+  it('点「应用」把它交给客户端去存并重连', () => {
+    render(<TopBar />)
 
-    fireEvent.change(addressInput(), { target: { value: 'ws://192.168.31.139:8765/ws/status' } })
+    fireEvent.change(addressInput(), { target: { value: 'ws://192.168.31.139:8765/ws/status/' } })
     fireEvent.click(screen.getByRole('button', { name: '应用' }))
 
-    expect(mocks.setBridgeEndpoint).toHaveBeenCalledWith('ws://192.168.31.139:8765/ws/status')
-    // 客户端记下了新地址：状态从「未设置」变成「未连接」（还没连上），输入框留着的也是它
-    expect(bridgeCell().getByText('未连接')).toBeTruthy()
+    expect(mocks.setBridgeEndpoint).toHaveBeenCalledWith('ws://192.168.31.139:8765/ws/status/')
+    // 显示的是客户端归一化之后真正存下的那个（去尾斜杠）
     expect(addressInput().value).toBe('ws://192.168.31.139:8765/ws/status')
   })
 
@@ -128,38 +116,23 @@ describe('VR 页顶栏', () => {
     expect(mocks.setBridgeEndpoint).toHaveBeenCalledWith('ws://10.0.0.2:8765/ws/status')
   })
 
-  it('桥版本对不上时，版本号按告警色显示并说明对着哪一版写的', () => {
-    mocks.bridge.configured = true
-    mocks.bridge.online = true
-    mocks.bridge.endpoint = 'ws://127.0.0.1:8765/ws/status'
-    mocks.bridge.snapshot = { bridge: { version: '0.2.0' } }
-    render(<TopBar />)
-
-    const version = bridgeCell().getByText('v0.2.0')
-    expect(version.className).toContain('text-warn')
-    expect(version.getAttribute('title')).toContain('0.2.0')
-    expect(version.getAttribute('title')).toContain('0.1')
-  })
-
-  it('上位机链路连着时给端口，没连时只说未连接', () => {
+  it('上位机闲着的时候不挂任何标签', () => {
     mocks.status.current = 'connected'
     mocks.conn.current = { port: '/dev/ttyACM0' }
     render(<TopBar />)
 
-    expect(consoleCell().getByText('已连接')).toBeTruthy()
-    expect(consoleCell().getByText('/dev/ttyACM0')).toBeTruthy()
+    expect(activityChip()).toBeNull()
   })
 
-  it('上位机在动的时候才挂那颗「在动」', () => {
+  it('上位机在动的时候才亮一颗，且写明是谁在动', () => {
     mocks.status.current = 'connected'
     mocks.conn.current = { port: '/dev/ttyACM0' }
-    render(<TopBar />)
-    expect(screen.queryByTestId('vr-topbar-console-activity')).toBeNull()
-
-    cleanup()
     mocks.robotState.current = 'moving'
     render(<TopBar />)
-    expect(screen.getByTestId('vr-topbar-console-activity').textContent).toContain('在动')
+
+    expect(activityChip()?.textContent).toBe('上位机在动')
+    // 悬停里说明具体在干什么（复用控制卡那套文案）
+    expect(activityChip()?.getAttribute('title')).toBe('正在执行运动指令')
   })
 })
 
@@ -170,7 +143,7 @@ describe('顶栏的分派', () => {
 
     expect(screen.getByText('机械臂控制台')).toBeTruthy()
     expect(document.getElementById('topbar-connect-btn')).toBeTruthy()
-    expect(screen.queryByTestId('vr-topbar-bridge')).toBeNull()
+    expect(screen.queryByLabelText('桥地址')).toBeNull()
   })
 
   it('titleMap 里没有的路径落到控制页那条，而不是 VR 那条', () => {
@@ -178,6 +151,6 @@ describe('顶栏的分派', () => {
     render(<TopBar />)
 
     expect(screen.getByText('机械臂控制台')).toBeTruthy()
-    expect(screen.queryByTestId('vr-topbar-bridge')).toBeNull()
+    expect(screen.queryByLabelText('桥地址')).toBeNull()
   })
 })

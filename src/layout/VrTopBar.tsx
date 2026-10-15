@@ -1,131 +1,83 @@
-import { useReducer, useState, useSyncExternalStore } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
 import { armClient, useArmConnection } from '@/lib/arm'
-import { bridgeCompat, SUPPORTED_BRIDGE_VERSION } from '@/features/vr/bridgeCompat'
 import { setBridgeEndpoint, vrBridge } from '@/features/vr/vrBridgeClient'
 import { consoleActivityLabel, consoleActivityOf } from '@/features/vr/vrOwnership'
 
 /**
- * VR 页的顶栏：**只报两条链路的通断，不给任何控制**。
+ * VR 页的顶栏。
  *
- * 为什么与控制页那条分开：控制页那条管的是"本控制台驱动哪台设备"（选串口、连接、断开），
- * 而 VR 遥操根本不走那条链路 —— 那几个按钮摆在这里既按不动，也按不出对的结果。
- * 反过来，这一页最需要一眼看到的两件事，控制页那条顶栏又都不说：
+ * 它只放**页面别处说不了的两件事**，不做任何"总览"：
  *
- *   * **桥**：这一页唯一的数据源。地址是现场相关的（桥跑在机械臂那台机器上），
- *     没配过就直说"未设置"，不显示"连不上"；
- *   * **上位机链路**：电机负载卡的数就是从这条来的，而且 studio 与 VR 是不是**同时在控**
- *     也取决于它（见 `vrOwnership.ts` 的互斥判定）。
+ *   * **桥地址**：现场相关的输入项（桥跑在机械臂那台机器上），页面上只此一处；
+ *   * **上位机正在驱动机械臂**：这是 VR 与上位机互斥判定的输入，也是操作员在按下
+ *     "开始遥操"之前必须知道的事。
  *
- * 一行放不下时各自截断，不换行 —— 顶栏高度是固定的（`h-14`），页面按它算剩余空间。
+ * ⚠ 桥的在线状态与版本**故意不在这里**：链路卡的数据源那一行与它自己那颗徽标已经把
+ * 这两样说全了，顶栏再说一遍就成了"同一句话在一张页面里说两遍"——那正是这一页
+ * 一直避免的（见 `VrLinkPanel` 里关于"未连接"只由流程条说的那段）。
+ * 上位机连没连同理：电机负载卡与控制卡各自会说。
+ *
+ * 与控制页那条顶栏（选串口、连/断设备）分开的理由，见 `TopBar.tsx` 的分派。
  */
-
-/**
- * 订阅用的快照键。
- *
- * ⚠ 它必须是**字符串**：桥每收到一帧就 notify 一次（10Hz），`useSyncExternalStore`
- * 拿新对象跟旧对象比永远不相等，这一条就会在 10Hz 上重渲染整条顶栏。字符串只在真正
- * 相关的四个值变化时才变，取数照旧直接问 `vrBridge`（都是便宜的 getter）。
- */
-function bridgeStateKey(): string {
-  return [
-    vrBridge.online ? '1' : '0',
-    vrBridge.configured ? '1' : '0',
-    vrBridge.endpoint,
-    vrBridge.snapshot?.bridge?.version ?? '',
-  ].join('\u0000')
-}
-
 export function VrTopBar() {
   const { t } = useTranslation(['common', 'nav', 'vr'])
-
-  useSyncExternalStore(vrBridge.subscribe, bridgeStateKey)
-  const bridgeOnline = vrBridge.online
-  const bridgeConfigured = vrBridge.configured
-  const bridgeEndpoint = vrBridge.endpoint
-  const bridgeVersion = vrBridge.snapshot?.bridge?.version ?? ''
-  // 桥报的版本对不对得上这版页面（补丁号不算），见 bridgeCompat
-  const compat = bridgeCompat(bridgeVersion)
 
   /**
    * 桥地址是**可填的**。
    *
-   * 桥跑在机械臂那台机器上，地址因现场而异；装机时若忘了注入构建期的
-   * `VITE_VR_BRIDGE_ENDPOINT`，操作员原先只能去改 localStorage —— 页面上连个入口都没有
-   * （`a651cb5` 删输入框时自己把这条标成了 Breaking）。填在这里，存本机，立刻重连。
+   * 装机时若忘了注入构建期的 `VITE_VR_BRIDGE_ENDPOINT`，操作员原先只能去改
+   * localStorage —— 页面上连个入口都没有（`a651cb5` 删输入框时自己把这条标成了
+   * Breaking）。填在这里，存本机，立刻重连。
    */
   const [draft, setDraft] = useState(() => vrBridge.endpoint)
-  // ⚠ 提交之后强制重渲染一次：`switchEndpoint` 走 `markOnline(false)`，而那个函数在
-  //   值没变时**提前返回、不发通知**。桥本来就离线时改地址一个通知都不会来，
-  //   状态点与地址文字会停在旧值上。
-  const [, rerender] = useReducer((n: number) => n + 1, 0)
 
   const applyEndpoint = () => {
     setBridgeEndpoint(draft)
     // 取回客户端归一化后的值（去空白、去尾斜杠），让输入框显示的就是真正存下的那个
     setDraft(vrBridge.endpoint)
-    rerender()
   }
 
-  // 上位机链路：与 VR 页自己读的是同一批字段（`useVrLink.ts` 的口径），这样顶栏说的
-  // "上位机在不在动"和页面里那条互斥告警永远是同一件事。
+  // 上位机链路：与 VR 页自己读的是同一批字段（`useVrLink.ts` 的口径），
+  // 这样顶栏说的"在动"和页面里那条互斥告警永远是同一件事。
   const { status, conn, motionBusy } = useArmConnection()
   const robotState = useSyncExternalStore(
     armClient.subscribeState,
     () => armClient.state?.state ?? null,
   )
-  const consoleConnected = status === 'connected'
   const activity = consoleActivityOf({
-    connected: consoleConnected,
+    connected: status === 'connected',
     endpoint: conn?.port ?? '',
     motionBusy,
     robotState,
   })
-
-  // 没配过地址时说的是"未设置"，不是"未连接"：后者会让操作员去查网络，
-  // 而实际要做的只是把地址填上。
-  const bridgeState = bridgeOnline
-    ? t('common:connected')
-    : bridgeConfigured
-      ? t('common:disconnected')
-      : t('vr:topbar.bridgeUnset')
 
   return (
     <div className="flex h-14 flex-none basis-14 items-center justify-between border-b bg-card px-[1.125rem]">
       <div className="flex min-w-0 flex-1 items-center gap-3.5">
         <div className="flex-none text-base font-bold text-foreground">{t('nav:vrTitle')}</div>
 
-        {/* 桥 */}
-        <div
-          data-testid="vr-topbar-bridge"
-          className="flex min-w-0 items-center gap-2"
-          title={bridgeConfigured ? bridgeEndpoint : t('vr:topbar.bridgeHint')}
-        >
-          <div
-            aria-hidden="true"
-            className={cn(
-              'size-[0.4375rem] flex-none rounded-full',
-              bridgeOnline ? 'bg-success' : bridgeConfigured ? 'bg-warn' : 'bg-muted-foreground',
-            )}
-          />
+        <div className="flex min-w-0 items-center gap-2" title={t('vr:topbar.bridgeHint')}>
           <span className="flex-none text-xs font-medium text-muted-foreground">
             {t('vr:topbar.bridgeLabel')}
           </span>
-          <span className="flex-none text-xs font-semibold text-foreground">{bridgeState}</span>
-          <Input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') applyEndpoint()
-            }}
-            placeholder={t('vr:topbar.addressPlaceholder')}
-            spellCheck={false}
-            aria-label={t('vr:topbar.addressLabel')}
-            className="h-7 w-[17rem] flex-none font-mono text-[0.6875rem]"
-          />
+          {/* ⚠ 宽度定在外层：`Input` 自带 `w-full`，同一个工具类再写一遍谁赢由样式表顺序
+              决定，不由类名顺序决定 —— 直接把宽度写在它身上会被 `w-full` 压成父容器的宽。 */}
+          <div className="w-[20rem] flex-none">
+            <Input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') applyEndpoint()
+              }}
+              placeholder={t('vr:topbar.addressPlaceholder')}
+              spellCheck={false}
+              aria-label={t('vr:topbar.addressLabel')}
+              className="h-7 font-mono text-[0.6875rem]"
+            />
+          </div>
           <Button
             type="button"
             size="sm"
@@ -135,57 +87,18 @@ export function VrTopBar() {
           >
             {t('vr:topbar.addressApply')}
           </Button>
-          {bridgeOnline && bridgeVersion ? (
-            <span
-              className={cn(
-                'flex-none font-mono text-[0.6875rem]',
-                compat === 'mismatch' ? 'font-semibold text-warn' : 'text-muted-foreground',
-              )}
-              title={
-                compat === 'mismatch'
-                  ? t('vr:link.versionMismatchHint', {
-                      version: bridgeVersion,
-                      supported: SUPPORTED_BRIDGE_VERSION,
-                    })
-                  : undefined
-              }
-            >
-              v{bridgeVersion}
-            </span>
-          ) : null}
         </div>
 
-        {/* 上位机链路（studio → daemon → 串口） */}
-        <div data-testid="vr-topbar-console" className="flex min-w-0 items-center gap-2">
-          <div
-            aria-hidden="true"
-            className={cn(
-              'size-[0.4375rem] flex-none rounded-full',
-              consoleConnected ? 'bg-success' : 'bg-muted-foreground',
-            )}
-          />
-          <span className="flex-none text-xs font-medium text-muted-foreground">
-            {t('vr:topbar.consoleLabel')}
+        {/* 只在真在动的时候出现：空闲是常态，写成常驻标签只会让人不再看它 */}
+        {activity ? (
+          <span
+            data-testid="vr-topbar-console-activity"
+            className="flex-none rounded-full bg-warn-soft px-2 py-0.5 text-[0.6875rem] font-medium text-warn"
+            title={consoleActivityLabel(t, activity)}
+          >
+            {t('vr:topbar.consoleBusy')}
           </span>
-          <span className="flex-none text-xs font-semibold text-foreground">
-            {consoleConnected ? t('common:connected') : t('common:disconnected')}
-          </span>
-          {consoleConnected && conn?.port ? (
-            <span className="truncate font-mono text-[0.6875rem] text-muted-foreground">
-              {conn.port}
-            </span>
-          ) : null}
-          {/* 只在真在动的时候出现：空闲是常态，写成常驻标签只会让人不再看它 */}
-          {activity ? (
-            <span
-              data-testid="vr-topbar-console-activity"
-              className="flex-none rounded-full bg-warn-soft px-2 py-0.5 text-[0.6875rem] font-medium text-warn"
-              title={consoleActivityLabel(t, activity)}
-            >
-              {t('vr:topbar.consoleBusy')}
-            </span>
-          ) : null}
-        </div>
+        ) : null}
       </div>
     </div>
   )

@@ -36,6 +36,8 @@
     "fallbackTitle": "Safe hold engaged",
     "fallbackBody": "No frames for over {{ms}} ms — the bridge sent latch to hold in place. Following resumes only after a fresh grip press.",
     "fallbackReasonLabel": "Reason",
+    "faultTitle": "Follow server faults ({{count}})",
+    "armErrorTitle": "Follow server error",
     "guardOff": "Fallback is off (FALLBACK_ENABLED=0 on the bridge): no automatic hold even after {{ms}} ms without new frames",
     "rearmHint": "Press the right grip again (release → press) to resume following",
     "sourceBridge": "Source · litearm-vr-bridge"

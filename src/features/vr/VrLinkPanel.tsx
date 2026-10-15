@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card'
 import { Pill } from '@/components/Pill'
 import { StatCard } from '@/components/StatCard'
 import type { VrLinkView } from './useVrLink'
+import { formatArmFault } from './vrLink'
 import type { VrLinkState } from './vrTypes'
 
 const OK = '#137a44'
@@ -148,6 +149,25 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
         </div>
       ) : null}
 
+      {/* 跟随服务报的故障码：这是**设备**在说它有事，排在那几条"提醒"前面 */}
+      {vm.armFault && vm.armFault.length > 0 ? (
+        <div
+          data-testid="vr-arm-fault"
+          className="flex items-start gap-2 rounded-[0.625rem] border border-danger-line bg-danger-soft px-2.5 py-2"
+        >
+          <TriangleAlert size="0.9375rem" className="mt-[0.0625rem] flex-none text-danger" />
+          <div className="min-w-0">
+            <div className="text-[0.78125rem] font-semibold text-danger">
+              {t('link.faultTitle', { count: vm.armFault.length })}
+            </div>
+            {/* 原样显示：两个版本的跟随服务报的不是一回事（见 vrLink 的 formatArmFault） */}
+            <div className="mt-0.5 font-mono text-[0.6875rem] leading-relaxed break-words text-danger/85">
+              {vm.armFault.map(formatArmFault).join('  ')}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {!vm.fallbackGuardEnabled ? (
         <div className="rounded-[0.625rem] border border-warn-line bg-warn-soft px-2.5 py-2 text-[0.71875rem] text-warn">
           {t('link.guardOff', { ms: vm.fallbackMs.toFixed(0) })}
@@ -157,6 +177,17 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
       {vm.rearmRequired && !vm.fallbackActive ? (
         <div className="rounded-[0.625rem] border border-warn-line bg-warn-soft px-2.5 py-2 text-[0.71875rem] text-warn">
           {t('link.rearmHint')}
+        </div>
+      ) : null}
+
+      {/* 与跟随服务之间最后一次失败的原因：它答的正是下面那一跳为什么写着"未连接"。
+          桥报的是原始异常串（`TimeoutError: ` 这种，见 bridge 的 follow.py），照实显示。 */}
+      {vm.armError ? (
+        <div
+          data-testid="vr-arm-error"
+          className="rounded-[0.625rem] border border-danger-line bg-danger-soft px-2.5 py-2 text-[0.71875rem] break-words text-danger"
+        >
+          {t('link.armErrorTitle')}: <span className="font-mono">{vm.armError}</span>
         </div>
       ) : null}
 

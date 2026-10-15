@@ -215,3 +215,44 @@ describe('VR 面板 · 桥连不上时（没有兜底数据）', () => {
     }
   })
 })
+
+/**
+ * 跟随服务的故障与错误：桥报得出"为什么"，页面以前一个字都不说。
+ *
+ * 载荷是手写的：真快照里这两个字段始终是空的（健康的桥就这么报），所以这里没法拿真固件钉。
+ */
+describe('VR 链路卡 · 跟随服务的故障与错误', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('zh')
+  })
+  afterEach(() => cleanup())
+
+  it('故障码两种形状都显示出来，而不是只说"有故障"', () => {
+    render(<VrLinkPanel vm={viewOf({ arm: { fault: [[3, 5], 'FB_STALE'] } })} />)
+
+    const banner = screen.getByTestId('vr-arm-fault')
+    expect(banner.textContent).toContain('跟随服务报故障（2 条）')
+    // sdk 版的两元组与 stm32 版的 flag 名
+    expect(banner.textContent).toContain('J3: 5')
+    expect(banner.textContent).toContain('FB_STALE')
+  })
+
+  it('健康的时候不出现故障条', () => {
+    render(<VrLinkPanel vm={viewOf({ arm: { fault: [] } })} />)
+
+    expect(screen.queryByTestId('vr-arm-fault')).toBeNull()
+  })
+
+  it('连不上跟随服务时，把原因一并说出来', () => {
+    render(<VrLinkPanel vm={viewOf({ arm: { connected: false, error: 'TimeoutError: ' } })} />)
+
+    expect(screen.getByTestId('vr-arm-error').textContent).toContain('TimeoutError: ')
+  })
+
+  it('桥离线时不编原因', () => {
+    render(<VrLinkPanel vm={offlineView()} />)
+
+    expect(screen.queryByTestId('vr-arm-error')).toBeNull()
+    expect(screen.queryByTestId('vr-arm-fault')).toBeNull()
+  })
+})

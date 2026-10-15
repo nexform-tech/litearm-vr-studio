@@ -111,8 +111,14 @@ export type VrLinkSnapshot = {
   armError: string | null
   /** 距最后一次成功 ping 的时间（ms） */
   armLastOkMs: number | null
-  /** 故障码个数 */
-  faultCount: number
+  /**
+   * 跟随服务报的故障码，**原样留着**；空数组 = 健康，null = 桥没报过。
+   *
+   * 两种形状都要能显示：sdk 版是 `[joint, err]` 两元组，stm32 版是 flag 名字串
+   * （见 litearm-vr-bridge `docs/FOLLOW-SERVER-COMPAT.md`）。所以这里不压成个数 ——
+   * 压掉了就再也说不出"是哪个关节、什么错"。
+   */
+  armFault: unknown[] | null
   /**
    * 机械臂 7 关节角（rad），**只在桥真的报过姿态之后才有值**。
    * null = 一个真实字节都没收到过，界面显示"—"，而不是拿一个编造的姿态顶上。

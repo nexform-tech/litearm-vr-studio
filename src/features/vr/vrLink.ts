@@ -50,6 +50,22 @@ function sourceOf(value: unknown): VrArmSource {
   return value === 'follow_server' || value === 'controller' ? 'real' : 'sim'
 }
 
+/**
+ * 一条故障码 → 一句话。
+ *
+ * ⚠ 两种形状都认，因为两个版本的跟随服务报的不是一回事（见 bridge 的
+ * `docs/FOLLOW-SERVER-COMPAT.md`）：sdk 版是 `[joint, err]`，stm32 版是 flag 名字串
+ * （`FB_STALE` / `WD_TRIPPED` …）。认不出来的一律原样显示 —— 让操作员看到服务真正报的
+ * 那个东西，比看到我们编的一句翻译有用（顶栏那三块状态也是这个口径）。
+ */
+export function formatArmFault(entry: unknown): string {
+  if (Array.isArray(entry)) {
+    const [joint, err] = entry as [unknown, unknown]
+    return `J${String(joint)}: ${String(err)}`
+  }
+  return String(entry)
+}
+
 const LINK_STATES: readonly VrLinkState[] = ['idle', 'following', 'latched', 'fallback']
 
 function linkStateOf(value: unknown, fallback: VrLinkState): VrLinkState {
@@ -93,7 +109,7 @@ export function emptyBridgeFields(): VrBridgeFields {
     armState: null,
     armError: null,
     armLastOkMs: null,
-    faultCount: 0,
+    armFault: null,
     owner: 'none',
   }
 }
@@ -151,7 +167,7 @@ export function mapBridgeSnapshot(snapshot: VrBridgeSnapshot): {
       armState: typeof arm.state === 'string' ? arm.state : null,
       armError: typeof arm.error === 'string' ? arm.error : null,
       armLastOkMs: optionalMs(arm.last_ok_age_ms),
-      faultCount: Array.isArray(arm.fault) ? arm.fault.length : 0,
+      armFault: Array.isArray(arm.fault) ? arm.fault : null,
       owner: asString(snapshot.owner, 'none'),
     },
     q,

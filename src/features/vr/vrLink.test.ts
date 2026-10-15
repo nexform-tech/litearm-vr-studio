@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { emptyBridgeFields, mapBridgeSnapshot } from './vrLink'
+import { emptyBridgeFields, formatArmFault, mapBridgeSnapshot } from './vrLink'
 import { SNAP_FALLBACK, SNAP_FOLLOWING, SNAP_NO_HEADSET, SNAP_STOPPED } from './__fixtures__/bridgeSnapshots'
 
 /**
@@ -39,7 +39,7 @@ describe('mapBridgeSnapshot · 头显与转发指标', () => {
     // 只有长度 7 且都是有限数的 q 才采用
     expect(q).toHaveLength(7)
     expect(q?.[1]).toBeLessThan(0)
-    expect(fields.faultCount).toBe(0)
+    expect(fields.armFault).toEqual([])
   })
 
   it('头显未接入时给出可用的空态', () => {
@@ -131,5 +131,48 @@ describe('字段缺失 / 桥换版本时的健壮性', () => {
     expect(empty.framesForwarded).toBe(0)
     expect(empty.bridgeVersion).toBe('')
     expect(empty.linkState).toBe('idle')
+  })
+})
+
+/**
+ * 跟随服务的故障与错误（`arm.fault` / `arm.error`）。
+ *
+ * 固件里那四份真快照这两个字段都是空的（健康的桥就是这么报的），所以这里用手写的载荷，
+ * 而不是往 `__fixtures__` 里塞一份假的"真快照"——那份文件的规矩是从真桥抓下来的。
+ */
+describe('mapBridgeSnapshot · 跟随服务的故障', () => {
+  it('故障码原样留着，不是只留一个数', () => {
+    const faults = [[3, 5], 'FB_STALE']
+    expect(mapBridgeSnapshot({ arm: { fault: faults } }).fields.armFault).toEqual(faults)
+  })
+
+  it('健康（空数组）与"桥没报过"（null）分得开', () => {
+    expect(mapBridgeSnapshot({ arm: { fault: [] } }).fields.armFault).toEqual([])
+    expect(mapBridgeSnapshot({ arm: { fault: null } }).fields.armFault).toBeNull()
+    expect(mapBridgeSnapshot({ arm: {} }).fields.armFault).toBeNull()
+    expect(emptyBridgeFields().armFault).toBeNull()
+  })
+
+  it('错误原因照实映射，没有就是 null', () => {
+    expect(mapBridgeSnapshot({ arm: { error: 'TimeoutError: ' } }).fields.armError).toBe(
+      'TimeoutError: ',
+    )
+    expect(mapBridgeSnapshot({ arm: { error: null } }).fields.armError).toBeNull()
+  })
+})
+
+describe('formatArmFault', () => {
+  it('sdk 版的两元组写成「哪个关节、什么错」', () => {
+    expect(formatArmFault([3, 5])).toBe('J3: 5')
+  })
+
+  it('stm32 版的 flag 名字原样显示', () => {
+    expect(formatArmFault('FB_STALE')).toBe('FB_STALE')
+  })
+
+  it('认不出来的东西也不吞掉', () => {
+    // 宁可显示一个不好看的字符串，也不要让一条故障在界面上消失
+    expect(formatArmFault(null)).toBe('null')
+    expect(formatArmFault([1])).toBe('J1: undefined')
   })
 })

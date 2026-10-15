@@ -191,7 +191,7 @@ def test_poller_polls_the_endpoint_the_bridge_named() -> None:
         assert frame["mismatch"] is False
         assert frame["state"]["connected"] is True
         assert frame["state"]["source"] == "stm32"
-        assert frame["state"]["name"] == "/dev/ttyACM0"     # 回包里的 `port`
+        assert frame["state"]["device"] == "/dev/ttyACM0"   # 回包里的 `port`
         # 6 元组拉平成六个并行数组（与上游汇总那份同形）
         assert frame["state"]["joints"]["tau"] == [0.2] * 7
         assert frame["state"]["joints"]["t_mos"] == [35.0] * 7
@@ -216,7 +216,7 @@ def test_poller_flags_a_manifest_mismatch() -> None:
         frame = next(f for f in frames if f["t"] == "vr_arm")
         assert frame["mismatch"] is True
         assert frame["expected"] == "/dev/ttyACM0"
-        assert frame["state"]["name"] == "/dev/ttyACM9"
+        assert frame["state"]["device"] == "/dev/ttyACM9"
     finally:
         poller.close()
         follow.close()
@@ -234,7 +234,7 @@ def test_poller_reports_an_unreachable_follow() -> None:
         frame = next(f for f in frames if f["t"] == "vr_arm")
         assert frame["state"]["connected"] is False
         assert frame["state"]["error"]
-        assert frame["state"]["name"] == "/dev/ttyACM1"   # 读不到就报清单里的那个
+        assert frame["state"]["device"] == "/dev/ttyACM1"  # 读不到就报清单里的那个
     finally:
         poller.close()
 

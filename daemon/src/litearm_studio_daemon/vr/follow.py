@@ -14,10 +14,11 @@ follow 自己只知道它开的那个串口（`ping` 回包里的 `port`）—�
 **只读**：只发 `ping`，绝不发 start / q / movej —— 跟遥操并行跑是安全的。
 
 **帧的形状照上游**：上游的状态汇总（`status_aggregator.py`）发的 `vr_arm` 载荷是
-`status_msgs.ArmStatus`：`{name, connected, ok, source, state, mode, enabled,
+`status_msgs.ArmStatus`：`{device, connected, ok, source, state, mode, enabled,
 following, flags, fault, joint_fault, q, target, anchor, cmd_q,
-joints{q,dq,tau,t_mos,t_coil,err}, age_ms, error}`。我们发的**同形**（多两个自己的
-键：`expected` 与 `mismatch`）—— 哪天改用上游那台汇总服务，前端一行都不用动。
+joints{q,dq,tau,t_mos,t_coil,err}, age_ms, error}`（字段叫 `device` 不叫 `name` ——
+跟着上游 2026-10-15 的改名）。我们发的**同形**（多两个自己的键：`expected` 与
+`mismatch`）—— 哪天改用上游那台汇总服务，前端一行都不用动。
 """
 
 from __future__ import annotations
@@ -160,7 +161,7 @@ class FollowPoller:
             self._drop_socket(target.arm)
             error = f"{type(exc).__name__}: {exc}"
         payload = _arm_payload(target, reply, error=error)
-        device = str(payload.get("name") or "")
+        device = str(payload.get("device") or "")
         return {
             "t": "vr_arm",
             "stamp": round(time.monotonic(), 4),
@@ -231,16 +232,16 @@ _JOINT_FIELDS = ("q", "dq", "tau", "t_mos", "t_coil", "err")
 def _arm_payload(target: _ArmTarget, reply: Optional[dict], *, error: Optional[str]) -> dict:
     if reply is None:
         return {
-            "name": target.device, "connected": False, "ok": False, "source": "",
+            "device": target.device, "connected": False, "ok": False, "source": "",
             "state": None, "mode": None, "enabled": None, "following": None,
             "flags": [], "fault": [], "joint_fault": None, "q": None,
             "target": None, "anchor": None, "cmd_q": None, "joints": None,
             "age_ms": 0.0, "error": error or "跟随服务不可达",
         }
-    # `port` 是 follow 打开的那个串口 —— **它自己报的身份**（回包没带就退回清单里的）。
-    name = reply.get("port") or target.device
+    # `port` 是 follow 打开的那个串口 —— **它自己报的物理身份**（回包没带就退回清单里的）。
+    device = reply.get("port") or target.device
     return {
-        "name": str(name), "connected": True, "ok": bool(reply.get("ok", True)),
+        "device": str(device), "connected": True, "ok": bool(reply.get("ok", True)),
         "source": _arm_source(reply),
         "state": reply.get("state"), "mode": reply.get("mode"),
         "enabled": reply.get("enabled"), "following": reply.get("following"),

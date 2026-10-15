@@ -28,7 +28,6 @@ import time
 from typing import Any, Callable, Optional
 
 from ..errors import UnknownCommandError, VrBridgeUnreachableError
-from .follow import FollowPoller
 
 log = logging.getLogger(__name__)
 
@@ -41,6 +40,15 @@ DEFAULT_ENDPOINT = "tcp/127.0.0.1:7447"
 #: 快照的 key expression：`*` 吃掉臂那一段 —— 双臂时一条订阅收两条臂的流，
 #: 各份快照自带 `arm_id`（桥那边加的），这里按它分流。
 STATUS_KEYEXPR = "litearm/v4/*/vr_status"
+
+#: 真机状态（角度/力矩/温度、夹爪）：上游那台**状态汇总**（`status_aggregator.py`）
+#: 按臂发 —— 中段就是**臂身份**（由桥的臂清单配给它），所以身份不用猜、也不用对表。
+#: 桥不照下游，这条路是上位机拿真机状态的唯一来源。
+ARM_KEYEXPR = "litearm/v4/*/vr_arm"
+GRIP_KEYEXPR = "litearm/v4/*/vr_grip"
+
+#: 话题后缀 → 帧类型（`vr_arm` / `vr_grip` 都是原样透传的汇总载荷）。
+_DEVICE_CHANNELS = {"vr_arm": "vr_arm", "vr_grip": "vr_grip"}
 
 #: 这么久没快照就算"桥不在线"。桥自己按 10Hz 推，所以这是很宽的余量。
 SNAPSHOT_STALE_S = 3.0
@@ -75,7 +83,7 @@ class VrSession:
     """到桥的一条 zenoh 通道：订快照、发动作。"""
 
     def __init__(self, *, endpoint: str = DEFAULT_ENDPOINT,
-                 arm_hint: str = "armA", poll_follow: bool = True) -> None:
+                 arm_hint: str = "armA") -> None:
         self._endpoint = endpoint
         #: 还没收到任何快照时，动作发给谁（约定里的第一条臂）。
         self._arm_hint = arm_hint
@@ -87,17 +95,10 @@ class VrSession:
         self._snapshots: dict[str, dict] = {}
         self._last_rx: Optional[float] = None
         self._session: Any = None
-        self._subscriber: Any = None
+        self._subscribers: list[Any] = []
         self._thread: Optional[threading.Thread] = None
         self._closing = False
         self._wake = threading.Event()
-
-        # 真机状态（q / 力矩 / 温度）走**另一条路**：桥不再照下游，所以这里按桥
-        # 快照里给的端点（`arm.follow`）直接去问 follow —— 只读，可与遥操并行。
-        # 与 zenoh 那条链路分开成两个对象，但同生共死：桥不在时它也学不到端点。
-        self._poller: Optional[FollowPoller] = FollowPoller() if poll_follow else None
-        if self._poller is not None:
-            self._poller.add_listener(self._broadcast)
 
     # ------------------------------------------------------------------ 生命周期
     def start(self) -> None:
@@ -106,8 +107,6 @@ class VrSession:
         self._thread = threading.Thread(target=self._run, name="litearm-vr-session",
                                         daemon=True)
         self._thread.start()
-        if self._poller is not None:
-            self._poller.start()
 
     def _run(self) -> None:
         """开会话、订快照，然后守着连接态 —— 直到 `close()`。"""
@@ -124,7 +123,12 @@ class VrSession:
                 self._wake.clear()
                 continue
             try:
-                subscriber = session.declare_subscriber(STATUS_KEYEXPR, self._on_sample)
+                subscribers = [
+                    session.declare_subscriber(STATUS_KEYEXPR, self._on_sample),
+                    # 真机状态（上游汇总发的）：`vr_arm` / `vr_grip` 两条，中段是臂身份
+                    session.declare_subscriber(ARM_KEYEXPR, self._on_device),
+                    session.declare_subscriber(GRIP_KEYEXPR, self._on_device),
+                ]
             except Exception as exc:  # noqa: BLE001
                 self._fail(f"订阅 {STATUS_KEYEXPR} 失败：{type(exc).__name__}: {exc}")
                 _quiet_close(session)
@@ -134,13 +138,14 @@ class VrSession:
 
             with self._lock:
                 self._session = session
-                self._subscriber = subscriber
+                self._subscribers = subscribers
                 if self._status != "connected":
                     self._status = "waiting"
                 self._error = None
             self._publish_conn()
             opened_at = time.monotonic()
-            log.info("VR 通道已开启：%s（订 %s）", self._endpoint, STATUS_KEYEXPR)
+            log.info("VR 通道已开启：%s（订 %s / %s / %s）", self._endpoint,
+                     STATUS_KEYEXPR, ARM_KEYEXPR, GRIP_KEYEXPR)
 
             while not self._closing:
                 self._wake.wait(0.5)
@@ -148,16 +153,15 @@ class VrSession:
                 self._refresh_status()
 
             with self._lock:
-                self._subscriber = None
+                subscribers, self._subscribers = self._subscribers, []
                 self._session = None
-            _quiet_close(subscriber)
+            for subscriber in subscribers:
+                _quiet_close(subscriber)
             _quiet_close(session)
             log.info("VR 通道已关闭（%s）", self._endpoint)
 
     def close(self, timeout_s: float = 5.0) -> None:
         """停线程。同步阻塞 —— 从事件循环调用请用 `to_thread`。"""
-        if self._poller is not None:
-            self._poller.close(timeout_s)
         self._closing = True
         self._wake.set()
         thread, self._thread = self._thread, None
@@ -176,9 +180,6 @@ class VrSession:
             "status": status,
             "endpoint": self._endpoint,
             "arms": arms,
-            # 真机状态问的是谁（排障：桥报了端点、轮询这头有没有认到）
-            "follow": ({arm: target for arm, target in self._poller.arms().items()}
-                       if self._poller is not None else {}),
             "lastStateAgeMs": (
                 None if last is None else round((time.monotonic() - last) * 1000.0, 1)
             ),
@@ -288,11 +289,30 @@ class VrSession:
                 self._error = None
         if became_online:
             self._publish_conn()
-        event = {"t": "vr_state", "stamp": round(now, 4), "arm": arm, "state": snap}
-        if self._poller is not None:
-            # 桥的快照里带着"这条臂的 follow 在哪个端点" —— 轮询据此认路
-            self._poller.observe(event)
-        self._broadcast(event)
+        self._broadcast({"t": "vr_state", "stamp": round(now, 4), "arm": arm,
+                         "state": snap})
+
+    def _on_device(self, sample: Any) -> None:
+        """真机状态（上游汇总发的 `vr_arm` / `vr_grip`）：**原样**透传给前端。
+
+        身份在**话题中段**（`litearm/v4/{臂}/vr_arm`）—— 那是桥的臂清单配给它的，
+        所以这里不用对表、不用猜。（载荷形状见 `status_msgs.ArmStatus` /
+        `GripperStatus`，我们一个字都不改：同形的好处是前端只认一种形状。）
+        """
+        key = str(sample.key_expr)
+        parts = key.split("/")
+        if len(parts) < 4:
+            return
+        frame_type = _DEVICE_CHANNELS.get(parts[3])
+        if frame_type is None:
+            return
+        try:
+            payload = json.loads(bytes(sample.payload).decode("utf-8", "replace"))
+        except (ValueError, TypeError):
+            log.debug("设备状态不是 JSON，丢弃：%.80s", key)
+            return
+        self._broadcast({"t": frame_type, "stamp": round(time.monotonic(), 4),
+                         "arm": parts[2], "state": payload})
 
     def _refresh_status(self) -> None:
         """守着连接态：快照过期就退回 waiting（桥挂了不该一直显示"在线"）。"""

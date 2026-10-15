@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import socket
-import threading
 import time
 from typing import Any, Optional
 
@@ -20,7 +19,7 @@ from litearm_studio_daemon import server
 from litearm_studio_daemon.errors import VrBridgeUnreachableError
 from litearm_studio_daemon.server import create_app
 from litearm_studio_daemon.session import Session
-from litearm_studio_daemon.vr import FollowPoller, VrSession
+from litearm_studio_daemon.vr import VrSession
 
 # ── 工具 ────────────────────────────────────────────────────────────────────
 
@@ -78,6 +77,10 @@ class FakeBridge:
     def push(self, arm: str, snapshot: dict) -> None:
         self.pubs[arm].put(json.dumps(snapshot).encode("utf-8"))
 
+    def put(self, key: str, payload: dict) -> None:
+        """往任意话题发一份（真机状态那两条用得上）。"""
+        self.session.put(key, json.dumps(payload).encode("utf-8"))
+
     def close(self) -> None:
         self.session.close()
 
@@ -87,156 +90,6 @@ def bridge():
     fake = FakeBridge()
     yield fake
     fake.close()
-
-
-class FakeFollow:
-    """假 follow：每行一条 JSON，认 `ping`（回包照 `arm_follow_server_stm32.py` 的形状）。
-
-    故意把 `joints` 做成**每关节一个 6 元组**——真机那版就是这么回的，而上游的汇总
-    服务把它拉平成六个并行数组，我们跟着上游的形状走。
-    """
-
-    def __init__(self, reply: Optional[dict] = None) -> None:
-        self.reply = reply if reply is not None else {
-            "ok": True, "state": "MOVE_J", "mode": "jf", "enabled": True,
-            "following": False, "flags": [], "joint_fault": 0,
-            "q": [0.1] * 7, "target": [0.1] * 7, "anchor": [0.0] * 7,
-            "cmd_q": [0.1] * 7,
-            "joints": [[0.1, 0.0, 0.2, 35.0, 33.0, 0] for _ in range(7)],
-            "port": "/dev/ttyACM0",
-        }
-        self.pings = 0
-        self._sock = socket.socket()
-        self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._sock.bind(("127.0.0.1", 0))
-        self._sock.listen(4)
-        self.port = int(self._sock.getsockname()[1])
-        self._closing = False
-        self._thread = threading.Thread(target=self._serve, daemon=True)
-        self._thread.start()
-
-    @property
-    def endpoint(self) -> str:
-        return f"127.0.0.1:{self.port}"
-
-    def _serve(self) -> None:
-        self._sock.settimeout(0.2)
-        while not self._closing:
-            try:
-                conn, _ = self._sock.accept()
-            except socket.timeout:
-                continue
-            except OSError:
-                break
-            threading.Thread(target=self._handle, args=(conn,), daemon=True).start()
-
-    def _handle(self, conn: socket.socket) -> None:
-        conn.settimeout(0.2)
-        buffer = b""
-        try:
-            while not self._closing:
-                try:
-                    chunk = conn.recv(4096)
-                except socket.timeout:
-                    continue
-                except OSError:
-                    break
-                if not chunk:
-                    break
-                buffer += chunk
-                while b"\n" in buffer:
-                    line, _, buffer = buffer.partition(b"\n")
-                    try:
-                        message = json.loads(line)
-                    except ValueError:
-                        continue
-                    if message.get("cmd") == "ping":
-                        self.pings += 1
-                        conn.sendall((json.dumps(self.reply) + "\n").encode("utf-8"))
-        finally:
-            try:
-                conn.close()
-            except OSError:
-                pass
-
-    def close(self) -> None:
-        self._closing = True
-        try:
-            self._sock.close()
-        except OSError:
-            pass
-        self._thread.join(timeout=2.0)
-
-
-# ── 直连 follow 的轮询（不经过桥） ──────────────────────────────────────────
-
-
-def _snapshot_frame(arm: str, *, device: str, endpoint: str) -> dict:
-    return {"t": "vr_state", "arm": arm,
-            "state": {"arm": {"device": device, "follow": endpoint}}}
-
-
-def test_poller_polls_the_endpoint_the_bridge_named() -> None:
-    follow = FakeFollow()
-    poller = FollowPoller(hz=20.0)
-    frames: list[dict] = []
-    poller.add_listener(frames.append)
-    poller.observe(_snapshot_frame("armA", device="/dev/ttyACM0", endpoint=follow.endpoint))
-    assert poller.arms() == {"armA": follow.endpoint}
-    poller.start()
-    try:
-        assert wait_until(lambda: any(f.get("t") == "vr_arm" for f in frames))
-        frame = next(f for f in frames if f["t"] == "vr_arm")
-        assert frame["arm"] == "armA"
-        assert frame["mismatch"] is False
-        assert frame["state"]["connected"] is True
-        assert frame["state"]["source"] == "stm32"
-        assert frame["state"]["device"] == "/dev/ttyACM0"   # 回包里的 `port`
-        # 6 元组拉平成六个并行数组（与上游汇总那份同形）
-        assert frame["state"]["joints"]["tau"] == [0.2] * 7
-        assert frame["state"]["joints"]["t_mos"] == [35.0] * 7
-        assert len(frame["state"]["joints"]["q"]) == 7
-        assert follow.pings >= 1
-    finally:
-        poller.close()
-        follow.close()
-
-
-def test_poller_flags_a_manifest_mismatch() -> None:
-    """回包说它开的是另一个口 ⇒ 清单和现场对不上，界面要看得见。"""
-    follow = FakeFollow(reply={"ok": True, "state": "MOVE_J", "flags": [],
-                               "port": "/dev/ttyACM9"})
-    poller = FollowPoller(hz=20.0)
-    frames: list[dict] = []
-    poller.add_listener(frames.append)
-    poller.observe(_snapshot_frame("armA", device="/dev/ttyACM0", endpoint=follow.endpoint))
-    poller.start()
-    try:
-        assert wait_until(lambda: any(f.get("t") == "vr_arm" for f in frames))
-        frame = next(f for f in frames if f["t"] == "vr_arm")
-        assert frame["mismatch"] is True
-        assert frame["expected"] == "/dev/ttyACM0"
-        assert frame["state"]["device"] == "/dev/ttyACM9"
-    finally:
-        poller.close()
-        follow.close()
-
-
-def test_poller_reports_an_unreachable_follow() -> None:
-    poller = FollowPoller(hz=20.0)
-    frames: list[dict] = []
-    poller.add_listener(frames.append)
-    poller.observe(_snapshot_frame("armB", device="/dev/ttyACM1",
-                                   endpoint=f"127.0.0.1:{free_port()}"))
-    poller.start()
-    try:
-        assert wait_until(lambda: any(f.get("t") == "vr_arm" for f in frames))
-        frame = next(f for f in frames if f["t"] == "vr_arm")
-        assert frame["state"]["connected"] is False
-        assert frame["state"]["error"]
-        assert frame["state"]["device"] == "/dev/ttyACM1"  # 读不到就报清单里的那个
-    finally:
-        poller.close()
 
 
 # ── VrSession：对真的 zenoh 端点 ────────────────────────────────────────────
@@ -299,26 +152,6 @@ def test_bridge_offline_is_reported_and_actions_refuse() -> None:
         vr.close()
         # 收尾不能挂：`zenoh.open` 那次连接必须有超时（见 session 模块的常量注释）
         assert time.monotonic() - started < 3.0
-
-
-def test_session_polls_the_follow_it_learned_from_the_bridge(bridge: FakeBridge) -> None:
-    """桥的快照说"armA 的 follow 在哪儿"，上位机就照着去问 —— 两头接上。"""
-    follow = FakeFollow()
-    vr = VrSession(endpoint=bridge.endpoint)
-    frames: list[dict] = []
-    vr.add_listener(frames.append)
-    vr.start()
-    try:
-        assert wait_until(lambda: vr.status == "waiting"), vr.conn_info()
-        bridge.push("armA", {"arm_id": "armA",
-                             "arm": {"device": "/dev/ttyACM0", "follow": follow.endpoint}})
-        assert wait_until(lambda: any(f.get("t") == "vr_arm" for f in frames))
-        arm = next(f for f in frames if f["t"] == "vr_arm")
-        assert arm["arm"] == "armA" and arm["mismatch"] is False
-        assert vr.conn_info()["follow"] == {"armA": follow.endpoint}
-    finally:
-        vr.close()
-        follow.close()
 
 
 def test_unknown_vr_command_is_rejected() -> None:

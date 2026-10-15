@@ -1,12 +1,8 @@
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Activity } from 'lucide-react'
 import { Card } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import { DEFAULT_JOINT_COUNT, jointIndexes } from '@/lib/arm'
-import { readMotorTopics, saveMotorTopics, type MotorTopics } from './motorTopics'
-import type { MotorLoad } from './useMotorLoad'
+import type { ArmLoadView, LoadRow } from './useArmLoads'
 
 /**
  * 条的配色。
@@ -39,42 +35,32 @@ function loadLevel(ratio: number | null): LoadLevel {
   return 'ok'
 }
 
-/** 一条臂的读数；`live` 为真时才画表，否则只说"未连接" */
-export type ArmLoadTable = {
-  live: boolean
-  rows: MotorLoad[]
-  /** 夹爪的读数；null = 还没接线，表里那一行如实写"未接线" */
-  gripper?: MotorLoad | null
-}
-
 /**
- * 电机负载表（照 OpenArmX 负载监控那张图）：数据话题 → 图例 → 左右臂各一段，
- * 每段：电机 / 实时负载条 / 当前 / 本次峰值，末尾一行是夹爪。
+ * 电机负载表（照 OpenArmX 负载监控那张图）：**每条臂一段**，每段：臂身份与设备名 →
+ * 电机 / 实时负载条 / 当前 / 本次峰值，末尾一行是夹爪。
  *
- * 数据来自上位机链路（daemon），不是桥：桥不报扭矩（见 `useMotorLoad`）。
- * 双臂接线还没定，但**没有数据的那一侧照常摆出整张表**（空条 + "—"）：位置先固定下来，
- * 接线到了数就落进同一批行。空条与"负载为 0"必须看得出区别，所以空条里写的是"—"。
+ * 数据来自**真机状态**（`vr_arm` / `vr_grip`，上游汇总服务发的），不是上位机那条
+ * 本机串口链路 —— VR 遥操时串口在跟随服务手里，那一路是死的，见 `useArmLoads`。
+ * 唯一还走 daemon 的是额定力矩 `tau_max`：那是设备侧静态参数，不是实时读数。
+ *
+ * 没有读数的那一段（真机状态还没到，或跟随服务自己报了断开）照常摆出整张表：
+ * 空条 + "—"，并在段头写明是"未连接"还是"没数据"。空条与"负载为 0"必须看得出区别。
  */
-export function VrMotorLoadPanel({ left, right }: { left: ArmLoadTable; right: ArmLoadTable }) {
+export function VrMotorLoadPanel({
+  arms,
+  rated,
+}: {
+  /** 按 `vrBridge.arms` 排出来的一条条臂（单臂一条、双臂两条） */
+  arms: ArmLoadView[]
+  /** 逐轴额定力矩；null = 没读到（界面不编百分比） */
+  rated: (number | null)[] | null
+}) {
   const { t } = useTranslation('vr')
-  const [topics, setTopics] = useState<MotorTopics>(readMotorTopics)
-  const [applied, setApplied] = useState(false)
 
-  const edit = (key: keyof MotorTopics) => (value: string) => {
-    setTopics((prev) => ({ ...prev, [key]: value }))
-    setApplied(false)
-  }
-
-  const topicRows: { key: keyof MotorTopics; label: string }[] = [
-    { key: 'leftArm', label: t('load.topicLeftArm') },
-    { key: 'rightArm', label: t('load.topicRightArm') },
-    { key: 'leftGripper', label: t('load.topicLeftGripper') },
-    { key: 'rightGripper', label: t('load.topicRightGripper') },
-  ]
-
-  // 没有数据的一侧摆几行：跟有数据那一侧的轴数走（同一台机器两臂同构），
-  // 两侧都没有时按内置轴数摆空位 —— 不编数，只摆位置
-  const placeholderCount = (rows: number) => rows || DEFAULT_JOINT_COUNT
+  // 没有读数的那几段按"有读数那一臂的轴数"摆空位（同一台机器两臂同构），
+  // 一条臂都没读到就按内置轴数 —— 摆的是位置，不编数
+  const placeholderRows =
+    arms.find((arm) => arm.joints.length > 0)?.joints.length ?? DEFAULT_JOINT_COUNT
 
   return (
     <Card className="min-h-0 flex-1 gap-2.5 overflow-y-auto rounded-[0.875rem] px-3.5 py-3.5">
@@ -85,66 +71,55 @@ export function VrMotorLoadPanel({ left, right }: { left: ArmLoadTable; right: A
         <div className="text-[0.6875rem] text-muted-foreground">{t('load.source')}</div>
       </div>
 
-      {/* 数据话题：四个遥测话题名。接线未定，所以这里只存本机，不接任何东西 */}
-      <div className="flex flex-col gap-1.5 rounded-[0.625rem] border border-line-soft px-2.5 py-2">
-        <div className="text-[0.78125rem] font-semibold text-foreground">{t('load.topicsTitle')}</div>
-        {topicRows.map((row) => (
-          <div key={row.key} className="flex items-center gap-2">
-            <div className="w-[6.5rem] flex-none text-[0.6875rem] text-muted-foreground">{row.label}</div>
-            <Input
-              value={topics[row.key]}
-              onChange={(e) => edit(row.key)(e.target.value)}
-              spellCheck={false}
-              aria-label={row.label}
-              className="h-7 min-w-0 flex-1 font-mono text-[0.6875rem]"
-            />
-          </div>
-        ))}
-        <div className="flex items-center justify-between gap-2">
-          {/* 存下来的反馈留在左边，按钮靠右 */}
-          <div className="text-[0.65625rem] text-muted-foreground">
-            {applied ? t('load.topicSaved') : ''}
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => {
-              saveMotorTopics(topics)
-              setApplied(true)
-            }}
-            className="h-7 flex-none rounded-[0.5rem] px-3 text-[0.75rem]"
-          >
-            {t('load.topicApply')}
-          </Button>
+      {arms.length === 0 ? (
+        // 桥一条臂都没报：没有可监控的量。这里**不**摆空表 —— 一行行空条会被读成
+        // "还没接线"或"负载都是 0"，而成因是这段数据本身没到
+        <div className="rounded-[0.625rem] border border-line-soft px-2.5 py-2 text-[0.75rem] text-ink-subtle">
+          {t('load.noArms')}
         </div>
-      </div>
-
-      <ArmSection label={t('load.armLeft')} table={left} placeholderRows={placeholderCount(right.rows.length)} />
-      <ArmSection label={t('load.armRight')} table={right} placeholderRows={placeholderCount(left.rows.length)} />
+      ) : (
+        arms.map((arm) => (
+          <ArmSection key={arm.arm} arm={arm} rated={rated} placeholderRows={placeholderRows} />
+        ))
+      )}
     </Card>
   )
 }
 
 function ArmSection({
-  label,
-  table,
+  arm,
+  rated,
   placeholderRows,
 }: {
-  label: string
-  table: ArmLoadTable
-  /** 这一侧没有读数时摆几行空位 */
+  arm: ArmLoadView
+  rated: (number | null)[] | null
+  /** 这段没有读数时摆几行空位 */
   placeholderRows: number
 }) {
   const { t } = useTranslation('vr')
-  const rowCount = table.rows.length || placeholderRows
+  const rowCount = arm.joints.length || placeholderRows
+  // 断开与"没收到过"要分开说：前者的责任在跟随服务那一侧，后者是这一帧还没来
+  const state =
+    arm.status === 'offline' ? t('load.offline') : arm.status === 'missing' ? t('load.noData') : null
 
   return (
-    <div className="flex flex-col gap-1.5 rounded-[0.625rem] border border-line-soft px-2.5 py-2">
+    <div
+      data-testid="load-arm"
+      data-arm={arm.arm}
+      data-status={arm.status}
+      className="flex flex-col gap-1.5 rounded-[0.625rem] border border-line-soft px-2.5 py-2"
+    >
       <div className="flex items-center justify-between gap-2">
-        <div className="text-[0.78125rem] font-semibold text-foreground">{label}</div>
-        {!table.live ? (
-          <div className="text-[0.6875rem]" style={{ color: 'var(--ink-subtle)' }}>
-            {t('load.offline')}
+        {/* 臂身份与设备名：双臂时一眼分得清这两段说的是哪条臂 */}
+        <div className="flex min-w-0 items-baseline gap-1.5">
+          <span className="truncate text-[0.78125rem] font-semibold text-foreground">{arm.arm}</span>
+          {arm.device ? (
+            <span className="truncate font-mono text-[0.65625rem] text-ink-muted">{arm.device}</span>
+          ) : null}
+        </div>
+        {state ? (
+          <div className="flex-none text-[0.6875rem]" style={{ color: 'var(--ink-subtle)' }}>
+            {state}
           </div>
         ) : null}
       </div>
@@ -158,19 +133,19 @@ function ArmSection({
 
       <div className="flex flex-col gap-1">
         {jointIndexes(rowCount).map((i) => (
-          <LoadRow key={i} name={`J${i + 1}`} row={table.rows[i] ?? null} />
+          <MotorRow key={i} name={`J${i + 1}`} row={arm.joints[i] ?? null} rated={rated?.[i] ?? null} />
         ))}
-        <LoadRow name={t('load.gripper')} row={table.gripper ?? null} />
+        <MotorRow name={t('load.gripper')} row={arm.gripper} rated={null} />
       </div>
     </div>
   )
 }
 
-function LoadRow({ name, row }: { name: string; row: MotorLoad | null }) {
+/** 一行读数：没有读数的那一行照画空条（条里写"—"），与"负载为 0"分得开。 */
+function MotorRow({ name, row, rated }: { name: string; row: LoadRow | null; rated: number | null }) {
   const { t } = useTranslation('vr')
 
-  // 没有读数的那一行：条照画，但不画填充，条里写"—" —— 空条与"负载为 0"要分得开
-  if (!row) {
+  if (!row || row.tau === null) {
     return (
       <div className="flex items-center gap-2 rounded-[0.4375rem] px-1.5 py-1 odd:bg-muted/40">
         <div className="w-7 flex-none truncate font-mono text-[0.75rem] font-semibold text-foreground">
@@ -190,12 +165,14 @@ function LoadRow({ name, row }: { name: string; row: MotorLoad | null }) {
   }
 
   const abs = Math.abs(row.tau)
-  const rated = row.rated !== null && row.rated > 0 ? row.rated : null
-  const ratio = rated === null ? null : abs / rated
+  // 峰值只涨不落；万一这一拍没带上峰值，用当前值兜底也好过空一列
+  const peak = row.peak ?? abs
+  const ratedValue = rated !== null && rated > 0 ? rated : null
+  const ratio = ratedValue === null ? null : abs / ratedValue
   // 刻度取"额定与本次峰值里的大者"：额定线才是条上的标线，超出额定时也画得下
-  const scale = Math.max(rated ?? 0, row.peak, abs, 1e-6)
+  const scale = Math.max(ratedValue ?? 0, peak, abs, 1e-6)
   const fillPct = Math.min(100, (abs / scale) * 100)
-  const tickPct = rated === null ? null : (rated / scale) * 100
+  const tickPct = ratedValue === null ? null : (ratedValue / scale) * 100
   const level = loadLevel(ratio)
 
   return (
@@ -224,7 +201,7 @@ function LoadRow({ name, row }: { name: string; row: MotorLoad | null }) {
         )}
         {/* 条上写"|当前| / 额定"，白字压在深底与色条上都读得出来 */}
         <div className="absolute inset-y-0 left-1.5 flex items-center font-mono text-[0.625rem] font-semibold text-white">
-          {abs.toFixed(2)} / {rated === null ? t('load.noRated') : `${rated.toFixed(0)} N·m`}
+          {abs.toFixed(2)} / {ratedValue === null ? t('load.noRated') : `${ratedValue.toFixed(0)} N·m`}
         </div>
       </div>
 
@@ -232,9 +209,25 @@ function LoadRow({ name, row }: { name: string; row: MotorLoad | null }) {
         {row.tau.toFixed(2)} N·m
         {ratio === null ? '' : ` (${Math.round(ratio * 100)}%)`}
       </div>
-      <div className="w-[5rem] flex-none text-right font-mono text-[0.6875rem] text-ink-muted">
-        {row.peak.toFixed(2)} N·m
+      <div
+        title={tempHint(row, t)}
+        className="w-[5rem] flex-none text-right font-mono text-[0.6875rem] text-ink-muted"
+      >
+        {peak.toFixed(2)} N·m
       </div>
     </div>
   )
+}
+
+/**
+ * 温度的悬停文本（没有温度时为 undefined）。
+ *
+ * 每轴再多一行会把这张卡撑爆（双臂就是 16 行），而温度是"看一眼趋势"的量：挂在"本次峰值"
+ * 那一格上，鼠标停上去就有。
+ */
+function tempHint(row: LoadRow, t: (key: string) => string): string | undefined {
+  const parts: string[] = []
+  if (row.tMos != null) parts.push(`${t('load.tempMos')} ${row.tMos.toFixed(1)} ℃`)
+  if (row.tCoil != null) parts.push(`${t('load.tempCoil')} ${row.tCoil.toFixed(1)} ℃`)
+  return parts.length === 0 ? undefined : parts.join(' · ')
 }

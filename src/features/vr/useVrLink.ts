@@ -1,10 +1,15 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { armClient, useArmConnection } from '../../lib/arm'
 import { synthesizeOwnership, type VrOwnership } from './vrOwnership'
-import { vrLink } from './vrLink'
+import { vrLink, type VrArmView } from './vrLink'
 import type { VrLinkSnapshot } from './vrTypes'
 
 export type VrLinkView = VrLinkSnapshot & {
+  /**
+   * 逐臂视图：桥认到的每条臂一份（已排序）。双臂时页面要按它分开画 ——
+   * 跟随态与故障本来就是每条臂各自的，挤成一份会让人以为只有一条臂。
+   */
+  arms: VrArmView[]
   /**
    * 跨两条链路的归属合成结果：VR 侧来自桥，上位机侧来自 studio 自己的
    * litearm-server 连接层。这是本页唯一一个必须由 studio 提供的信息
@@ -22,6 +27,9 @@ export type VrLinkView = VrLinkSnapshot & {
  */
 export function useVrLink(): VrLinkView {
   const snapshot = useSyncExternalStore(vrLink.subscribe, () => vrLink.snapshot)
+  // 逐臂那一份是**另一个**快照对象（同一个订阅通道）：`vrLink` 每次 emit 都换新引用，
+  // 所以这里两个 useSyncExternalStore 各自比较引用即可。
+  const arms = useSyncExternalStore(vrLink.subscribe, () => vrLink.arms)
   // 上位机链路：studio 自己连着机械臂，桥看不到这一半。
   // 地址取 daemon 报的串口（`conn.port`）——本仓库的上位机链路是
   // studio → 本机 daemon → 串口，没有 litearm-server 那样的 host:port 端点，
@@ -52,6 +60,7 @@ export function useVrLink(): VrLinkView {
 
   return {
     ...snapshot,
+    arms,
     ownership,
     startFollow: vrLink.startFollow,
     stopFollow: vrLink.stopFollow,

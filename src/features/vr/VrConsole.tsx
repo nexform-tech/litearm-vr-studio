@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { ROW_OVERFLOW, SCROLL_COLUMN } from '../../lib/responsive'
 import { useVrLink } from './useVrLink'
-import { useMotorLoad } from './useMotorLoad'
+import { useArmLoads } from './useArmLoads'
 import { VrLinkPanel } from './VrLinkPanel'
 import { VrMotorLoadPanel } from './VrMotorLoadPanel'
 import { VrPreviewPanel } from './VrPreviewPanel'
@@ -34,28 +34,28 @@ const CELL: CSSProperties = { ...SCROLL_COLUMN, gap: '0.75rem' }
  * 定位：只做「看状态」和「按开关」。手柄数据 90Hz 直接进 metavr 做逆解并驱动
  * 机械臂，控制回路不经过上位机（多一跳就多一份延迟，也把上位机的可用性绑到机械臂上）。
  *
- * 数据源：只有一个 —— litearm-vr-bridge 的 `/ws/status`。桥连不上就显示空态，
+ * 数据源：都走 daemon 转出来的帧（见 `vrDaemonClient`）。桥连不上就显示空态，
  * 不拿本地编造的数据顶上。见 `vrLink.ts` 与 `__fixtures__/bridgeSnapshots.ts`（真实快照固件）。
+ *
+ * 按臂渲染：桥认到几条臂，负载卡就是几段（`useArmLoads`），3D 预览同理一臂一格
+ * （`vrLink` 的逐臂视图）。单臂部署下这跟"只有一条"是一回事。
  */
 export function VrConsole() {
   const vm = useVrLink()
-  // 电机负载走的是上位机链路（daemon），与桥无关，见 useMotorLoad
-  const motorLoad = useMotorLoad()
-  // ⚠ 双臂接线待定：daemon 现在一次只连一台臂，所以先把它摆进左臂那一段。
-  // 现场连的是右臂、或以后 daemon 扩成两路，改的就是这两行。
-  const leftArm = { live: motorLoad.live, rows: motorLoad.loads, gripper: null }
-  const rightArm = { live: false, rows: [], gripper: null }
+  // 电机负载读的是真机状态（上游汇总发的 vr_arm / vr_grip），额定值另从 daemon 读一次，
+  // 见 useArmLoads
+  const loads = useArmLoads()
 
   return (
     <div style={GRID}>
       {/* 左列：一张卡跨两行（电机负载） */}
       <div style={{ ...CELL, gridColumn: '1', gridRow: '1 / span 2' }}>
-        <VrMotorLoadPanel left={leftArm} right={rightArm} />
+        <VrMotorLoadPanel arms={loads.arms} rated={loads.rated} />
       </div>
 
       {/* 中列：3D 预览吃掉余下的高度，链路卡片按自然高度贴在它下面 */}
       <div style={{ ...CELL, gridColumn: '2', gridRow: '1 / span 2' }}>
-        <VrPreviewPanel armSource={vm.bridgeOnline ? vm.armSource : null} />
+        <VrPreviewPanel armSource={vm.bridgeOnline ? vm.armSource : null} arms={vm.arms} />
         <VrLinkPanel vm={vm} />
       </div>
 

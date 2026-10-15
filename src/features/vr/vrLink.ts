@@ -4,12 +4,21 @@ import type { VrArmSource, VrBridgeSnapshot, VrLinkSnapshot, VrLinkState } from 
 /**
  * VR 页的数据编排层：**唯一**对外暴露的取数口。
  *
- * 只有一个数据源：litearm-vr-bridge 的 `/ws/status`。桥连不上时页面显示空态，
- * 不拿任何本地编造的数据顶上 —— 这一页的每个数字都可能是操作员据以判断"机械臂
- * 现在在不在动"的依据，假数据比没有数据危险得多。
+ * 数据都来自 daemon 转出来的帧（页面自己说不了 zenoh，见 `vrDaemonClient`），这一页
+ * 用到两种：
+ *
+ *   `vr_state`  桥的状态快照，**每条臂一份** —— 跟随态、帧率、延迟、兜底、归属
+ *   `vr_arm`    真机状态（上游汇总服务发的） —— 关节角 `q`、以及负载卡要的力矩/温度
+ *
+ * 所以这里出两个视图：整机那一份（`snapshot`，取第一条臂，控制卡与链路卡照旧吃它），
+ * 以及**逐臂**那一份（`arms`）—— 双臂时要看得出是两条臂各自的状态，而不是一份。
  *
  * 真实链路（见 litearm-vr-bridge/docs/DESIGN.md）：
  *   头显 → 桥 :8765 → metavr（pybullet 逆解）→ TCP 9001 → arm_follow_server → 真机
+ *
+ * 桥连不上时页面显示空态，不拿任何本地编造的数据顶上 —— 这一页的每个数字都可能是
+ * 操作员据以判断"机械臂现在在不在动"的依据，假数据比没有数据危险得多。唯一**留着**的
+ * 是最后一次真值（关节角、臂清单、设备名）：把它们清成零位等于说机械臂在零位，那才是编数。
  *
  * 两条前提别忘：
  *   1. 控制回路不在上位机里。手柄帧 90Hz 一帧帧过来，绕上位机一圈就会多一跳延迟。
@@ -27,9 +36,25 @@ const Q_EPSILON = 1e-4
 
 type Listener = () => void
 type PoseListener = (q: number[]) => void
+/** 帧载荷（`vr_arm` 等）按未知形状读：上游加字段不该让页面崩。 */
+type Frame = Record<string, unknown>
 
 /** 页面字段里除 q 之外的部分（q 走 3D 视口的高频通道，单独通知） */
 export type VrBridgeFields = Omit<VrLinkSnapshot, 'q'>
+
+/**
+ * 一条臂的视图：桥那份快照映射出的字段 + 这条臂自己的真机姿态。
+ *
+ * 桥的 `vr_state` 本来就是**每条臂一份**，所以"跟随中 / 故障 / 归属"这些字段都该按臂看。
+ * 关节角 `q` 取自上游汇总发的 `vr_arm`（`armStateFor(arm).q`）—— 桥快照里那段真机状态
+ * 已经没有了。
+ */
+export type VrArmView = VrLinkSnapshot & {
+  /** 臂身份（`vr_state` / `vr_arm` 帧里的 `arm`，也是 `vrBridge.arms` 里那一条） */
+  arm: string
+  /** 真机状态报的设备名（`vr_arm` 的 `device`）；没收到过就是空串 */
+  device: string
+}
 
 function finite(value: unknown, fallback = 0): number {
   const n = Number(value)
@@ -115,63 +140,64 @@ export function emptyBridgeFields(): VrBridgeFields {
 }
 
 /** 把桥的一份快照映射成页面字段；缺字段一律退默认，不让页面崩。 */
-export function mapBridgeSnapshot(snapshot: VrBridgeSnapshot): {
-  fields: VrBridgeFields
-  q: number[] | null
-} {
+export function mapBridgeSnapshot(snapshot: VrBridgeSnapshot): VrBridgeFields {
   const headset = snapshot.headset ?? {}
   const arm = snapshot.arm ?? {}
   const bridge = snapshot.bridge ?? {}
   const link = snapshot.link ?? {}
   const fallback = snapshot.fallback ?? {}
 
-  const rawQ = arm.q
-  const q =
-    Array.isArray(rawQ) && rawQ.length === 7 && rawQ.every((v) => Number.isFinite(Number(v)))
-      ? rawQ.map(Number)
-      : null
-
   return {
-    fields: {
-      headsetOnline: Boolean(headset.online),
-      headsetConnected: Boolean(headset.connected),
-      following: Boolean(headset.following),
-      grip: Boolean(headset.grip),
-      tracked: Boolean(headset.tracked),
-      fps: finite(headset.fps),
-      latencyMs: finite(headset.latency_ms),
-      latencyEstimated: Boolean(headset.latency_estimated),
-      sinceFrameMs: Math.round(finite(headset.last_frame_age_ms)),
-      frames: Math.round(finite(headset.frames)),
-      framesForwarded: Math.round(finite(headset.frames_forwarded)),
-      framesDropped: Math.round(finite(headset.frames_dropped)),
-      framesBlocked: Math.round(finite(headset.frames_blocked)),
-      bridgeOnline: Boolean(bridge.online),
-      bridgeVersion: asString(bridge.version),
-      bridgeUptimeS: finite(bridge.uptime_s),
-      forwardCostMs: finite(bridge.forward_cost_ms),
-      forwardCostMaxMs: finite(bridge.forward_cost_max_ms),
-      metavrConnected: Boolean(bridge.metavr_connected),
-      statusClients: Math.round(finite(bridge.clients?.status)),
-      linkState: linkStateOf(link.state, headset.following ? 'following' : 'idle'),
-      linkEnabled: link.enabled ?? true,
-      forwardEnabled: link.forward_enabled ?? true,
-      rearmRequired: Boolean(link.rearm_required),
-      fallbackActive: Boolean(fallback.active),
-      fallbackReason: typeof fallback.reason === 'string' ? fallback.reason : null,
-      fallbackGuardEnabled: fallback.guard_enabled ?? true,
-      warnMs: finite(link.warn_ms, 200),
-      fallbackMs: finite(link.fallback_ms, 500),
-      armSource: sourceOf(arm.source),
-      armConnected: Boolean(arm.connected),
-      armState: typeof arm.state === 'string' ? arm.state : null,
-      armError: typeof arm.error === 'string' ? arm.error : null,
-      armLastOkMs: optionalMs(arm.last_ok_age_ms),
-      armFault: Array.isArray(arm.fault) ? arm.fault : null,
-      owner: asString(snapshot.owner, 'none'),
-    },
-    q,
+    headsetOnline: Boolean(headset.online),
+    headsetConnected: Boolean(headset.connected),
+    following: Boolean(headset.following),
+    grip: Boolean(headset.grip),
+    tracked: Boolean(headset.tracked),
+    fps: finite(headset.fps),
+    latencyMs: finite(headset.latency_ms),
+    latencyEstimated: Boolean(headset.latency_estimated),
+    sinceFrameMs: Math.round(finite(headset.last_frame_age_ms)),
+    frames: Math.round(finite(headset.frames)),
+    framesForwarded: Math.round(finite(headset.frames_forwarded)),
+    framesDropped: Math.round(finite(headset.frames_dropped)),
+    framesBlocked: Math.round(finite(headset.frames_blocked)),
+    bridgeOnline: Boolean(bridge.online),
+    bridgeVersion: asString(bridge.version),
+    bridgeUptimeS: finite(bridge.uptime_s),
+    forwardCostMs: finite(bridge.forward_cost_ms),
+    forwardCostMaxMs: finite(bridge.forward_cost_max_ms),
+    metavrConnected: Boolean(bridge.metavr_connected),
+    statusClients: Math.round(finite(bridge.clients?.status)),
+    linkState: linkStateOf(link.state, headset.following ? 'following' : 'idle'),
+    linkEnabled: link.enabled ?? true,
+    forwardEnabled: link.forward_enabled ?? true,
+    rearmRequired: Boolean(link.rearm_required),
+    fallbackActive: Boolean(fallback.active),
+    fallbackReason: typeof fallback.reason === 'string' ? fallback.reason : null,
+    fallbackGuardEnabled: fallback.guard_enabled ?? true,
+    warnMs: finite(link.warn_ms, 200),
+    fallbackMs: finite(link.fallback_ms, 500),
+    armSource: sourceOf(arm.source),
+    armConnected: Boolean(arm.connected),
+    armState: typeof arm.state === 'string' ? arm.state : null,
+    armError: typeof arm.error === 'string' ? arm.error : null,
+    armLastOkMs: optionalMs(arm.last_ok_age_ms),
+    armFault: Array.isArray(arm.fault) ? arm.fault : null,
+    owner: asString(snapshot.owner, 'none'),
   }
+}
+
+/**
+ * 一条臂的关节角（rad），取自真机状态（`vr_arm` 的 `q`）。
+ *
+ * 只有"长度 7 且都是有限数"才采用：本页的 3D 模型就是 7 轴，拿长度不对的数组去驱动它，
+ * 画面会比不更新更假。返回 null 时调用方**保留上一组值**，不拿零位顶上。
+ */
+export function armQ(state: Frame | null): number[] | null {
+  const raw = state?.q
+  return Array.isArray(raw) && raw.length === 7 && raw.every((v) => Number.isFinite(Number(v)))
+    ? raw.map(Number)
+    : null
 }
 
 function qChanged(a: number[], b: number[]): boolean {
@@ -182,24 +208,44 @@ function qChanged(a: number[], b: number[]): boolean {
   return false
 }
 
+/** 一条臂在这层内部的状态；`emit` 时才包成对外的 `VrArmView`。 */
+type ArmEntry = {
+  device: string
+  fields: VrBridgeFields
+  /** 这条臂最后一次真机姿态；一个真实字节都没收到过时是 null */
+  q: number[] | null
+}
+
 class VrLink {
-  private fields: VrBridgeFields = emptyBridgeFields()
-  /** 桥报过的最后一组关节角；一个真实字节都没收到过时是 null */
-  private q: number[] | null = null
-  private cached: VrLinkSnapshot = { ...this.fields, q: null }
+  /** 当前认得的臂 → 它那一份状态。键序即排序，见 `emit`。 */
+  private entries = new Map<string, ArmEntry>()
+  private cached: VrLinkSnapshot = { ...emptyBridgeFields(), q: null }
+  private cachedArms: VrArmView[] = []
   private tickTimer: number | null = null
-  private lastTickAt = 0
   private lastNotifyAt = 0
   private unsubscribeBridge: (() => void) | null = null
   private stateListeners = new Set<Listener>()
-  private poseListeners = new Set<PoseListener>()
+  /** 姿态按臂分开发：双臂时两条臂各自的视口只跟自己那条的数据重画 */
+  private poseListeners = new Map<string, Set<PoseListener>>()
 
+  /** 整机那一份（第一条臂）：控制卡与链路卡吃它，与逐臂之前的行为一致 */
   get snapshot(): VrLinkSnapshot {
     return this.cached
   }
 
-  get jointAngles(): number[] | null {
-    return this.q
+  /** 逐臂视图，按臂身份排序（与 `vrBridge.arms` 同序） */
+  get arms(): VrArmView[] {
+    return this.cachedArms
+  }
+
+  armFor(arm: string): VrArmView | null {
+    return this.cachedArms.find((view) => view.arm === arm) ?? null
+  }
+
+  /** 这条臂最后一次真机姿态；null = 还没收到过（调用方显示空态，不编一个姿态） */
+  poseFor(arm: string): number[] | null {
+    const q = this.entries.get(arm)?.q
+    return q ? [...q] : null
   }
 
   subscribe = (cb: Listener) => {
@@ -209,22 +255,23 @@ class VrLink {
     }
   }
 
-  /** 3D 视口用的高频通道：不走 React 渲染循环 */
-  subscribePose = (cb: PoseListener) => {
-    this.poseListeners.add(cb)
+  /** 3D 视口用的高频通道：按臂订阅，不走 React 渲染循环 */
+  subscribePose = (arm: string, cb: PoseListener) => {
+    const listeners = this.poseListeners.get(arm) ?? new Set<PoseListener>()
+    listeners.add(cb)
+    this.poseListeners.set(arm, listeners)
     return () => {
-      this.poseListeners.delete(cb)
+      listeners.delete(cb)
     }
   }
 
   start = () => {
     if (this.tickTimer !== null) return
     const now = performance.now()
-    this.lastTickAt = now
     this.lastNotifyAt = 0
     this.unsubscribeBridge = vrBridge.subscribe(this.handleBridgeChange)
-    // 桥连接是 app 级的：控制页/遥操页也要能知道 VR 在不在控，所以这里只订阅、
-    // 不负责开关连接（见 vrBridgeClient 的 start()：地址没配就不去连）。
+    // daemon 通道是 app 级的：控制页/遥操页也要能知道 VR 在不在控，所以这里只订阅、
+    // 不负责开关连接（连接归 `armClient.socket`）。
     vrBridge.start()
     this.update(now)
     this.tickTimer = window.setInterval(this.tick, TICK_MS)
@@ -236,7 +283,8 @@ class VrLink {
     this.tickTimer = null
     this.unsubscribeBridge?.()
     this.unsubscribeBridge = null
-    // 不在这里 vrBridge.stop()：连接是 app 级常驻，离开 VR 页只是停止本页的消费
+    // 不在这里 vrBridge.stop()：连接是 app 级常驻，离开 VR 页只是停止本页的消费。
+    // 已经在手的状态也不清：下一次进页面时它仍是"最后一次真值"（见 update）。
   }
 
   startFollow = () => {
@@ -257,21 +305,22 @@ class VrLink {
   }
 
   private tick = () => {
-    this.lastTickAt = performance.now()
-    this.update(this.lastTickAt)
+    this.update(performance.now())
   }
 
   private update(now: number) {
-    const snapshot = vrBridge.snapshot
+    const reported = vrBridge.arms
 
-    if (vrBridge.online && snapshot) {
-      const { fields, q } = mapBridgeSnapshot(snapshot)
-      this.fields = fields
-      if (q) this.setQ(q)
+    if (vrBridge.online && reported.length > 0) {
+      // 桥报了什么就是什么：不再报的臂从这里删掉（现场改了臂数，页面跟着变）
+      for (const arm of [...this.entries.keys()]) {
+        if (!reported.includes(arm)) this.entries.delete(arm)
+      }
+      for (const arm of reported) this.readArm(arm)
     } else {
-      // 桥不在：整份空态。**不**动 q —— 上一组真值留着比编一组新的诚实，
-      // 页面靠 bridgeOnline 把它标成"不是当前值"。
-      this.fields = emptyBridgeFields()
+      // 桥不在：**字段**归空态。臂清单、设备名与姿态留着 —— 上一次的真值比清成零位诚实，
+      // 页面靠 `bridgeOnline` / `armConnected` 把它们标成"不是当前值"（与 q 的既有口径一致）。
+      for (const entry of this.entries.values()) entry.fields = emptyBridgeFields()
     }
 
     if (now - this.lastNotifyAt >= UI_NOTIFY_MS) {
@@ -280,15 +329,37 @@ class VrLink {
     }
   }
 
-  private setQ(next: number[]) {
-    if (this.q && !qChanged(this.q, next)) return
-    this.q = [...next]
-    for (const cb of this.poseListeners) cb(this.q)
+  /** 读一条臂：桥那份快照映射成字段，真机状态里取关节角与设备名。 */
+  private readArm(arm: string) {
+    const previous = this.entries.get(arm)
+    const state = vrBridge.armStateFor(arm)
+    const snapshot = vrBridge.snapshotFor(arm)
+    // 真机状态这一帧没报 q（或报了个不能用的）时保留上一组：3D 视口停在最后一次真值上，
+    // 比跳回零位诚实
+    const q = armQ(state) ?? previous?.q ?? null
+
+    this.entries.set(arm, {
+      device: asString(state?.device, previous?.device ?? ''),
+      fields: snapshot ? mapBridgeSnapshot(snapshot) : emptyBridgeFields(),
+      q,
+    })
+
+    if (q && (!previous?.q || qChanged(previous.q, q))) {
+      for (const cb of this.poseListeners.get(arm) ?? []) cb([...q])
+    }
   }
 
   private emit() {
     // 每次变更都换一个新对象：useSyncExternalStore 靠引用比较决定是否重渲染
-    this.cached = { ...this.fields, q: this.q ? [...this.q] : null }
+    const ordered = [...this.entries.keys()].sort()
+    this.cachedArms = ordered.map((arm) => {
+      const entry = this.entries.get(arm) as ArmEntry
+      return { ...entry.fields, q: entry.q ? [...entry.q] : null, arm, device: entry.device }
+    })
+    const first = ordered.length > 0 ? (this.entries.get(ordered[0]) as ArmEntry) : null
+    this.cached = first
+      ? { ...first.fields, q: first.q ? [...first.q] : null }
+      : { ...emptyBridgeFields(), q: null }
     for (const cb of this.stateListeners) cb()
   }
 }

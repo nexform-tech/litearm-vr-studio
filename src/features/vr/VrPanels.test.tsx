@@ -3,7 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import i18n from '@/i18n'
 import { VrControlPanel } from './VrControlPanel'
 import { VrLinkPanel } from './VrLinkPanel'
-import { mapBridgeSnapshot } from './vrLink'
+import { mapBridgeSnapshot, type VrArmView } from './vrLink'
 import type { VrBridgeSnapshot } from './vrTypes'
 import type { VrLinkView } from './useVrLink'
 import { synthesizeOwnership, type VrConsoleSignals } from './vrOwnership'
@@ -25,11 +25,18 @@ const CONSOLE_OFFLINE: VrConsoleSignals = {
   robotState: null,
 }
 
-function viewOf(snapshot: VrBridgeSnapshot, consoleSignals: VrConsoleSignals = CONSOLE_OFFLINE): VrLinkView {
-  const { fields, q } = mapBridgeSnapshot(snapshot)
+function viewOf(
+  snapshot: VrBridgeSnapshot,
+  consoleSignals: VrConsoleSignals = CONSOLE_OFFLINE,
+  arms: VrArmView[] = [],
+): VrLinkView {
+  const fields = mapBridgeSnapshot(snapshot)
   return {
     ...fields,
-    q,
+    // 关节角走 3D 视口那条高频通道（`vrLink.poseFor`），不在这份视图里：它取自
+    // `vr_arm` 真机状态，而这几条用例喂的是桥的快照固件
+    q: null,
+    arms,
     ownership: synthesizeOwnership({
       bridgeOwner: fields.owner,
       bridgeFollowing: fields.following,
@@ -40,6 +47,15 @@ function viewOf(snapshot: VrBridgeSnapshot, consoleSignals: VrConsoleSignals = C
     stopFollow: () => {},
     emergencyStop: () => {},
   }
+}
+
+/** 一条臂的视图：与 `vrLink` 的逐臂视图同形（整机字段 + 臂身份 + 设备名）。 */
+function armViewOf(
+  arm: string,
+  device: string,
+  snapshot: VrBridgeSnapshot = SNAP_FOLLOWING,
+): VrArmView {
+  return { ...mapBridgeSnapshot(snapshot), q: null, arm, device }
 }
 
 /** 桥完全连不上时的视图：整份空态，一个真实字节都没收到过 */
@@ -254,6 +270,77 @@ describe('VR 链路卡 · 跟随服务的故障与错误', () => {
 
     expect(screen.queryByTestId('vr-arm-error')).toBeNull()
     expect(screen.queryByTestId('vr-arm-fault')).toBeNull()
+  })
+})
+
+/**
+ * 逐臂那一段：桥报几条臂就有几条，跟随态与故障各报各的。
+ *
+ * 双臂部署下"跟随中 / 持位"这种话必须能落到具体哪条臂上 —— 挤成一份会让人以为两条臂
+ * 是同一个状态（其中一条停了、另一条还在动，这种局面现场是会有的）。
+ */
+describe('VR 链路卡 · 双臂', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('zh')
+  })
+  afterEach(() => cleanup())
+
+  it('两条臂各报各的：身份、设备、跟随态、故障、错误都在自己那一段里', () => {
+    const armA = armViewOf('armA', '/dev/ttyACM0')
+    const armB = armViewOf('armB', 'can0', {
+      ...SNAP_FOLLOWING,
+      arm: {
+        ...SNAP_FOLLOWING.arm,
+        state: 'holding',
+        fault: ['FB_STALE'],
+        error: 'TimeoutError: ',
+      },
+    })
+    render(<VrLinkPanel vm={viewOf(SNAP_FOLLOWING, CONSOLE_OFFLINE, [armA, armB])} />)
+
+    const rows = screen.getByTestId('vr-arm-rows')
+    const [rowA, rowB] = Array.from(rows.children) as HTMLElement[]
+    expect(rowA.textContent).toContain('armA')
+    expect(rowA.textContent).toContain('/dev/ttyACM0')
+    expect(rowA.textContent).toContain('following')
+    expect(rowB.textContent).toContain('armB')
+    expect(rowB.textContent).toContain('can0')
+    expect(rowB.textContent).toContain('holding')
+    // 出事的那条臂自己说，另一条不受牵连
+    expect(rowA.textContent).not.toContain('FB_STALE')
+    expect(rowB.textContent).toContain('故障 1 条')
+    expect(rowB.textContent).toContain('FB_STALE')
+    expect(rowB.textContent).toContain('TimeoutError: ')
+  })
+
+  it('双臂时不整张卡再报一遍故障（逐臂那一段已经说过了）', () => {
+    const faulty: VrBridgeSnapshot = {
+      ...SNAP_FOLLOWING,
+      arm: { ...SNAP_FOLLOWING.arm, fault: [[3, 5]] },
+    }
+    render(
+      <VrLinkPanel
+        vm={viewOf(faulty, CONSOLE_OFFLINE, [
+          armViewOf('armA', '/dev/ttyACM0', faulty),
+          armViewOf('armB', 'can0'),
+        ])}
+      />,
+    )
+
+    expect(screen.queryByTestId('vr-arm-fault')).toBeNull()
+    expect(screen.getByTestId('vr-arm-rows').textContent).toContain('J3: 5')
+  })
+
+  it('单臂部署不出逐臂那一段：整张卡本来就是它的', () => {
+    const faulty: VrBridgeSnapshot = {
+      ...SNAP_FOLLOWING,
+      arm: { ...SNAP_FOLLOWING.arm, fault: [[3, 5]] },
+    }
+    render(<VrLinkPanel vm={viewOf(faulty, CONSOLE_OFFLINE, [armViewOf('armA', '/dev/ttyACM0')])} />)
+
+    expect(screen.queryByTestId('vr-arm-rows')).toBeNull()
+    // 同一条故障还是说出来，只是由整张卡的那条横幅说
+    expect(screen.getByTestId('vr-arm-fault').textContent).toContain('J3: 5')
   })
 })
 

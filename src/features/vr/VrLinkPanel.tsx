@@ -6,7 +6,7 @@ import { Pill } from '@/components/Pill'
 import { StatCard } from '@/components/StatCard'
 import type { VrLinkView } from './useVrLink'
 import { bridgeCompat, SUPPORTED_BRIDGE_VERSION } from './bridgeCompat'
-import { formatArmFault } from './vrLink'
+import { formatArmFault, type VrArmView } from './vrLink'
 import type { VrLinkState } from './vrTypes'
 
 const OK = '#137a44'
@@ -31,6 +31,14 @@ function stateStyle(state: VrLinkState, live: boolean) {
   return { dot: WARN, bg: 'var(--warn-soft)', bd: 'var(--warn-line)', fg: 'var(--warn)' }
 }
 
+/**
+ * 链路卡：整条链路的通断与开销（头显 → 桥 → 逆解 → 跟随服务 → 机械臂），外加遥操
+ * 状态机与兜底。
+ *
+ * 逐臂的画面在这里只出现一处：桥认到**两条以上**臂时的逐臂状态条（跟随态与故障是每条臂
+ * 各自的，挤成一份会让人以为两条臂是一个状态）。其余字段（帧率、桥开销、归属）本来就是
+ * 整机的，按一条臂画没有意义。
+ */
 export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
   const { t } = useTranslation('vr')
 
@@ -153,8 +161,9 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
         </div>
       ) : null}
 
-      {/* 跟随服务报的故障码：这是**设备**在说它有事，排在那几条"提醒"前面 */}
-      {vm.armFault && vm.armFault.length > 0 ? (
+      {/* 跟随服务报的故障码：这是**设备**在说它有事，排在那几条"提醒"前面。
+          双臂时故障按臂分开报（见下面那一段），这里只报单臂部署那一条 */}
+      {vm.arms.length <= 1 && vm.armFault && vm.armFault.length > 0 ? (
         <div
           data-testid="vr-arm-fault"
           className="flex items-start gap-2 rounded-[0.625rem] border border-danger-line bg-danger-soft px-2.5 py-2"
@@ -259,6 +268,18 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
         ))}
       </div>
 
+      {/* 逐臂那一段：**双臂及以上**才出现。
+          一条臂时整张卡的字段本来就是它的（控制卡与链路卡共用一个整机视图），再说一遍
+          就是"同一句话在一张卡片里说两遍"；两条臂时则必须分开报 —— 跟随态与故障都是每条臂
+          各自的，挤成一份会让人以为两条臂是同一个状态。 */}
+      {vm.arms.length > 1 ? (
+        <div data-testid="vr-arm-rows" className="flex flex-col gap-1.5">
+          {vm.arms.map((arm) => (
+            <ArmRow key={arm.arm} arm={arm} />
+          ))}
+        </div>
+      ) : null}
+
       {/* 指标铺底：链路四个在上、桥自身三个在下。卡片余下的高度由 justify-between
           均分到各段之间，指标卡自己保持自然高度（拉高会变成一排空盒子） */}
       <div className="flex flex-col gap-2">
@@ -289,4 +310,49 @@ function formatUptime(seconds: number): string {
   if (seconds < 60) return `${seconds.toFixed(0)}s`
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`
   return `${Math.floor(seconds / 3600)}h${Math.floor((seconds % 3600) / 60)}m`
+}
+
+/**
+ * 一条臂自己的状态：身份、设备名、跟随服务报的状态，以及它的故障与错误。
+ *
+ * 故障码原样显示（两种形状都要能看，见 `formatArmFault`）：压成"有故障"就再也说不出
+ * 是哪个关节、什么错了。
+ */
+function ArmRow({ arm }: { arm: VrArmView }) {
+  const { t } = useTranslation('vr')
+  const live = arm.armConnected
+  const dot = !live ? IDLE : arm.following ? OK : WARN
+
+  return (
+    <div className="flex flex-col gap-1 rounded-[0.625rem] border border-line-soft px-2.5 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <div className="size-[0.4375rem] flex-none rounded-full" style={{ background: dot }} />
+          <span className="truncate text-[0.75rem] font-semibold text-foreground">{arm.arm}</span>
+          {arm.device ? (
+            <span className="truncate font-mono text-[0.625rem] text-ink-muted">{arm.device}</span>
+          ) : null}
+        </div>
+        <div
+          className="flex-none font-mono text-[0.65625rem]"
+          style={{ color: live ? 'var(--ok)' : 'var(--ink-subtle)' }}
+        >
+          {live ? (arm.armState ?? t('link.diagOn')) : t('link.diagOff')}
+        </div>
+      </div>
+
+      {arm.armFault && arm.armFault.length > 0 ? (
+        <div className="font-mono text-[0.65625rem] leading-relaxed break-words text-danger">
+          {t('link.armFaults', { count: arm.armFault.length })}:{' '}
+          {arm.armFault.map(formatArmFault).join('  ')}
+        </div>
+      ) : null}
+
+      {arm.armError ? (
+        <div className="text-[0.65625rem] break-words text-danger">
+          {t('link.armErrorTitle')}: <span className="font-mono">{arm.armError}</span>
+        </div>
+      ) : null}
+    </div>
+  )
 }

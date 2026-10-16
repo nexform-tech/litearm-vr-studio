@@ -101,6 +101,16 @@ def test_control_never_pulls_a_browser_in():
         assert "Suggests:" in _control(window_backend=backend)
 
 
+def test_can_driver_is_recommended_never_required():
+    """`litearm-can-dkms` fixes a gripper CAN adapter that is UP yet silent. Arm-only
+    machines have no adapter, so it must not be a hard dependency."""
+    for backend in ("gtk", "qt"):
+        control = _control(window_backend=backend)
+        assert "Recommends: litearm-can-dkms\n" in control
+        depends_line = next(line for line in control.splitlines() if line.startswith("Depends:"))
+        assert "litearm-can-dkms" not in depends_line
+
+
 def test_control_borrows_the_system_webkit_only_for_the_gtk_build():
     """GTK 借系统的 WebKit, Qt 自带内核 —— 这条决定了包是 ~28 MB 还是 253 MB。
 

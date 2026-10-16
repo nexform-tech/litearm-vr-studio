@@ -144,6 +144,15 @@ def window_backend_from_env() -> str:
 BROWSER_SUGGESTS = "firefox | chromium | chromium-browser | google-chrome-stable"
 
 
+#: The gripper's CAN adapter needs a `gs_usb` that matches the board's firmware, which the
+#: stock kernel driver does not always do (the interface comes up and carries no frame).
+#: `litearm-can-dkms` ships a patched module plus a udev rule that brings CAN up. It is a
+#: `Recommends`, not a `Depends`: arm-only machines have no CAN adapter and should not be
+#: made to install dkms and a compiler. apt installs recommendations by default, so the
+#: usual `apt install ./litearm-studio.deb` still gets it.
+CAN_RECOMMENDS = "litearm-can-dkms"
+
+
 def deb_version(version: str) -> str:
     """`v0.12.0` (a git tag) -> `0.12.0` (an upstream Debian version).
 
@@ -204,6 +213,7 @@ def control_text(*, version: str, arch: str, installed_size_kb: int,
         f"Architecture: {arch}\n"
         f"Maintainer: {MAINTAINER}\n"
         f"Depends: {', '.join(depends_for(window_backend))}\n"
+        f"Recommends: {CAN_RECOMMENDS}\n"
         f"Suggests: {BROWSER_SUGGESTS}\n"
         f"Installed-Size: {installed_size_kb}\n"
         f"Homepage: {HOMEPAGE}\n"

@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import socket
 import time
@@ -261,6 +262,35 @@ def test_handshake_carries_vr_conn() -> None:
             frames = drain_handshake(ws, expect=3)
     assert [f["t"] for f in frames] == ["conn", "log_meta", "vr_conn"]
     assert frames[2]["status"] == "waiting"
+
+
+def test_vr_conn_is_replayed_for_a_late_listener() -> None:
+    """`vr_conn` 只在"接入"与"状态变化"时报一条是**不够的**，所以它要定期重播。
+
+    漏掉它的是最正常的那种情形 —— 桥一直连着、状态从头到尾没变过。页面那侧的 VR 模块
+    是按路由懒加载的（`main.tsx` 的 `React.lazy`），它挂上监听时握手早过去了：
+    本地实测 socket 在 532ms 收到 `vr_conn`、VR 那块 665ms 才注册监听。表现出来就是
+    "桥明明连着，链路卡说未连接、臂映射卡永远灰着"—— 而这两处正决定操作员能不能开始遥操。
+
+    这里直接驱动那个循环（不跑整个 app）：钉的是"没变化也要重播"，以及"没人看时不播"。
+    """
+    daemon = server.Daemon(Session(port_finder=lambda: None), vr=StubVr())
+    seen: list[dict] = []
+    daemon.broadcast = seen.append            # type: ignore[method-assign]
+
+    async def run() -> None:
+        task = asyncio.create_task(daemon._vr_conn_loop(interval=0.01))
+        await asyncio.sleep(0.05)
+        task.cancel()
+
+    # 没有客户端时不播：对着空房间推状态只是白烧 CPU
+    asyncio.run(run())
+    assert seen == []
+
+    daemon.clients = [object()]
+    asyncio.run(run())
+    assert seen and seen[0]["t"] == "vr_conn"
+    assert seen[0]["status"] == "waiting"
 
 
 def test_vr_action_returns_the_bridge_receipt() -> None:

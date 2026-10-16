@@ -80,6 +80,10 @@ UPLINK_QUEUE_MAX = 256
 #: (一条几十字节)。它只在有客户端时发。
 LOG_META_INTERVAL_S = 2.0
 
+#: 多久重播一次 `vr_conn`（VR 通道的连接态 + 认到几条臂）。与 `log_meta` 同一个量级、
+#: 同一个理由：**只在接入的握手时报一条是不够的**（见 `_vr_conn_loop`）。
+VR_CONN_INTERVAL_S = 2.0
+
 #: 等 uvicorn 真的开始监听的上限 (秒)。窗口要在那之后才指得过去, 所以这条等待是必须的;
 #: 给上限是为了"端口被占/后端起不来"时如实报错, 而不是永远挂在启动路径上。
 STARTUP_TIMEOUT_S = 15.0
@@ -302,6 +306,8 @@ class Daemon:
         self.heartbeat_task: Optional[asyncio.Task] = None
         #: 日志流位置的播报任务 (见 `_log_meta_loop`) —— 与夹爪无关, 总是起。
         self.log_meta_task: Optional[asyncio.Task] = None
+        #: VR 连接态的重播任务 (见 `_vr_conn_loop`) —— 只有起了 VR 通道才起。
+        self.vr_conn_task: Optional[asyncio.Task] = None
         # 会话事件 (可能来自轮询线程/执行器线程) → 事件循环的桥
         session.add_listener(self._on_session_event)
         if gripper is not None:
@@ -359,6 +365,25 @@ class Daemon:
             await asyncio.sleep(interval)
             if self.clients:
                 self.broadcast({"t": "log_meta", **self._log_meta()})
+
+    async def _vr_conn_loop(self,
+                            interval: float = VR_CONN_INTERVAL_S) -> None:  # pragma: no cover
+        """定期重播 VR 通道的连接态 —— 与 `log_meta` 同一条纪律。
+
+        ⚠ **`vr_conn` 说的是状态, 不是"刚刚发生了什么事"**, 而它原先只在两处发: 客户端
+        接入的握手, 以及状态**变化**时。于是最正常的那种情形反而最容易漏掉 —— 桥一直
+        连着, 状态从头到尾没变过。漏掉的原因是页面那侧**按路由懒加载**（`main.tsx` 的
+        `React.lazy`）: VR 那块代码挂上监听时握手早就过去了。本地实测: socket 在 532ms
+        收到 `vr_conn`, 而 VR 那块 665ms 才注册监听。表现出来是"桥明明连着, 链路卡说
+        未连接、臂映射卡永远灰着"—— 而这两处正是操作员判断"能不能开始遥操"的地方。
+
+        ⚠ 别改成"谁问才给谁": 通道通不通是**整页**都要看的东西(同 `log_meta` 那条),
+        而"谁在关心"这件事守护进程这边看不见。
+        """
+        while True:
+            await asyncio.sleep(interval)
+            if self.clients and self.vr is not None:
+                self.broadcast({"t": "vr_conn", **self.vr.conn_info()})
 
     # ------------------------------------------------------------ 结构化记录 → WS
     def _on_log_record(self, record: dict) -> None:
@@ -1251,10 +1276,12 @@ def create_app(session: Session, *, gripper: Optional[Any] = None,
         daemon.log_meta_task = asyncio.create_task(daemon._log_meta_loop())
         if daemon.gripper is not None:
             daemon.heartbeat_task = asyncio.create_task(daemon._gripper_heartbeat_loop())
+        if daemon.vr is not None:
+            daemon.vr_conn_task = asyncio.create_task(daemon._vr_conn_loop())
         try:
             yield
         finally:
-            for name in ("heartbeat_task", "log_meta_task"):
+            for name in ("heartbeat_task", "log_meta_task", "vr_conn_task"):
                 task = getattr(daemon, name)
                 if task is not None:
                     task.cancel()

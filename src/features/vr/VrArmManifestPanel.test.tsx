@@ -86,8 +86,8 @@ describe('VR 臂映射卡', () => {
 
     fireEvent.click(screen.getByTestId('manifest-select-device-armA'))
     const armOptions = screen.getAllByRole('option').map((el) => el.textContent)
-    expect(armOptions).toContain('/dev/serial/by-id/usb-A（按设备序列号，推荐）')
-    expect(armOptions).toContain('/dev/ttyACM0（拔插会变）')
+    expect(armOptions).toContain('/dev/serial/by-id/usb-A')
+    expect(armOptions).toContain('/dev/ttyACM0')
     // 一个 CAN 口都不该出现在臂那一格里：挑中了这条臂也开不了它
     expect(armOptions.some((label) => label?.startsWith('can'))).toBe(false)
   })
@@ -101,7 +101,7 @@ describe('VR 臂映射卡', () => {
 
     fireEvent.click(screen.getByTestId('manifest-select-gripper-armA'))
     const gripOptions = screen.getAllByRole('option').map((el) => el.textContent)
-    expect(gripOptions).toEqual(['can0（CAN）', 'can1（CAN）'])
+    expect(gripOptions).toEqual(['can0', 'can1'])
     // armB 在桥那边没有夹爪（`ARM_B_GRIP` 没配）：没有的东西没有口可指认，不给这一格
     expect(screen.queryByTestId('manifest-select-gripper-armB')).toBeNull()
     expect(screen.queryByTestId('manifest-input-gripper-armB')).toBeNull()
@@ -203,7 +203,8 @@ describe('VR 臂映射卡', () => {
     // 不是手填框
     expect(screen.queryByTestId('manifest-input-device-armA')).toBeNull()
     const armRow = screen.getByTestId('manifest-select-device-armA')
-    expect(within(armRow).getByText('/dev/serial/by-id/usb-A（按设备序列号，推荐）')).toBeTruthy()
+    // 候选口只写路径：括号里不挂任何说明（哪一类口由这一格自己列什么决定）
+    expect(within(armRow).getByText('/dev/serial/by-id/usb-A')).toBeTruthy()
   })
 
   it('桥还没认到臂时说明白，不摆一条空行', () => {

@@ -110,11 +110,6 @@
     "sourceUnknown": "桥未报",
     "confirmedAt": "{{time}} 确认",
     "mismatch": "跟随服务实际开的是 {{device}} —— 与上面选的不符",
-    "kind": {
-      "by-id": "按设备序列号，推荐",
-      "serial": "拔插会变",
-      "can": "CAN"
-    },
     "pick": "选一个口",
     "save": "保存到桥",
     "saving": "保存中…",

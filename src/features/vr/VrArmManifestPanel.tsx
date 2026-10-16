@@ -170,14 +170,6 @@ export function VrArmManifestPanel({ v }: { v: ArmManifestView }) {
   )
 }
 
-/** 候选口的标签：`by-id` 是稳定的身份，`ttyACM0` 那类拔插一次就可能换人。 */
-function portLabel(candidate: PortCandidate, t: (key: string) => string): string {
-  const kind = t(`manifest.kind.${candidate.kind}`)
-  return kind === `manifest.kind.${candidate.kind}`
-    ? candidate.path
-    : `${candidate.path}（${kind}）`
-}
-
 /** 这一格能选哪几类口：臂是串口、夹爪是 CAN —— 两类不通用（见文件头）。 */
 const KINDS_OF = {
   arm: ['by-id', 'serial'],
@@ -243,7 +235,7 @@ function PortField({
             {options.map((candidate) => (
               <SelectItem key={candidate.path} value={candidate.path}
                           className="font-mono text-[0.6875rem]">
-                {portLabel(candidate, t)}
+                {candidate.path}
               </SelectItem>
             ))}
           </SelectContent>

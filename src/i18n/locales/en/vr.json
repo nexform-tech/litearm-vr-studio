@@ -110,11 +110,6 @@
     "sourceUnknown": "Not reported",
     "confirmedAt": "Confirmed {{time}}",
     "mismatch": "The follow server actually opened {{device}} — not the one selected above",
-    "kind": {
-      "by-id": "stable, recommended",
-      "serial": "changes on replug",
-      "can": "CAN"
-    },
     "pick": "Pick a port",
     "save": "Save to the bridge",
     "saving": "Saving…",

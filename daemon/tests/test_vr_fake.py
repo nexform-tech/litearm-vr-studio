@@ -136,6 +136,61 @@ def test_changing_one_port_applies_only_that_arm(fake: FakeVrSession) -> None:
     assert fake.state("armA")["arm"]["device_source"] == "config"
 
 
+def test_gripper_port_is_part_of_the_same_record(fake: FakeVrSession) -> None:
+    """臂是串口、夹爪是 CAN —— 两者是**一条臂的那条记录**（同桥那边的 manifest）。
+
+    假件必须演得出这条，否则"界面上能选夹爪的口"这句话在本地根本验不了。
+    """
+    assert fake.state("armA")["arm"]["gripper"] == "can0"
+
+    receipt = fake.execute("vr.set_arm_devices",
+                           {"devices": {"armA": FAKE_DEVICES["armA"]},
+                            "grippers": {"armA": "can1"}})
+    assert receipt["ok"] is False  # can1 已经是 armB 的夹爪口
+    assert receipt["code"] == "BadRequest"
+
+    receipt = fake.execute("vr.set_arm_devices",
+                           {"devices": {"armA": FAKE_DEVICES["armA"]},
+                            "grippers": {"armA": "/dev/ttyACM0"}})
+    # 只查重、不看类型：类型对不对由界面那两格各列一类候选来保证，桥这边只管撞不撞
+    assert receipt["ok"] is True, receipt
+    assert receipt["result"]["applied"] == ["armA"]
+    assert fake.state("armA")["arm"]["gripper"] == "/dev/ttyACM0"
+    # 夹爪服务报的口**当场**跟上（真链路上汇总服务是桥在改完映射后重启的）——
+    # 与臂那条不同：follow 要等下次开始遥操才重开，那才叫滞后
+    assert fake.grip_state("armA")["device"] == "/dev/ttyACM0"
+    # 串口那条没动，它还是"装机默认"
+    assert fake.state("armA")["arm"]["device_source"] == "record"
+
+
+def test_a_gripper_only_save_is_accepted(fake: FakeVrSession) -> None:
+    """卡片上只动夹爪那一格时送过来的就是 `devices: {}` + `grippers: {...}` ——
+    这一条在浏览器里真的踩到过：按"devices 不能为空"拒掉，界面上就是"能选、存不下去"。"""
+    receipt = fake.execute("vr.set_arm_devices", {"devices": {}, "grippers": {"armA": "can2"}})
+    assert receipt["ok"] is True, receipt
+    assert receipt["result"]["applied"] == ["armA"]
+    assert fake.state("armA")["arm"]["gripper"] == "can2"
+
+
+def test_two_grippers_cannot_share_one_can_channel(fake: FakeVrSession) -> None:
+    """一个 CAN 口只能开一个夹爪 —— 与串口那条同一条理由：选错会静默地让两个夹爪对调。"""
+    receipt = fake.execute("vr.set_arm_devices",
+                           {"devices": {"armB": FAKE_DEVICES["armB"]},
+                            "grippers": {"armB": "can0"}})
+    assert receipt["ok"] is False
+    assert receipt["code"] == "BadRequest"
+    assert "同一个 CAN 口" in receipt["error"]["message"]
+    assert fake.state("armB")["arm"]["gripper"] == "can1"
+
+
+def test_empty_gripper_value_is_refused(fake: FakeVrSession) -> None:
+    receipt = fake.execute("vr.set_arm_devices",
+                           {"devices": {"armA": FAKE_DEVICES["armA"]},
+                            "grippers": {"armA": "  "}})
+    assert receipt["ok"] is False
+    assert receipt["code"] == "BadRequest"
+
+
 def test_no_change_does_not_rewrite_the_record(fake: FakeVrSession) -> None:
     """原样保存 → `applied` 是空的，来源也不该从 config 变成 record。"""
     receipt = fake.execute("vr.set_arm_devices",

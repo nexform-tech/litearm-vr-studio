@@ -3,7 +3,7 @@ import { vrBridge } from './vrDaemonClient'
 import type { VrBridgeSnapshot } from './vrTypes'
 
 /**
- * 「哪条串口接在哪条臂」这张卡的数据与动作。
+ * 「哪条串口接在哪条臂、夹爪在哪个 CAN 口」这张卡的数据与动作。
  *
  * 为什么要有这张卡：这条映射**填错不报错** —— 表现只是左手柄的解发给了右边那条臂，
  * 动作是错的、看起来却在动。而它决定的事一点都不小：由哪只手柄驱动、关节角往哪个
@@ -11,11 +11,15 @@ import type { VrBridgeSnapshot } from './vrTypes'
  *
  * 三个来源分开取，不合并成一个"设备名"：
  *
- *   * **桥认的口**（`vr_state` 快照的 `arm.device`）—— 桥按它起 follow 的命令行；
+ *   * **桥认的口**（`vr_state` 快照的 `arm.device` 与 `arm.gripper`）—— 前者是桥按它起
+ *     follow 的命令行，后者是这条臂那个夹爪的 CAN 口；
  *   * **这份口是谁定的**（`arm.device_source` / `device_confirmed_at`）—— 装机时写下的
  *     默认与操作员按实物确认过的，在界面上不该长得一样；
- *   * **真机回的口**（`vr_arm` 的 `device`，即 follow 真正打开的那个）—— 与上面不符就是
- *     "动错臂"的前兆，必须当场看得见。
+ *   * **真机回的口**（`vr_arm` 的 `device` / `vr_grip` 的 `device`，即 follow 与夹爪服务
+ *     真正打开的那两个）—— 与上面不符就是"动错臂 / 动错夹爪"的前兆，必须当场看得见。
+ *
+ * ⚠ **样口**：臂是串口、夹爪是 CAN —— 这两类不通用，界面上两组候选也要照这个分开列
+ *   （`PortCandidate.kind`），否则操作员能挑到一个"这条臂根本开不了的口"。
  *
  * 候选项与写入都问**桥**：默认同机、允许跨机，本机枚举出来的口与真正插着臂的那台机器
  * 可能毫无关系（见 `litearm-vr-bridge` 的 `ports.py`）。改动由桥落盘（记录），所以换台
@@ -33,14 +37,18 @@ export type ArmManifestRow = {
   arm: string
   /** 上游的槽：`left` / `right` —— 决定由哪只手柄驱动 */
   side: string
-  /** 桥现在认的硬件口；空串 = 这版桥不报这个字段 */
+  /** 桥现在认的**臂的**硬件口（串口）；空串 = 这版桥不报这个字段 */
   device: string
-  /** 这个口是谁定的：`config` / `record`；空串 = 这版桥不报 */
+  /** 桥现在认的**夹爪的** CAN 口；空串 = 这条臂没有夹爪（或这版桥不报） */
+  gripper: string
+  /** 这两个口是谁定的：`config` / `record`；空串 = 这版桥不报 */
   source: string
   /** 来源是 `record` 时的确认时间（ISO 8601）；没有就是空串 */
   confirmedAt: string
   /** 真机状态里 follow 回的口名；空串 = 还没收到过 */
   reported: string
+  /** `vr_grip` 里夹爪服务报的口名；空串 = 还没收到过（或这条臂没有夹爪） */
+  reportedGripper: string
 }
 
 /**
@@ -50,6 +58,7 @@ export type ArmManifestSource = {
   arms: string[]
   snapshotFor(arm: string): VrBridgeSnapshot | null
   armStateFor(arm: string): Frame | null
+  gripStateFor(arm: string): Frame | null
 }
 
 /** 一次采样：桥认到的每条臂一行（纯读，不编臂也不补默认口）。 */
@@ -57,14 +66,17 @@ export function readArmManifest(source: ArmManifestSource): ArmManifestRow[] {
   return source.arms.map((arm) => {
     const block = source.snapshotFor(arm)?.arm
     const state = source.armStateFor(arm)
+    const grip = source.gripStateFor(arm)
     return {
       arm,
       side: typeof block?.side === 'string' ? block.side : '',
       device: typeof block?.device === 'string' ? block.device : '',
+      gripper: typeof block?.gripper === 'string' ? block.gripper : '',
       source: typeof block?.device_source === 'string' ? block.device_source : '',
       confirmedAt:
         typeof block?.device_confirmed_at === 'string' ? block.device_confirmed_at : '',
       reported: typeof state?.device === 'string' ? state.device : '',
+      reportedGripper: typeof grip?.device === 'string' ? grip.device : '',
     }
   })
 }
@@ -89,7 +101,10 @@ export type ArmManifestView = {
   /** 桥在线、且没在遥操：这时候才允许改 */
   canEdit: boolean
   refreshPorts: () => void
-  save: (devices: Record<string, string>) => void
+  /** 保存：两张表都是**这次改动过的那几条**（没动的不写，见桥那边的记录语义） */
+  save: (devices: Record<string, string>, grippers: Record<string, string>) => void
+  /** 把上一次的拒绝收起来（改动被撤销、那张卡又回到"与桥一致"时用） */
+  dismissError: () => void
 }
 
 function messageOf(err: unknown): string {
@@ -173,12 +188,13 @@ export function useArmManifest(): ArmManifestView {
   const refreshPorts = useCallback(() => setPortTick((n) => n + 1), [])
 
   const pending = useRef(0)
-  const save = useCallback((devices: Record<string, string>) => {
+  const save = useCallback((devices: Record<string, string>,
+                            grippers: Record<string, string>) => {
     const seq = (pending.current += 1)
     setSaving(true)
     setError(null)
     setSaved(null)
-    vrBridge.setArmDevices(devices).then(
+    vrBridge.setArmDevices(devices, grippers).then(
       (value) => {
         if (seq !== pending.current) return
         setSaving(false)
@@ -195,6 +211,8 @@ export function useArmManifest(): ArmManifestView {
     )
   }, [])
 
+  const dismissError = useCallback(() => setError(null), [])
+
   return {
     rows,
     ports,
@@ -206,5 +224,6 @@ export function useArmManifest(): ArmManifestView {
     canEdit: online && !following,
     refreshPorts,
     save,
+    dismissError,
   }
 }

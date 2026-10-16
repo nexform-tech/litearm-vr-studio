@@ -22,17 +22,22 @@ VR 是第三条设备通道，同样要能被 `--fake` 覆盖。否则**臂映�
 
 演出来的那条线，与卡上写的操作顺序一致：
 
-    开机            两条臂、两个口；跟随服务没跑（`vr_arm` 报断开）—— 这时才改得动
+    开机            两条臂，各带一个夹爪（臂是串口、夹爪是 CAN 口）；跟随服务没跑
+                    （`vr_arm` 报断开）—— 这时才改得动
     改一个口 + 保存   只该改动的那条变成「已确认」；真机那行还是旧口 ⇒ 卡上出**红字**
     开始遥操         跟随服务起来、开的正是新口 ⇒ 红字消失，负载与 3D 有数了；
                      同时映射卡因为 `following` 变灰（改不了，与真桥同一判据）
     停止遥操         回到可改状态，真机仍报最后开过的那个口
 
+臂与夹爪的口是**一条记录**（同 `litearm-vr-bridge` 的 `manifest`）：`vr.set_arm_devices`
+一次收 `devices` 与 `grippers` 两张表。
+
 ⚠ **它不碰 zenoh、不碰桥，也不写任何记录文件**：改动只活在这个进程的内存里（桥那边是
    落盘的，换台上位机连过去看到的是同一份）。所以它证明得了「页面的交互是对的」，证明
    不了「桥会照做」—— 后者只能在现场或有桥的台架上走。
 
-⚠ **没有演的东西**：兜底（fallback）、帧停顿、事件流、进程崩溃、双臂之外的臂数。
+⚠ **没有演的东西**：兜底（fallback）、帧停顿、事件流、进程崩溃、双臂之外的臂数、
+   **没有夹爪的臂**（假件里两条臂都带夹爪，所以界面上"这条臂没有夹爪"那一档在这儿看不见）。
    这一版只求把「看状态 + 改映射 + 按开关」这条主线走通。
 """
 from __future__ import annotations
@@ -70,6 +75,7 @@ FAKE_DEVICES = {
 #: 两条臂各带一个夹爪，所以 CAN 口也是两个（夹爪走 CAN，不是串口）。
 #: 身份与臂一一对应：`armA` 的夹爪在 `can0`、`armB` 的在 `can1`。
 FAKE_GRIPPER_CHANNELS = {"armA": "can0", "armB": "can1"}
+
 
 #: `ports.list` 的候选口：两类、四个。臂是串口（`serial`）、夹爪是 CAN（`can`）。
 FAKE_PORTS: tuple[dict[str, str], ...] = (
@@ -137,10 +143,10 @@ class FakeVrSession:
         #: 一条 `config`（装机时写下的默认）、一条 `record`（操作员按实物确认过的）——
         #: 开机就是这个样子，界面上那两行本来就不该长得一样。
         self._devices: dict[str, dict[str, Any]] = {
-            "armA": {"device": FAKE_DEVICES["armA"], "source": "config",
-                     "confirmed_at": None},
-            "armB": {"device": FAKE_DEVICES["armB"], "source": "record",
-                     "confirmed_at": _now_iso()},
+            "armA": {"device": FAKE_DEVICES["armA"], "gripper": FAKE_GRIPPER_CHANNELS["armA"],
+                     "source": "config", "confirmed_at": None},
+            "armB": {"device": FAKE_DEVICES["armB"], "gripper": FAKE_GRIPPER_CHANNELS["armB"],
+                     "source": "record", "confirmed_at": _now_iso()},
         }
         #: 真机那条路报的口 = 跟随服务**实际开过**的那个。没跑过就是空串 ——
         #: 开机时它没有任何东西可报（见模块文档的那条线）。
@@ -258,7 +264,7 @@ class FakeVrSession:
         if method == "vr.list_ports":
             return _receipt("ports_listed", {"mode": "stm32",
                                              "ports": [dict(p) for p in FAKE_PORTS]})
-        return self._set_arm_devices(params.get("devices"))
+        return self._set_arm_devices(params.get("devices"), params.get("grippers"))
 
     def _start_teleop(self) -> dict[str, Any]:
         with self._lock:
@@ -283,12 +289,28 @@ class FakeVrSession:
         self._publish_frames()
         return _receipt("estop_sent" if estop else "teleop_stopped")
 
-    def _set_arm_devices(self, devices: Any) -> dict[str, Any]:
-        """`arms.set` —— 判据与拒绝时的原话照 `litearm-vr-bridge` 的 `set_arm_devices`。"""
-        if not isinstance(devices, dict) or not devices:
+    def _set_arm_devices(self, devices: Any,
+                         grippers: Any = None) -> dict[str, Any]:
+        """`arms.set` —— 判据与拒绝时的原话照 `litearm-vr-bridge` 的 `set_arm_devices`。
+
+        两样口一起收：`devices` 是臂的串口，`grippers` 是这条臂那个夹爪的 CAN 口。
+        两张表都是**部分更新**，一条臂可以只改其中一样。
+        """
+        # ⚠ 两张表都可以为空，但不能都空：只改夹爪口的保存就是 `devices: {}` +
+        #   `grippers: {armA: can0}`（同桥那边的判据）。
+        if devices is None:
+            devices = {}
+        if (not isinstance(devices, dict)
+                or (grippers is not None and not isinstance(grippers, dict))):
+            return _receipt_error(
+                "BadRequest",
+                "arms.set 的参数是两张表：devices（{臂身份: 串口}）与 "
+                "grippers（{臂身份: CAN 口}）")
+        if not devices and not grippers:
             return _receipt_error("BadRequest", "arms.set 需要 devices 参数：{臂身份: 串口}")
 
-        unknown = [key for key in devices if key not in _ARM_IDS]
+        unknown = [key for key in list(devices) + list(grippers or {})
+                   if key not in _ARM_IDS]
         if unknown:
             return _receipt_error(
                 "BadRequest",
@@ -301,9 +323,16 @@ class FakeVrSession:
                 return _receipt_error(
                     "BadRequest", f"{arm_id} 的串口是个空值：每条臂都得指认一个口")
             updates[arm_id] = value.strip()
+        grip_updates: dict[str, str] = {}
+        for arm_id, value in (grippers or {}).items():
+            if not isinstance(value, str) or not value.strip():
+                return _receipt_error(
+                    "BadRequest", f"{arm_id} 的夹爪口是个空值：要么给它一个 CAN 口，"
+                                  "要么这一次别动它")
+            grip_updates[arm_id] = value.strip()
 
         with self._lock:
-            # 部分更新：没提到的臂保持原值 —— 但要**按更新后**的整套查重，否则"只改一条"
+            # 部分更新：没提到的保持原值 —— 但要**按更新后**的整套查重，否则"只改一条"
             # 就能把两条臂改成同一个口，而那正是"两条 follow 抢一个串口、谁也不报错"。
             effective = {
                 arm: updates.get(arm, self._devices[arm]["device"]) for arm in _ARM_IDS
@@ -316,14 +345,30 @@ class FakeVrSession:
                     f"同一个口被指给了两条臂（{clash[0]}）：一个串口只能有一条 follow 开 —— "
                     "选错会静默地让两条臂对调",
                 )
+            # 夹爪那张表同理：一个 CAN 口只能开一个夹爪
+            grip_effective = {
+                arm: grip_updates.get(arm, self._devices[arm]["gripper"])
+                for arm in _ARM_IDS
+            }
+            grip_values = list(grip_effective.values())
+            grip_clash = sorted({v for v in grip_values if v and grip_values.count(v) > 1})
+            if grip_clash:
+                return _receipt_error(
+                    "BadRequest",
+                    f"同一个 CAN 口被指给了两个夹爪（{grip_clash[0]}）："
+                    "一个口只能开一个夹爪 —— 选错会静默地让两个夹爪对调",
+                )
+
             changed = sorted(
-                arm for arm in _ARM_IDS if effective[arm] != self._devices[arm]["device"]
+                arm for arm in _ARM_IDS
+                if effective[arm] != self._devices[arm]["device"]
+                or grip_effective[arm] != self._devices[arm]["gripper"]
             )
             if not changed:
                 return _receipt("arms_set", {"arms": self._arm_view(),
                                              "applied": [],
                                              "note": "与当前一致，没有改动"})
-            # 忙判据与桥一致：上游进程还在跑就不能改（命令行里的串口是启动那一刻冻下来的）
+            # 忙判据与桥一致：上游进程还在跑就不能改（命令行是启动那一刻冻下来的）
             if self._running:
                 return _receipt_error(
                     "Busy",
@@ -333,8 +378,9 @@ class FakeVrSession:
             for arm in changed:
                 # 确认过的口盖住装机默认（`record` 压 `config`，与桥的 manifest 同一条
                 # 规矩）；口没变的那几条不动 —— 顺手重写等于替操作员又签了一次字。
-                self._devices[arm] = {"device": effective[arm], "source": "record",
-                                      "confirmed_at": _now_iso()}
+                self._devices[arm] = {"device": effective[arm],
+                                      "gripper": grip_effective[arm],
+                                      "source": "record", "confirmed_at": _now_iso()}
             applied = list(changed)
         self._publish_frames()
         return _receipt("arms_set", {"arms": self._arm_view(), "applied": applied})
@@ -347,6 +393,7 @@ class FakeVrSession:
                     "arm_id": arm,
                     "side": _SIDES[arm],
                     "device": self._devices[arm]["device"],
+                    "gripper": self._devices[arm]["gripper"],
                     "device_source": self._devices[arm]["source"],
                     "device_confirmed_at": self._devices[arm]["confirmed_at"],
                     "follow": "127.0.0.1:9001",
@@ -438,6 +485,9 @@ class FakeVrSession:
                 "device_source": device["source"],
                 "device_confirmed_at": device["confirmed_at"],
                 "follow": "127.0.0.1:9001",
+                # 夹爪的 CAN 口（空 = 这条臂没有夹爪）：它只喂给汇总服务的 `--gripper`
+                # 对拍，但错了界面上那个夹爪的身份就错了 —— 所以照样报出来确认
+                "gripper": device["gripper"],
                 "commands": {"requests": 0, "failures": 0, "last_ok_age_ms": None,
                              "error": None},
             },
@@ -496,10 +546,14 @@ class FakeVrSession:
         （`FAKE_GRIPPER_CHANNELS`）。挤成一份的话，双臂部署下页面会把两个夹爪的读数
         看成一个 —— 而"这一下夹的是哪只手"正是操作员要判断的事。
         形状照上游的 `GripperStatus`（`litearm-vr-follow/status_msgs.py`）。
+
+        ⚠ 报的 `device` 取**记录里那一个**（不是常量）：真链路上汇总服务的 `--gripper`
+          是桥在 `arms.set` 之后**当场重启**它才换上去的，所以它报的新口立刻跟上 ——
+          与臂那条不同（follow 要等下次开始遥操才重开，那才叫滞后）。
         """
         running = self._running
         return {
-            "device": FAKE_GRIPPER_CHANNELS[arm],
+            "device": self._devices[arm]["gripper"],
             "connected": running,
             "ok": running,
             "q": round(0.4 + 0.1 * math.sin(time.monotonic() * 0.6 + index), 3)

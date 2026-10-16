@@ -101,7 +101,13 @@ describe('VR 通道客户端（走 daemon）', () => {
 
     await client.setArmDevices({ armA: '/dev/serial/by-id/usb-A' })
     expect(fake.sendCmd).toHaveBeenLastCalledWith('vr.set_arm_devices',
-      { devices: { armA: '/dev/serial/by-id/usb-A' } })
+      { devices: { armA: '/dev/serial/by-id/usb-A' }, grippers: {} })
+
+    // 两只夹爪的口走同一张命令：桥那边两样口是**一条记录**（按臂），分两条命令发等于
+    // 让它写两次文件、并给"只写了一半"留一个窗口
+    await client.setArmDevices({ armA: '/dev/serial/by-id/usb-A' }, { armA: 'can0' })
+    expect(fake.sendCmd).toHaveBeenLastCalledWith('vr.set_arm_devices',
+      { devices: { armA: '/dev/serial/by-id/usb-A' }, grippers: { armA: 'can0' } })
   })
 
   it('回执存下来给页面读（急停没停成不能显示成成功）', async () => {

@@ -99,7 +99,7 @@
   },
   "manifest": {
     "title": "Arm mapping",
-    "hint": "Which serial port is which arm — a wrong mapping does not error, it just drives the other arm",
+    "hint": "Which serial port is which arm, and which CAN channel its gripper is on — a wrong mapping does not error, it just drives the other arm",
     "side": {
       "left": "Left arm",
       "right": "Right arm",
@@ -123,6 +123,9 @@
     "refresh": "Refresh",
     "portsUnavailable": "Could not list candidate ports ({{reason}}) — you can type the port name instead.",
     "busy": "Teleop is running, or an upstream process still is — stop it first (the port is frozen into the command line at start).",
-    "noArms": "The bridge has not reported any arm yet — two rows appear once it does."
+    "noArms": "The bridge has not reported any arm yet — two rows appear once it does.",
+    "armPort": "Arm",
+    "gripperPort": "Grip",
+    "gripperMismatch": "The gripper service reports {{device}} — not what is selected above"
   }
 }

@@ -186,6 +186,13 @@ export type VrBridgeSnapshot = {
     side?: string
     /** 这条臂的硬件口（`/dev/serial/by-id/…` 或 CAN 口名） */
     device?: string
+    /**
+     * 这条臂那个夹爪的 CAN 口（`can0`）；空/缺席 = 这条臂没有夹爪。
+     *
+     * 它只喂给汇总服务的 `--gripper <身份>=<口>@<端点>` 对拍（真正驱动夹爪的是端点），
+     * 但它错了界面上那个夹爪的身份就是错的 —— 所以映射卡把它跟串口并排摆出来。
+     */
+    gripper?: string
     /** 这个口是谁定的：`config`（装机时写的）/ `record`（操作员在界面上确认过的） */
     device_source?: string
     /** 来源是 `record` 时的确认时间（ISO 8601）；没有就是 null */

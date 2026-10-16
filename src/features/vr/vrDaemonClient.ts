@@ -184,14 +184,19 @@ export class VrDaemonClient {
     asObject(await this.socket.sendCmd('vr.list_ports'))
 
   /**
-   * 确认「哪条串口接在哪条臂」—— 桥负责落盘并当场生效。
+   * 确认「哪条串口接在哪条臂、夹爪在哪个 CAN 口」—— 桥负责落盘并当场生效。
+   *
+   * 两张表都是**部分更新**：只放这次改动过的那几条臂。
    *
    * 与 `sendAction` 的差别：这里**把 promise 交回调用方**。那张卡要显示桥拒绝的原话
    * （同一个口给了两条臂、跟随服务还在跑、命令是自定义的…），而"最近一次回执"是给
    * 三个开关按钮共用的槽位，卡片读它会串台。
    */
-  setArmDevices = async (devices: Record<string, string>): Promise<Json | null> =>
-    asObject(await this.socket.sendCmd('vr.set_arm_devices', { devices }))
+  setArmDevices = async (
+    devices: Record<string, string>,
+    grippers: Record<string, string> = {},
+  ): Promise<Json | null> =>
+    asObject(await this.socket.sendCmd('vr.set_arm_devices', { devices, grippers }))
 
   private _applyDevice<T>(msg: Json, into: Map<string, T>) {
     const arm = typeof msg.arm === 'string' ? msg.arm : ''

@@ -80,11 +80,14 @@ function asString(value: unknown, fallback = ''): string {
  *   快照里读 `connected` / `state` / `fault`，那几个字段早就不发了，于是"跟随服务"
  *   那一跳永远显示"未连接"、故障永远显示不出来，而机械臂其实正在跟着动。
  *
- * `armSource` 只说得出"真机"与"不知道"：仿真/真机是桥那一侧的事，新链路上没有地方报
- * 它（见 `VrLinkSnapshot.armSource`）。**不拿 `sim` 顶上** —— 那会把"不知道"说成
- * "在跑仿真"。
+ * `armSource` 说"真机 / 仿真 / 不知道"三档：**真机还是仿真是桥那一侧的事实**，
+ * 由桥的快照 `bridge.real` 报（`VrBridgeSnapshot.bridge.real`），不是从"臂连上了"推的。
+ *
+ * ⚠ 更早的桥**不发那个字段**：那时退回"臂连上了就算真机"，且**绝不拿 `sim` 顶上** ——
+ *   把"不知道"说成"在跑仿真"比不说更坏（操作员会以为按下去不会动）。所以传 `undefined`
+ *   时行为与从前一字不差。
  */
-export function armFieldsOf(state: Frame | null): Pick<
+export function armFieldsOf(state: Frame | null, bridgeReal?: boolean | null): Pick<
   VrBridgeFields, 'armSource' | 'armConnected' | 'armState' | 'armError' | 'armFault'
 > {
   const connected = state?.connected === true
@@ -93,7 +96,10 @@ export function armFieldsOf(state: Frame | null): Pick<
   const fault = Array.isArray(state?.fault) ? state.fault : []
   const flags = Array.isArray(state?.flags) ? state.flags : []
   return {
-    armSource: connected ? 'real' : null,
+    // 桥说了就听桥的（`false` 是"只跑仿真"，那是确切的一件事）；
+    // 桥没说（老版本）就退回从前的推断 —— 但只推断得出"真机"，绝不猜"仿真"。
+    armSource: typeof bridgeReal === 'boolean' ? (bridgeReal ? 'real' : 'sim')
+      : (connected ? 'real' : null),
     armConnected: connected,
     armState: typeof state?.state === 'string' ? state.state : null,
     armError: typeof state?.error === 'string' ? state.error : null,
@@ -379,7 +385,8 @@ class VrLink {
       device: asString(state?.device, previous?.device ?? ''),
       // 桥的快照里 `arm` 那段是**身份与去处**（谁、装在哪、follow 在哪），侧别就在里面
       side: asString(snapshot?.arm?.side, previous?.side ?? ''),
-      fields: { ...(snapshot ? mapBridgeSnapshot(snapshot) : emptyBridgeFields()), ...armFieldsOf(state) },
+      fields: { ...(snapshot ? mapBridgeSnapshot(snapshot) : emptyBridgeFields()),
+        ...armFieldsOf(state, snapshot?.bridge?.real) },
       q,
     })
 

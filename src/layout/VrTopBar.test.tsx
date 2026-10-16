@@ -59,8 +59,11 @@ describe('VR 页顶栏', () => {
     expect(document.getElementById('topbar-port')).toBeNull()
     expect(document.getElementById('topbar-connect-btn')).toBeNull()
     expect(document.getElementById('topbar-disconnect-btn')).toBeNull()
-    // 这一页**一个按钮都没有**：地址不填了（归 daemon），动作按钮在控制卡上
-    expect(screen.queryAllByRole('button')).toHaveLength(0)
+    // 顶栏上**只有一颗**按钮：桥的配置面收在右上角（`VrConfigDialog`，点开是表单）。
+    // 地址仍然不填（归 daemon），动作按钮仍然在控制卡上 —— 这一条守的是那两件事。
+    const buttons = screen.queryAllByRole('button')
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0]?.getAttribute('data-testid')).toBe('vr-topbar-config')
   })
 
   it('桥地址不再是个输入项（页面不自己连桥）', () => {

@@ -124,5 +124,31 @@
     "armPort": "Arm",
     "gripperPort": "Grip",
     "gripperMismatch": "The gripper service reports {{device}} — not what is selected above"
+  },
+  "config": {
+    "title": "Bridge configuration",
+    "hint": "These live on the bridge machine — anything set here overrides its config.toml",
+    "refresh": "Reload",
+    "loading": "Asking the bridge for its configuration…",
+    "unavailable": "The bridge is not connected yet — the editable settings appear here once it is.",
+    "busy": "Teleop is running, or the upstream processes are — stop them first (their command lines were frozen at launch).",
+    "save": "Save to bridge",
+    "saving": "Saving…",
+    "saved": "Saved: {{keys}}",
+    "savedNothing": "Already matches the bridge — nothing changed",
+    "revert": "Undo",
+    "reset": "Reset to config file",
+    "pick": "Pick one",
+    "on": "On",
+    "off": "Off",
+    "sourceOverride": "set here",
+    "sourceConfig": "config.toml",
+    "sourceDefault": "factory default",
+    "notWritable": "read-only",
+    "needsRestart": "on restart",
+    "pendingThis": "Saved, but it only takes effect after the bridge restarts — it is still running the old value.",
+    "pendingRestart": "Saved but not in effect yet; restart the bridge: {{keys}}",
+    "open": "Configuration",
+    "livesAt": "Overrides live in {{path}} (they beat config.toml)"
   }
 }

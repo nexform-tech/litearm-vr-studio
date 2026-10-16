@@ -140,11 +140,54 @@ export type VrLinkSnapshot = {
  * 契约见 litearm-vr-bridge/docs/DESIGN.md 第 4.1 节；字段一律按可选处理，
  * 桥端增删字段不应让页面崩掉。
  */
+/**
+ * 桥的**配置面**：`config.schema` 下发的一项。
+ *
+ * 页面**不写死**任何键名 —— 渲染什么控件由 `kind` 决定、显示不显示"要重启"由 `apply`
+ * 决定。桥以后新增配置项，这边自动出现（见 `VrConfigPanel`）。
+ */
+export type VrConfigEntry = {
+  /** 点分路径，如 `machine.real` —— 回执与 `config.reset` 都用它。 */
+  path: string
+  section: string
+  key: string
+  /** `bool` | `enum` | `int` | `text` | `manage`（桥的取值类型，决定用哪个控件）。 */
+  kind: string
+  /** `enum` 才有：认得的取值。 */
+  values: string[]
+  /** `live`（立即）| `respec`（重建命令行，链路忙时会被拒）| `restart` | `locked`。 */
+  apply: string
+  value: unknown
+  /** `default`（出厂默认）| `config`（config.toml 写的）| `override`（上位机改过）。 */
+  source: string
+  writable: boolean
+  /** 不给改时的一句话理由（`writable` 为假时才有）。 */
+  locked_why: string | null
+  /** 存了但**还没生效**（要重启桥）；页面上要写明，别显示成已经生效。 */
+  pending_restart?: boolean
+  /** 桥给的说明，原样显示（那是桥的术语，不进 i18n）。 */
+  doc?: string
+}
+
+export type VrConfigSchema = {
+  config_file?: string | null
+  overrides_file?: string | null
+  pending_restart?: string[]
+  entries: VrConfigEntry[]
+}
+
 export type VrBridgeSnapshot = {
   ts?: number
   bridge?: {
     online?: boolean
     version?: string
+    /**
+     * 接真机还是只跑仿真（桥那一侧的事实）。
+     *
+     * ⚠ 桥在更早的版本里**不发这个字段**：缺席 = 不知道，**不要**当成"仿真"
+     *   （那会把"不知道"说成一件确定的事）。见 `vrLink.armFieldsOf`。
+     */
+    real?: boolean
     /**
      * 注意：桥在还没有样本时会发 `null`（例如刚起来还没收到帧，`forward_cost_ms` 就是 null）。
      * 页面侧统一用 `finite()` 兜底成 0，但类型要如实写。

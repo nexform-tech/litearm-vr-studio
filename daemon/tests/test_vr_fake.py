@@ -237,6 +237,75 @@ def test_unknown_action_is_rejected(fake: FakeVrSession) -> None:
         fake.execute("vr.teleport")
 
 
+# ── 通用配置面（`config.schema` / `config.set` / `config.reset`） ─────────────
+
+
+def test_schema_lists_every_tier_and_the_locked_ones(fake: FakeVrSession) -> None:
+    """页面是**照着这份 schema 渲染**的，所以每一档都得在这儿演出来：
+    立即 / 重建命令行 / 需重启，以及不给改的那些（带理由）。"""
+    entries = {e["path"]: e for e in fake.execute("vr.get_config")["result"]["entries"]}
+    assert {e["apply"] for e in entries.values()} >= {"live", "respec", "restart", "locked"}
+    assert entries["machine.real"]["kind"] == "bool"
+    assert entries["machine.viewer"]["values"] == ["gui", "rviz"]
+    locked = entries["safety.require_real_ack"]
+    assert locked["writable"] is False and locked["locked_why"]
+
+
+def test_set_changes_the_value_and_says_where_it_came_from(fake: FakeVrSession) -> None:
+    receipt = fake.execute("vr.set_config", {"config": {"machine": {"real": False}}})
+    assert receipt["ok"] is True and receipt["code"] == "config_set"
+    assert receipt["result"]["applied"] == ["machine.real"]
+    assert receipt["result"]["pending_restart"] == []
+
+    entries = {e["path"]: e for e in fake.execute("vr.get_config")["result"]["entries"]}
+    assert entries["machine.real"]["value"] is False
+    assert entries["machine.real"]["source"] == "override"
+
+
+def test_restart_tier_is_saved_but_not_pretended(fake: FakeVrSession) -> None:
+    """存下来，但**不假装已经生效** —— 页面上要显示"重启桥后生效"。"""
+    receipt = fake.execute("vr.set_config", {"config": {"bridge": {"log_format": "json"}}})
+    assert receipt["result"]["applied"] == []
+    assert receipt["result"]["pending_restart"] == ["bridge.log_format"]
+    entries = {e["path"]: e for e in fake.execute("vr.get_config")["result"]["entries"]}
+    assert entries["bridge.log_format"]["value"] == "text", "当前值还是旧的"
+    assert entries["bridge.log_format"]["pending_restart"] is True
+
+
+def test_reset_goes_back_to_the_config_file(fake: FakeVrSession) -> None:
+    fake.execute("vr.set_config", {"config": {"machine": {"real": False}}})
+    receipt = fake.execute("vr.reset_config", {"paths": ["machine.real"]})
+    assert receipt["ok"] is True and receipt["code"] == "config_reset"
+    entries = {e["path"]: e for e in fake.execute("vr.get_config")["result"]["entries"]}
+    assert entries["machine.real"]["value"] is True
+    assert entries["machine.real"]["source"] == "config"
+
+
+def test_set_refuses_locked_keys_in_the_bridges_own_words(fake: FakeVrSession) -> None:
+    receipt = fake.execute("vr.set_config",
+                           {"config": {"safety": {"require_real_ack": True}}})
+    assert receipt["ok"] is False and receipt["code"] == "BadRequest"
+    assert "不从页面上改" in receipt["error"]["message"]
+    # 拼错的键也要点名，不能被静默忽略（"改了但没生效"最难查）
+    typo = fake.execute("vr.set_config", {"config": {"machine": {"reall": False}}})
+    assert typo["ok"] is False and "machine.reall" in typo["error"]["message"]
+
+
+def test_same_value_is_a_no_op(fake: FakeVrSession) -> None:
+    receipt = fake.execute("vr.set_config", {"config": {"machine": {"real": True}}})
+    assert receipt["ok"] is True and receipt["result"]["applied"] == []
+    assert "与当前一致" in receipt["result"]["note"]
+
+
+def test_real_switch_moves_the_bridge_block_too(fake: FakeVrSession) -> None:
+    """页面顺着 `bridge.real` 说"真机"还是"仿真" —— 改了它，快照那一段要跟着翻。"""
+    assert fake.execute("vr.get_config")["ok"] is True
+    assert fake.snapshots()["armA"]["bridge"]["real"] is True
+    fake.execute("vr.set_config", {"config": {"machine": {"real": False}}})
+    # 快照是 10Hz 推的：改完要等下一拍才带上新值
+    assert wait_until(lambda: fake.snapshots()["armA"]["bridge"]["real"] is False)
+
+
 # ── 那张红字：桥认的口与真机回的口不符 ──────────────────────────────────────
 
 

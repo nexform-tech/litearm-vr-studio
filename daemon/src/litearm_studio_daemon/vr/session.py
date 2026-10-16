@@ -83,6 +83,11 @@ ACTIONS = {
     "vr.estop": "estop",
     "vr.list_ports": "ports.list",
     "vr.set_arm_devices": "arms.set",
+    # 通用配置面：桥把"能改哪些键、各自什么取值、改完怎么生效"当数据交出来，
+    # 页面按它渲染 —— 以后桥新增配置项，这边不用改。
+    "vr.get_config": "config.schema",
+    "vr.set_config": "config.set",
+    "vr.reset_config": "config.reset",
 }
 
 

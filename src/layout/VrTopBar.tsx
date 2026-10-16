@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import { armClient, useArmConnection } from '@/lib/arm'
 import { consoleActivityLabel, consoleActivityOf } from '@/features/vr/vrOwnership'
+import { VrConfigButton } from '@/features/vr/VrConfigDialog'
 
 /**
  * VR 页的顶栏。
@@ -56,6 +57,11 @@ export function VrTopBar() {
           </span>
         ) : null}
       </div>
+
+      {/* 右上角：桥的配置面。收成一颗按钮，是因为这一页摆的是**遥操时一直要盯着**
+          的东西，而配置是开机改一次、之后再不看的 —— 但它又必须在这一页上，
+          改的是同一台桥。 */}
+      <VrConfigButton />
     </div>
   )
 }

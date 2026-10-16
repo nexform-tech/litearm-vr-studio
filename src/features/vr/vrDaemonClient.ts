@@ -1,6 +1,6 @@
 import { armClient } from '../../lib/arm/client'
 import type { DaemonSocket } from '../../lib/arm/socket'
-import type { VrBridgeSnapshot } from './vrTypes'
+import type { VrBridgeSnapshot, VrConfigSchema } from './vrTypes'
 
 /**
  * VR 通道客户端 —— 走 daemon，不再自己连桥。
@@ -30,6 +30,12 @@ const ACTIONS: Record<string, string> = {
   'teleop.start': 'vr.teleop_start',
   'teleop.stop': 'vr.teleop_stop',
   estop: 'vr.estop',
+  // 通用配置面：桥把"能改哪些键、各自什么取值、改完怎么生效"当数据交出来。
+  // 这三条走 `sendCmd` 直接发（配置面要显示桥拒绝的原话，与臂映射卡同一个理由 ——
+  // `sendAction` 把回执存进三个开关按钮共用的槽位，读它会串台）。
+  'config.get': 'vr.get_config',
+  'config.set': 'vr.set_config',
+  'config.reset': 'vr.reset_config',
 }
 
 /** daemon `vr_conn` 帧的连接信息。 */
@@ -55,6 +61,11 @@ export class VrDaemonClient {
   private gripStates = new Map<string, Json>()
   private receiptValue: Json | null = null
   private actionError: string | null = null
+  /**
+   * 最近一次 `config.schema` 的结果。**按需拉**，不是 10Hz 推的：它是静态的
+   * （改完之后自己再拉一次），而面板一渲染就要用，塞进快照只会白推。
+   */
+  private configValue: Json | null = null
   private listeners = new Set<() => void>()
   private lastNotifyAt = 0
   private pendingNotify: ReturnType<typeof setTimeout> | null = null
@@ -81,6 +92,8 @@ export class VrDaemonClient {
       this.snapshots.clear()
       this.armStates.clear()
       this.gripStates.clear()
+      // 配置面同理：断线之后还留着上一份，页面会拿旧值当"现在能改的"
+      this.configValue = null
       this.notify()
     })
   }
@@ -197,6 +210,32 @@ export class VrDaemonClient {
     grippers: Record<string, string> = {},
   ): Promise<Json | null> =>
     asObject(await this.socket.sendCmd('vr.set_arm_devices', { devices, grippers }))
+
+  /** 最近一次拉到的配置面（没拉过 / 断线之后是 null）。 */
+  get config(): VrConfigSchema | null {
+    return this.configValue as VrConfigSchema | null
+  }
+
+  /**
+   * 问桥要一份配置面（能改哪些键、各自什么取值、改完怎么生效、不给改的为什么）。
+   *
+   * **按需拉**：它只在面板挂载、以及每次改完之后需要刷新 —— 是静态数据，不是状态流。
+   * 桥没回执时抛（与 `setArmDevices` 一样把 promise 交回调用方，卡片要显示原话）。
+   */
+  loadConfig = async (): Promise<VrConfigSchema | null> => {
+    const reply = asObject(await this.socket.sendCmd('vr.get_config'))
+    this.configValue = asObject(reply?.result) ?? null
+    this.notify()
+    return this.config as VrConfigSchema | null
+  }
+
+  /** 改配置。`patch` 与 `config.toml` 同形：`{"machine": {"real": false}}`。 */
+  setConfig = async (patch: Record<string, unknown>): Promise<Json | null> =>
+    asObject(await this.socket.sendCmd('vr.set_config', { config: patch }))
+
+  /** 把这几项退回 `config.toml`（清掉上位机写下的那一条覆盖）。 */
+  resetConfig = async (paths: string[]): Promise<Json | null> =>
+    asObject(await this.socket.sendCmd('vr.reset_config', { paths }))
 
   private _applyDevice<T>(msg: Json, into: Map<string, T>) {
     const arm = typeof msg.arm === 'string' ? msg.arm : ''

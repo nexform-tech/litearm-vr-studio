@@ -85,6 +85,45 @@ FAKE_PORTS: tuple[dict[str, str], ...] = (
     {"path": "can1", "kind": "can"},
 )
 
+#: 假件的配置面。**照桥的 `configfile.CONFIG_KEYS` 抄一份小样**：每一档（立即 / 重建
+#: 命令行 / 需重启）、每一种控件（布尔 / 枚举 / 文本）、以及"不给改的键"都各留一个 ——
+#: 假件的作用是"没有桥的机器上也能把页面点一遍"，那就得把每一档都点到。
+#: 真链路上这份东西是桥下发的（`config.schema`），页面对它一无所知。
+FAKE_CONFIG: tuple[dict[str, Any], ...] = (
+    {"path": "machine.real", "section": "machine", "key": "real", "kind": "bool",
+     "values": [], "apply": "respec", "value": True, "source": "config", "writable": True,
+     "locked_why": None,
+     "doc": "接真机；关掉 = 只跑 pybullet 仿真，一下都不碰机械臂"},
+    {"path": "machine.side", "section": "machine", "key": "side", "kind": "bool",
+     "values": [], "apply": "respec", "value": False, "source": "default", "writable": True,
+     "locked_why": None,
+     "doc": "单臂装法：侧装 = 开（占左槽、由左手柄驱动）"},
+    {"path": "machine.viewer", "section": "machine", "key": "viewer", "kind": "enum",
+     "values": ["gui", "rviz"], "apply": "respec", "value": "gui", "source": "default",
+     "writable": True, "locked_why": None, "doc": "上游的视图窗口"},
+    {"path": "follow.ctrl_mode", "section": "follow", "key": "ctrl_mode", "kind": "text",
+     "values": [], "apply": "respec", "value": "js", "source": "default", "writable": True,
+     "locked_why": None, "doc": "控制律：jf | js | j | mit（jf 要板上固件 ≥ 1.9.0）"},
+    {"path": "bridge.log_level", "section": "bridge", "key": "log_level", "kind": "enum",
+     "values": ["DEBUG", "INFO", "WARNING", "ERROR"], "apply": "live", "value": "INFO",
+     "source": "default", "writable": True, "locked_why": None,
+     "doc": "日志级别（改完立即生效）"},
+    {"path": "bridge.log_format", "section": "bridge", "key": "log_format", "kind": "enum",
+     "values": ["text", "json"], "apply": "restart", "value": "text", "source": "default",
+     "writable": True, "locked_why": None, "doc": "日志格式"},
+    {"path": "safety.require_real_ack", "section": "safety", "key": "require_real_ack",
+     "kind": "bool", "values": [], "apply": "locked", "value": False, "source": "default",
+     "writable": False,
+     "locked_why": "它拦的就是这个页面。页面能自己把它关掉，等于没有。",
+     "doc": ""},
+    {"path": "bridge.zenoh_listen", "section": "bridge", "key": "zenoh_listen",
+     "kind": "text", "values": [], "apply": "locked", "value": "tcp/127.0.0.1:7447",
+     "source": "default", "writable": False,
+     "locked_why": "改了会把上位机自己踢下线：话题换一段、端点换一个，连回执都送不回来。"
+                   "现场表现是「点了一下，页面从此连不上，不知道为什么」。",
+     "doc": ""},
+)
+
 #: 臂清单里那份"这台机器认哪几条臂"的顺序（照身份排序，与 `conn_info().arms` 一致）。
 _ARM_IDS: tuple[str, ...] = tuple(arm for arm, _ in FAKE_ARMS)
 _SIDES: dict[str, str] = dict(FAKE_ARMS)
@@ -124,7 +163,7 @@ def _receipt_error(code: str, message: str) -> dict[str, Any]:
 
 
 class FakeVrSession:
-    """`--fake` 的 VR 通道：自己推四种帧，自己应答五条动作。
+    """`--fake` 的 VR 通道：自己推四种帧，自己应答八条动作。
 
     ⚠ 线程模型与真件**一致**：`add_listener` 注册的回调在**本假件自己的线程**上被调用，
        不是事件循环线程 —— 所以 `server` 那边照旧用 `broadcast_threadsafe` 投递，
@@ -151,6 +190,11 @@ class FakeVrSession:
         #: 真机那条路报的口 = 跟随服务**实际开过**的那个。没跑过就是空串 ——
         #: 开机时它没有任何东西可报（见模块文档的那条线）。
         self._reported: dict[str, str] = {arm: "" for arm in _ARM_IDS}
+        #: 上位机改过的配置项（桥那边是落盘的 `overrides.json`）。这里只在内存里，
+        #: 进程一停就没了 —— 见模块开头那条"它不写任何记录文件"。
+        self._overrides: dict[str, Any] = {}
+        #: 存了但**还没生效**的键（"重启桥后生效"那一档）。照桥的语义：不套进当前值。
+        self._pending: set[str] = set()
         #: 跟随服务在不在跑（改映射的忙判据就是它，同桥的 `_link_busy`）。
         self._running = False
         #: 手柄在不在跟随（`headset.following`）—— 映射卡的 `canEdit` 看这个。
@@ -264,7 +308,111 @@ class FakeVrSession:
         if method == "vr.list_ports":
             return _receipt("ports_listed", {"mode": "stm32",
                                              "ports": [dict(p) for p in FAKE_PORTS]})
+        if method == "vr.get_config":
+            return self._config_schema()
+        if method == "vr.set_config":
+            return self._set_config(params.get("config"))
+        if method == "vr.reset_config":
+            return self._reset_config(params.get("paths"))
         return self._set_arm_devices(params.get("devices"), params.get("grippers"))
+
+    # ------------------------------------------------------------ 配置（通用面）
+    def _config_entries(self) -> list[dict[str, Any]]:
+        """照桥的 `config.schema` 拼一份：覆盖层压过出厂默认，`source` 跟着变。"""
+        out = []
+        for spec in FAKE_CONFIG:
+            path = spec["path"]
+            # ⚠ 「存了但还没生效」的键，**当前值仍是旧的** —— 显示成新值就是
+            # "假装已经生效"，而这条档存在的全部意义就是不许假装。来源照样是
+            # `override`（覆盖层里确实有它），配上 `pending_restart` 一起看才是实话。
+            out.append(dict(
+                spec,
+                value=(spec["value"] if path in self._pending
+                       else self._overrides.get(path, spec["value"])),
+                source="override" if path in self._overrides else spec["source"],
+                pending_restart=path in self._pending,
+            ))
+        return out
+
+    def _config_schema(self) -> dict[str, Any]:
+        return _receipt("config_schema", {
+            # 假件里这两个路径只是"页面上会有这么一行"，不指向真的文件
+            "config_file": "/etc/litearm-vr-bridge.toml",
+            "overrides_file": "~/.config/litearm-vr-bridge/overrides.json",
+            "pending_restart": sorted(self._pending),
+            "entries": self._config_entries(),
+        })
+
+    def _set_config(self, patch: Any) -> dict[str, Any]:
+        if not isinstance(patch, dict):
+            return _receipt_error(
+                "BadRequest",
+                'config.set 需要 config 参数：{段: {键: 值}}，如 {"machine": {"real": false}}')
+        known = {spec["path"]: spec for spec in FAKE_CONFIG}
+        coerced: dict[str, Any] = {}
+        for section, table in patch.items():
+            if not isinstance(table, dict):
+                return _receipt_error("BadRequest",
+                                      f"config.set 的 [{section}] 得是一张表（{{键: 值}}）")
+            for key, value in table.items():
+                path = f"{section}.{key}"
+                spec = known.get(path)
+                if spec is None:
+                    return _receipt_error(
+                        "BadRequest", f"不认识的配置项 {path}（认得的见 config.schema）")
+                if not spec["writable"]:
+                    return _receipt_error("BadRequest",
+                                          f"{path} 不从页面上改 —— {spec['locked_why']}")
+                if spec["kind"] == "bool":
+                    text = str(value).strip().lower()
+                    if text in ("1", "true", "yes", "y", "on"):
+                        coerced[path] = True
+                    elif text in ("0", "false", "no", "n", "off"):
+                        coerced[path] = False
+                    else:
+                        return _receipt_error("BadRequest",
+                                              f"{path} 得是 true / false，拿到 {value!r}")
+                else:
+                    coerced[path] = str(value)
+        if not coerced:
+            return _receipt_error("BadRequest", "config.set 没有给任何配置项")
+
+        changed = [path for path, value in coerced.items()
+                   if self._overrides.get(path, known[path]["value"]) != value]
+        if not changed:
+            return _receipt("config_set", {
+                "applied": [], "pending_restart": sorted(self._pending),
+                "note": "与当前一致，没有改动",
+            })
+        # 「重启才生效」的键存下来但不套进当前值 —— 与桥同一条规矩
+        self._pending |= {p for p in changed if known[p]["apply"] == "restart"}
+        for path in changed:
+            self._overrides[path] = coerced[path]
+        return _receipt("config_set", {
+            "changed": sorted(changed),
+            "applied": sorted(p for p in changed if p not in self._pending),
+            "pending_restart": sorted(self._pending),
+            "overrides_file": "（假件：只在内存里）",
+            "config": self._config_entries(),
+        })
+
+    def _reset_config(self, paths: Any) -> dict[str, Any]:
+        if not isinstance(paths, list) or not paths:
+            return _receipt_error("BadRequest",
+                                  "config.reset 需要 paths：要退回配置文件的那几项")
+        known = {spec["path"] for spec in FAKE_CONFIG}
+        unknown = [path for path in paths if path not in known]
+        if unknown:
+            return _receipt_error(
+                "BadRequest", f"不认识的配置项 {unknown}（认得的见 config.schema）")
+        for path in paths:
+            self._overrides.pop(path, None)
+            self._pending.discard(path)
+        return _receipt("config_reset", {
+            "applied": sorted(paths),
+            "pending_restart": sorted(self._pending),
+            "config": self._config_entries(),
+        })
 
     def _start_teleop(self) -> dict[str, Any]:
         with self._lock:
@@ -455,6 +603,10 @@ class FakeVrSession:
                 # 真实固件里它也是 true）。字段名照桥现在的契约写，别用改名前那个
                 # `metavr_connected` —— 页面读的是这个名字。
                 "teleop_connected": True,
+                # 接真机还是只跑仿真 —— **桥那一侧的事实**。页面上"机械臂"那一跳原来
+                # 只能从"臂连上了"猜，于是被迫在"真机"与"不知道"之间挤；有了它才说得出
+                # "仿真"。跟着配置面走：在假件上改 `machine.real` 这行就跟着翻。
+                "real": bool(self._overrides.get("machine.real", True)),
             },
             # ⚠ 头显**一直连着**：它推它的帧，跟"遥操开没开"是两件事 —— 桥停掉转发之后
             #   帧照旧进来，只是被拦下不转发（`frames_blocked` 就是这些）。

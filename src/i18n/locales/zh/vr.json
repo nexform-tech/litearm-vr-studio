@@ -124,5 +124,31 @@
     "armPort": "臂",
     "gripperPort": "夹爪",
     "gripperMismatch": "夹爪服务实际报的是 {{device}} —— 与上面选的不符"
+  },
+  "config": {
+    "title": "桥的配置",
+    "hint": "改的是桥那台机器上的配置 —— 在这里改过的项会压过它的 config.toml",
+    "refresh": "重新读一遍",
+    "loading": "正在问桥要配置…",
+    "unavailable": "桥还没连上 —— 连上之后这里会列出能改的那些项。",
+    "busy": "正在遥操，或上游进程还在跑 —— 先停掉再改（命令行是启动那一刻冻下来的）。",
+    "save": "保存到桥",
+    "saving": "保存中…",
+    "saved": "已保存：{{keys}}",
+    "savedNothing": "与桥现在的一致，没有改动",
+    "revert": "撤销",
+    "reset": "恢复成配置文件的值",
+    "pick": "选一个",
+    "on": "开",
+    "off": "关",
+    "sourceOverride": "页面改过",
+    "sourceConfig": "config.toml",
+    "sourceDefault": "出厂默认",
+    "notWritable": "不给改",
+    "needsRestart": "重启后生效",
+    "pendingThis": "已存下，重启桥之后才生效 —— 现在跑的还是旧值。",
+    "pendingRestart": "这几项存下了但还没生效，要重启桥：{{keys}}",
+    "open": "配置",
+    "livesAt": "改过的项写在 {{path}}（压过 config.toml）"
   }
 }

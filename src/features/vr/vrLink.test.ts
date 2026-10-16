@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { waitFor } from '@testing-library/react'
-import { armQ, emptyBridgeFields, formatArmFault, mapBridgeSnapshot, vrLink } from './vrLink'
+import {
+  armFieldsOf,
+  armQ,
+  emptyBridgeFields,
+  formatArmFault,
+  mapBridgeSnapshot,
+  vrLink,
+} from './vrLink'
 import {
   SNAP_FALLBACK,
   SNAP_FOLLOWING,
@@ -76,9 +83,10 @@ describe('mapBridgeSnapshot · 头显与转发指标', () => {
     expect(fields.linkState).toBe('following')
     expect(fields.grip).toBe(true)
     expect(fields.tracked).toBe(true)
-    expect(fields.armSource).toBe('real')
-    expect(fields.armConnected).toBe(true)
-    expect(fields.armState).toBe('following')
+    // 臂那一组**不在这份映射里**：桥的快照只剩身份与去处，真机状态从 `vr_arm` 取
+    // （见 `armFieldsOf` 那一段）
+    expect(fields.armConnected).toBe(false)
+    expect(fields.armState).toBeNull()
     expect(fields.metavrConnected).toBe(true)
     expect(fields.owner).toBe('vr')
     expect(fields.fallbackActive).toBe(false)
@@ -94,8 +102,6 @@ describe('mapBridgeSnapshot · 头显与转发指标', () => {
     expect(fields.framesForwarded).toBeGreaterThan(0)
     expect(fields.framesDropped).toBe(0)
     expect(fields.framesBlocked).toBe(0)
-
-    expect(fields.armFault).toEqual([])
   })
 
   it('头显未接入时给出可用的空态', () => {
@@ -178,27 +184,57 @@ describe('字段缺失 / 桥换版本时的健壮性', () => {
 })
 
 /**
- * 跟随服务的故障与错误（`arm.fault` / `arm.error`）。
+ * 臂那一组字段（连接 / 状态 / 故障 / 来源）—— 取自**真机状态** `vr_arm`，不是桥的快照。
  *
- * 固件里那四份真快照这两个字段都是空的（健康的桥就是这么报的），所以这里用手写的载荷，
- * 而不是往 `__fixtures__` 里塞一份假的"真快照"——那份文件的规矩是从真桥抓下来的。
+ * 守的是一个真实修过的错：这几个字段以前从桥的快照里读，而桥从 `4c7a772` 起就不发它们了
+ * （它不再照下游，真机状态改由上游汇总服务按臂发）。于是页面上"跟随服务"那一跳永远显示
+ * "未连接"、故障永远显示不出来 —— 哪怕机械臂正在跟着动。用例当时全绿，因为固件与代码
+ * 错到了一起：固件里躺着老桥的字段，映射就照着读。
  */
-describe('mapBridgeSnapshot · 跟随服务的故障', () => {
-  it('故障码原样留着，不是只留一个数', () => {
-    const faults = [[3, 5], 'FB_STALE']
-    expect(mapBridgeSnapshot({ arm: { fault: faults } }).armFault).toEqual(faults)
+describe('armFieldsOf · 臂那一组字段', () => {
+  it('故障两种形状合成一条列表，原样留着', () => {
+    // 两版跟随服务报的不是一个字段：stm32 在 `flags` 里报置位名，sdk 在 `fault` 里报两元组
+    expect(armFieldsOf({ connected: true, flags: ['FB_STALE'], fault: [[3, 5]] }).armFault)
+      .toEqual(['FB_STALE', [3, 5]])
   })
 
-  it('健康（空数组）与"桥没报过"（null）分得开', () => {
-    expect(mapBridgeSnapshot({ arm: { fault: [] } }).armFault).toEqual([])
-    expect(mapBridgeSnapshot({ arm: { fault: null } }).armFault).toBeNull()
-    expect(mapBridgeSnapshot({ arm: {} }).armFault).toBeNull()
+  it('健康（空数组）与"没收到过"（null）分得开', () => {
+    expect(armFieldsOf({ connected: true }).armFault).toEqual([])
+    expect(armFieldsOf(null).armFault).toBeNull()
     expect(emptyBridgeFields().armFault).toBeNull()
   })
 
   it('错误原因照实映射，没有就是 null', () => {
-    expect(mapBridgeSnapshot({ arm: { error: 'TimeoutError: ' } }).armError).toBe('TimeoutError: ')
-    expect(mapBridgeSnapshot({ arm: { error: null } }).armError).toBeNull()
+    expect(armFieldsOf({ connected: false, error: 'TimeoutError: ' }).armError).toBe('TimeoutError: ')
+    expect(armFieldsOf({ connected: true }).armError).toBeNull()
+  })
+
+  it('连接、状态与来源：跟随服务说连着才算真机', () => {
+    expect(armFieldsOf({ connected: true, state: 'MOVE_JS' })).toMatchObject({
+      armConnected: true,
+      armSource: 'real',
+      armState: 'MOVE_JS',
+    })
+  })
+
+  it('跟随服务断开时说"不知道"，不说"仿真"', () => {
+    // `vr_arm.source` 是**哪一版跟随服务**（stm32/sdk），不是仿真/真机；仿真/真机是桥
+    // 那一侧的事，而桥现在不照下游 —— 这个信息在新链路上没有任何地方报。以前这里填
+    // 的是 `sim`（老桥的 ARM_SOURCE），那是在替一条已经不存在的通道说话。
+    const down = armFieldsOf({ connected: false, state: 'fault' })
+    expect(down.armSource).toBeNull()
+    expect(down.armConnected).toBe(false)
+    // 状态照报（那是跟随服务自己说的），只是不当成"真机在动"
+    expect(down.armState).toBe('fault')
+  })
+
+  it('老桥那套字段页面不再读（桥早就不发它们了）', () => {
+    const stale = { arm: { fault: [[3, 5]], connected: true, state: 'following' } }
+    const fields = mapBridgeSnapshot(stale as unknown as VrBridgeSnapshot)
+    expect(fields.armFault).toBeNull()
+    expect(fields.armConnected).toBe(false)
+    expect(fields.armState).toBeNull()
+    expect(fields.armSource).toBeNull()
   })
 })
 
@@ -263,16 +299,16 @@ describe('vrLink · 逐臂视图', () => {
       online: true,
       snapshots: {
         armA: SNAP_FOLLOWING,
-        // 第二条臂：不跟随、带一条故障
+        // 第二条臂：不跟随（头显那一份里）
         armB: {
           ...SNAP_FOLLOWING,
           headset: { ...SNAP_FOLLOWING.headset, following: false },
-          arm: { ...SNAP_FOLLOWING.arm, fault: ['FB_STALE'] },
         },
       },
       armStates: {
         armA: { device: '/dev/ttyACM0', connected: true, q: Q_A },
-        armB: { device: 'can0', connected: true, q: Q_B },
+        // 故障由真机状态报（stm32 版在 `flags` 里），桥那份快照里没有它
+        armB: { device: 'can0', connected: true, q: Q_B, flags: ['FB_STALE'] },
       },
     })
     vrLink.start()
@@ -293,18 +329,36 @@ describe('vrLink · 逐臂视图', () => {
     expect(vrLink.snapshot.q).toEqual(Q_A)
   })
 
-  it('关节角取真机状态那一份，不是桥快照里残留的', async () => {
-    const bridgeQ = [9, 9, 9, 9, 9, 9, 9]
+  it('臂的字段一律取真机状态那一份（桥的快照里只剩身份）', async () => {
     fake.feed({
       online: true,
-      snapshots: { armA: { ...SNAP_FOLLOWING, arm: { ...SNAP_FOLLOWING.arm, q: bridgeQ } } },
-      armStates: { armA: { device: '/dev/ttyACM0', connected: true, q: Q_A } },
+      snapshots: { armA: SNAP_FOLLOWING },
+      armStates: { armA: { device: '/dev/ttyACM0', connected: true, q: Q_A, state: 'MOVE_JS' } },
     })
     vrLink.start()
 
     await waitFor(() => expect(vrLink.arms).toHaveLength(1))
     expect(vrLink.arms[0].q).toEqual(Q_A)
     expect(vrLink.poseFor('armA')).toEqual(Q_A)
+    expect(vrLink.arms[0].armConnected).toBe(true)
+    expect(vrLink.arms[0].armState).toBe('MOVE_JS')
+  })
+
+  it('真机状态一帧都没来时：臂那一组是空态，不拿桥快照里的东西顶上', async () => {
+    // 桥在、快照在，但汇总服务还没发 `vr_arm`（它没起来 / 上游没接上）。
+    // 用一条**从没出现过**的臂：免得读到上一条用例留下的姿态（`q` 是刻意保留的，
+    // 见「桥掉线」那条），这里要看的是"第一条真机状态之前"的样子。
+    fake.feed({ online: true, snapshots: { armC: SNAP_FOLLOWING }, armStates: {} })
+    vrLink.start()
+
+    await waitFor(() => expect(vrLink.arms).toHaveLength(1))
+    const arm = vrLink.arms[0]
+    expect(arm.bridgeOnline).toBe(true)   // 桥那一段照旧有
+    expect(arm.q).toBeNull()
+    expect(arm.armConnected).toBe(false)
+    expect(arm.armState).toBeNull()
+    expect(arm.armFault).toBeNull()
+    expect(arm.armSource).toBeNull()
   })
 
   it('桥掉线：字段归空态，臂清单与姿态留着（不是零位）', async () => {

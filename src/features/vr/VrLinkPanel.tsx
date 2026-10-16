@@ -119,12 +119,17 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
     },
     {
       name: t('link.armName'),
-      // 桥没连上时，"仿真还是真机"这一格无从判断：写"仿真"是个我们保不了的断言
+      // "仿真还是真机"这一格只说得出两种：真机（跟随服务正连着）与**不知道**。
+      // ⚠ 别把"不知道"写成"仿真姿态" —— 那是我们保不了的断言，而这正是以前的样子：
+      //   桥那份快照里的来源字段早就不发了，于是这一格无论现场在跑什么都说"仿真"。
+      //   （`sim` 这一档留着：哪天上游重新报仿真/真机，这里接上就行。）
       detail: !vm.bridgeOnline
         ? t('link.diagOff')
         : vm.armSource === 'real'
           ? t('link.armSubReal')
-          : t('link.armSubSim'),
+          : vm.armSource === 'sim'
+            ? t('link.armSubSim')
+            : t('link.armSubUnknown'),
       active: vm.bridgeOnline && vm.armSource === 'real' && vm.following,
     },
   ]

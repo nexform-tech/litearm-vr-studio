@@ -12,25 +12,31 @@ import type { VrBridgeSnapshot } from '../vrTypes'
  *
  * 四个状态分别是：头显未接入 / 正常跟随 / 无帧兜底 / 停止遥操。
  * 桥端字段增删时，这份固件会先在类型检查上暴露出来。
+ *
+ * ⚠ **这里没有真机状态**（连接 / 状态 / 故障 / 关节角）。桥从 `4c7a772` 起不再照下游，
+ *   它的 `arm` 段只剩**身份与去处**（谁、接在哪、follow 在哪），四个状态里都是同一份
+ *   （2026-10-16 从真桥抓的）。臂的连接与故障由上游汇总服务按臂发在 `vr_arm` 上 ——
+ *   样例见 `armStatus.ts`。
+ *
+ *   这条分界必须守住：以前这份固件里躺着老桥的 `arm.connected/state/fault`，而桥早
+ *   就不发它们了。页面照着读，于是"跟随服务"那一跳永远显示"未连接"、故障永远显示不
+ *   出来 —— 用例却全绿，因为固件和代码错到了一起。**固件要跟着被仿的对端走。**
  */
 
 /** no_headset */
 export const SNAP_NO_HEADSET: VrBridgeSnapshot = {
   "arm": {
-    "connected": true,
-    "error": null,
-    "fault": [],
-    "q": [
-      0.0,
-      -0.07,
-      -0.09,
-      -1.7,
-      -1.46,
-      -0.03,
-      -0.79
-    ],
-    "source": "follow_server",
-    "state": "holding"
+    "side": "left",
+    "device": "/dev/serial/by-id/usb-STMicroelectronics_LiteArm_LL-2024-if00",
+    "device_source": "config",
+    "device_confirmed_at": null,
+    "follow": "127.0.0.1:9001",
+    "commands": {
+      "requests": 0,
+      "failures": 0,
+      "last_ok_age_ms": null,
+      "error": null
+    }
   },
   "bridge": {
     "clients": {
@@ -104,20 +110,17 @@ export const SNAP_NO_HEADSET: VrBridgeSnapshot = {
 /** following */
 export const SNAP_FOLLOWING: VrBridgeSnapshot = {
   "arm": {
-    "connected": true,
-    "error": null,
-    "fault": [],
-    "q": [
-      0.019,
-      -0.0711,
-      -0.09,
-      -1.7153,
-      -1.46,
-      -0.0148,
-      -0.79
-    ],
-    "source": "follow_server",
-    "state": "following"
+    "side": "left",
+    "device": "/dev/serial/by-id/usb-STMicroelectronics_LiteArm_LL-2024-if00",
+    "device_source": "config",
+    "device_confirmed_at": null,
+    "follow": "127.0.0.1:9001",
+    "commands": {
+      "requests": 0,
+      "failures": 0,
+      "last_ok_age_ms": null,
+      "error": null
+    }
   },
   "bridge": {
     "clients": {
@@ -191,20 +194,17 @@ export const SNAP_FOLLOWING: VrBridgeSnapshot = {
 /** fallback */
 export const SNAP_FALLBACK: VrBridgeSnapshot = {
   "arm": {
-    "connected": true,
-    "error": null,
-    "fault": [],
-    "q": [
-      -0.0195,
-      -0.4347,
-      -0.09,
-      -1.9741,
-      -1.46,
-      -0.0456,
-      -0.79
-    ],
-    "source": "follow_server",
-    "state": "following"
+    "side": "left",
+    "device": "/dev/serial/by-id/usb-STMicroelectronics_LiteArm_LL-2024-if00",
+    "device_source": "config",
+    "device_confirmed_at": null,
+    "follow": "127.0.0.1:9001",
+    "commands": {
+      "requests": 0,
+      "failures": 0,
+      "last_ok_age_ms": null,
+      "error": null
+    }
   },
   "bridge": {
     "clients": {
@@ -347,20 +347,17 @@ export const SNAP_FALLBACK: VrBridgeSnapshot = {
 /** stopped */
 export const SNAP_STOPPED: VrBridgeSnapshot = {
   "arm": {
-    "connected": true,
-    "error": null,
-    "fault": [],
-    "q": [
-      -0.0195,
-      -0.4347,
-      -0.09,
-      -1.9741,
-      -1.46,
-      -0.0456,
-      -0.79
-    ],
-    "source": "follow_server",
-    "state": "holding"
+    "side": "left",
+    "device": "/dev/serial/by-id/usb-STMicroelectronics_LiteArm_LL-2024-if00",
+    "device_source": "config",
+    "device_confirmed_at": null,
+    "follow": "127.0.0.1:9001",
+    "commands": {
+      "requests": 0,
+      "failures": 0,
+      "last_ok_age_ms": null,
+      "error": null
+    }
   },
   "bridge": {
     "clients": {

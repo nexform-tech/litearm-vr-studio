@@ -52,6 +52,10 @@ export function VrPreviewPanel({
     for (const view of views.current.values()) fn(view)
   }
 
+  // ⚠ "不知道"是**常态**，不是异常：仿真还是真机是桥那一侧的事，而桥现在不照下游 ——
+  //   这一栏只有在跟随服务正连着（它报的就是真机）时才敢写"真机姿态"。以前它默认写
+  //   "仿真姿态"，那是替一条已经不存在的通道说话。（`sim` 那一档留着：上游哪天重新报，
+  //   这里接上就行。）
   const sourceLabel =
     armSource === 'real'
       ? t('preview.sourceReal')

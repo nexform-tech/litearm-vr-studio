@@ -123,8 +123,9 @@ describe('VR 3D 预览 · 按臂', () => {
     expect(screen.getAllByTestId('viewport')).toHaveLength(1)
     expect(stub.subs.size).toBe(0)
     expect(stub.views[0].q).toEqual([])
-    // 桥没连上时这一侧是仿真还是真机无从判断
-    expect(screen.getByText(/未知（桥未连接）/)).toBeTruthy()
+    // 仿真还是真机无从判断时就说"未知"：真机状态没来（或跟随服务没连着）时，
+    // 这一栏说"仿真姿态"就是编的
+    expect(screen.getByText(/未知/)).toBeTruthy()
   })
 
   it('聚焦 / 俯视是对所有格子一起下的', () => {

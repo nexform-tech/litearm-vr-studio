@@ -19,6 +19,7 @@
     "followName": "Follow",
     "armName": "Arm",
     "armSubSim": "Simulated",
+    "armSubUnknown": "Unknown",
     "armSubReal": "Following",
     "statFps": "Pose Rate",
     "statLatency": "Wireless Latency",
@@ -67,7 +68,7 @@
     "sourceLabel": "Source",
     "sourceSim": "Simulated pose",
     "sourceReal": "Real pose",
-    "sourceUnknown": "Unknown (bridge offline)",
+    "sourceUnknown": "Unknown",
     "modelLabel": "Model · {{model}}",
     "modelHint": "Note: this page currently renders the same URDF as the control page (the studio/SDK one), while the joint angles the bridge reports were solved by metavr against its own model. Joint origins, axes and limits differ between the two, so the pose on screen will not match what metavr believes — a known gap, not bad data."
   },

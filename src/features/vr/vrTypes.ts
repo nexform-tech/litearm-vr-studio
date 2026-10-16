@@ -100,23 +100,28 @@ export type VrLinkSnapshot = {
   /** 兜底持位阈值（ms） */
   fallbackMs: number
 
-  // ── 真机侧 ──
-  /** 机械臂姿态来源：仿真 / 真机 */
-  armSource: VrArmSource
-  /** 跟随服务（9001）是否可达 */
+  // ── 真机侧（**全部**来自上游汇总服务按臂发的 `vr_arm`，不是桥的快照）──
+  /**
+   * 这条臂的姿态是不是真机的：`real` = 跟随服务正连着（它报的就是真机），
+   * `null` = 无从判断。
+   *
+   * ⚠ 没有 `sim` 这一档：仿真/真机是**桥那一侧**的事，而桥现在不照下游，这个信息
+   *   在新链路上没有任何地方报。以前这里是 `sim`（老桥的 `ARM_SOURCE`），那是在
+   *   替一条已经不存在的通道说话 —— 宁可说"不知道"。
+   */
+  armSource: VrArmSource | null
+  /** 跟随服务是否在报（`vr_arm` 的 `connected`）：它说断开时那些数可能还是上一帧的 */
   armConnected: boolean
-  /** 跟随服务上报的状态（following / holding / fault …） */
+  /** 跟随服务上报的状态（`following` / `MOVE_JS` / `holding` / `fault` …） */
   armState: string | null
   /** 跟随服务最后一次失败的原因 */
   armError: string | null
-  /** 距最后一次成功 ping 的时间（ms） */
-  armLastOkMs: number | null
   /**
-   * 跟随服务报的故障码，**原样留着**；空数组 = 健康，null = 桥没报过。
+   * 跟随服务报的故障码，**原样留着**；空数组 = 健康，null = 还没收到过真机状态。
    *
-   * 两种形状都要能显示：sdk 版是 `[joint, err]` 两元组，stm32 版是 flag 名字串
-   * （见 litearm-vr-bridge `docs/FOLLOW-SERVER-COMPAT.md`）。所以这里不压成个数 ——
-   * 压掉了就再也说不出"是哪个关节、什么错"。
+   * 两种形状都要能显示：sdk 版是 `fault` 里的 `[joint, err]` 两元组，stm32 版是
+   * `flags` 里的置位名（见 litearm-vr-bridge `docs/FOLLOW-SERVER-COMPAT.md`）。
+   * 两条都收在一个数组里，不压成个数 —— 压掉了就再也说不出"是哪个关节、什么错"。
    */
   armFault: unknown[] | null
   /**
@@ -168,21 +173,15 @@ export type VrBridgeSnapshot = {
     frames_blocked?: number
     last_frame_ts?: number | null
   }
+  /**
+   * 这条臂的**身份与去处**：它是谁、接在哪、follow 在哪（bridge DESIGN §4.4）。
+   *
+   * ⚠ 这里**没有**真机状态（连接 / 状态 / 故障 / 关节角）。桥从 `4c7a772` 起不再照
+   *   下游：那些字段改由上游那台汇总服务按臂发在 `vr_arm` 上，页面从 `vrArmStateOf`
+   *   取。老桥的那几个字段（`source` / `q` / `state` / `fault` / `connected` …）已经
+   *   从这条契约里拿掉 —— 留着它们，页面就会一直读到空值还以为读到了东西。
+   */
   arm?: {
-    source?: string
-    q?: number[] | null
-    state?: string | null
-    fault?: unknown[] | null
-    connected?: boolean
-    last_ok_age_ms?: number | null
-    error?: string | null
-
-    // ── 臂的身份与去处（2026-10-15 之后桥就在这里报这些，见 bridge 的 DESIGN §4.4）──
-    //
-    // ⚠ 上面那几个 `source/q/state/fault/connected` 是**老桥**的形状：桥从
-    //   `4c7a772` 起不再照下游，真机状态改由上游汇总服务按臂发（`vr_arm`）。
-    //   两套字段一起留在这里，是因为快照类型要能同时描述两种桥 —— 页面按是否存在
-    //   决定显示什么，而不是拿空值当"没连接"。
     /** 上游的槽：`left` / `right`（决定由哪只手柄驱动） */
     side?: string
     /** 这条臂的硬件口（`/dev/serial/by-id/…` 或 CAN 口名） */
@@ -193,6 +192,13 @@ export type VrBridgeSnapshot = {
     device_confirmed_at?: string | null
     /** 这条臂的跟随服务端点 `host:port` */
     follow?: string
+    /** 控制通道自述：桥发出去的命令有没有被接住（不是下游的状态） */
+    commands?: {
+      requests?: number
+      failures?: number
+      last_ok_age_ms?: number | null
+      error?: string | null
+    }
   }
   processes?: Record<string, string>
   processes_detail?: Record<string, VrProcessDetail>

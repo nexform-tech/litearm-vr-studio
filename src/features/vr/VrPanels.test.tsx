@@ -3,7 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import i18n from '@/i18n'
 import { VrControlPanel } from './VrControlPanel'
 import { VrLinkPanel } from './VrLinkPanel'
-import { mapBridgeSnapshot, type VrArmView } from './vrLink'
+import { armFieldsOf, mapBridgeSnapshot, type VrArmView } from './vrLink'
 import type { VrBridgeSnapshot } from './vrTypes'
 import type { VrLinkView } from './useVrLink'
 import { synthesizeOwnership, type VrConsoleSignals } from './vrOwnership'
@@ -13,6 +13,12 @@ import {
   SNAP_NO_HEADSET,
   SNAP_STOPPED,
 } from './__fixtures__/bridgeSnapshots'
+import {
+  ARM_FOLLOWING,
+  ARM_HOLDING,
+  armStatus,
+  type ArmStatusFrame,
+} from './__fixtures__/armStatus'
 
 /**
  * 用真实固件把三个面板渲染一遍：i18n 键写错、字段改名、条件分支漏判都会在这里炸。
@@ -25,22 +31,28 @@ const CONSOLE_OFFLINE: VrConsoleSignals = {
   robotState: null,
 }
 
+/**
+ * 整页视图：桥的快照（链路那一段）+ 真机状态（臂那一段）**分开喂** —— 与线上一样，
+ * 这是两份独立的数据源（见 `vrLink.readArm`）。
+ */
 function viewOf(
   snapshot: VrBridgeSnapshot,
   consoleSignals: VrConsoleSignals = CONSOLE_OFFLINE,
   arms: VrArmView[] = [],
+  status: ArmStatusFrame | null = ARM_HOLDING,
 ): VrLinkView {
   const fields = mapBridgeSnapshot(snapshot)
+  const armFields = armFieldsOf(status)
   return {
     ...fields,
-    // 关节角走 3D 视口那条高频通道（`vrLink.poseFor`），不在这份视图里：它取自
-    // `vr_arm` 真机状态，而这几条用例喂的是桥的快照固件
+    ...armFields,
+    // 关节角走 3D 视口那条高频通道（`vrLink.poseFor`），不在这份视图里
     q: null,
     arms,
     ownership: synthesizeOwnership({
       bridgeOwner: fields.owner,
       bridgeFollowing: fields.following,
-      bridgeArmState: fields.armState,
+      bridgeArmState: armFields.armState,
       console: consoleSignals,
     }),
     startFollow: () => {},
@@ -49,18 +61,19 @@ function viewOf(
   }
 }
 
-/** 一条臂的视图：与 `vrLink` 的逐臂视图同形（整机字段 + 臂身份 + 设备名）。 */
+/** 一条臂的视图：与 `vrLink` 的逐臂视图同形（整机字段 + 臂身份 + 真机状态）。 */
 function armViewOf(
   arm: string,
   device: string,
-  snapshot: VrBridgeSnapshot = SNAP_FOLLOWING,
+  status: ArmStatusFrame | null = ARM_FOLLOWING,
 ): VrArmView {
-  return { ...mapBridgeSnapshot(snapshot), q: null, arm, device }
+  return { ...mapBridgeSnapshot(SNAP_FOLLOWING), ...armFieldsOf(status), q: null, arm, device }
 }
 
 /** 桥完全连不上时的视图：整份空态，一个真实字节都没收到过 */
 function offlineView(): VrLinkView {
-  return viewOf({})
+  // 真机状态也一帧都没有：`status` 传 null，臂那一组才是空态
+  return viewOf({}, CONSOLE_OFFLINE, [], null)
 }
 
 describe('VR 面板 · 真实固件渲染', () => {
@@ -244,7 +257,9 @@ describe('VR 链路卡 · 跟随服务的故障与错误', () => {
   afterEach(() => cleanup())
 
   it('故障码两种形状都显示出来，而不是只说"有故障"', () => {
-    render(<VrLinkPanel vm={viewOf({ arm: { fault: [[3, 5], 'FB_STALE'] } })} />)
+    // 两种形状是真的会同时出现：stm32 版的置位名在 `flags`，sdk 版的两元组在 `fault`
+    const faulty = armStatus({ flags: ['FB_STALE'], fault: [[3, 5]] })
+    render(<VrLinkPanel vm={viewOf(SNAP_FOLLOWING, CONSOLE_OFFLINE, [], faulty)} />)
 
     const banner = screen.getByTestId('vr-arm-fault')
     expect(banner.textContent).toContain('跟随服务报故障（2 条）')
@@ -254,13 +269,14 @@ describe('VR 链路卡 · 跟随服务的故障与错误', () => {
   })
 
   it('健康的时候不出现故障条', () => {
-    render(<VrLinkPanel vm={viewOf({ arm: { fault: [] } })} />)
+    render(<VrLinkPanel vm={viewOf(SNAP_FOLLOWING)} />)
 
     expect(screen.queryByTestId('vr-arm-fault')).toBeNull()
   })
 
   it('连不上跟随服务时，把原因一并说出来', () => {
-    render(<VrLinkPanel vm={viewOf({ arm: { connected: false, error: 'TimeoutError: ' } })} />)
+    const down = armStatus({ connected: false, error: 'TimeoutError: ' })
+    render(<VrLinkPanel vm={viewOf(SNAP_FOLLOWING, CONSOLE_OFFLINE, [], down)} />)
 
     expect(screen.getByTestId('vr-arm-error').textContent).toContain('TimeoutError: ')
   })
@@ -287,15 +303,11 @@ describe('VR 链路卡 · 双臂', () => {
 
   it('两条臂各报各的：身份、设备、跟随态、故障、错误都在自己那一段里', () => {
     const armA = armViewOf('armA', '/dev/ttyACM0')
-    const armB = armViewOf('armB', 'can0', {
-      ...SNAP_FOLLOWING,
-      arm: {
-        ...SNAP_FOLLOWING.arm,
-        state: 'holding',
-        fault: ['FB_STALE'],
-        error: 'TimeoutError: ',
-      },
-    })
+    const armB = armViewOf('armB', 'can0', armStatus({
+      state: 'holding',
+      flags: ['FB_STALE'],
+      error: 'TimeoutError: ',
+    }))
     render(<VrLinkPanel vm={viewOf(SNAP_FOLLOWING, CONSOLE_OFFLINE, [armA, armB])} />)
 
     const rows = screen.getByTestId('vr-arm-rows')
@@ -314,16 +326,13 @@ describe('VR 链路卡 · 双臂', () => {
   })
 
   it('双臂时不整张卡再报一遍故障（逐臂那一段已经说过了）', () => {
-    const faulty: VrBridgeSnapshot = {
-      ...SNAP_FOLLOWING,
-      arm: { ...SNAP_FOLLOWING.arm, fault: [[3, 5]] },
-    }
+    const faulty = armStatus({ fault: [[3, 5]] })
     render(
       <VrLinkPanel
-        vm={viewOf(faulty, CONSOLE_OFFLINE, [
+        vm={viewOf(SNAP_FOLLOWING, CONSOLE_OFFLINE, [
           armViewOf('armA', '/dev/ttyACM0', faulty),
           armViewOf('armB', 'can0'),
-        ])}
+        ], faulty)}
       />,
     )
 
@@ -332,11 +341,9 @@ describe('VR 链路卡 · 双臂', () => {
   })
 
   it('单臂部署不出逐臂那一段：整张卡本来就是它的', () => {
-    const faulty: VrBridgeSnapshot = {
-      ...SNAP_FOLLOWING,
-      arm: { ...SNAP_FOLLOWING.arm, fault: [[3, 5]] },
-    }
-    render(<VrLinkPanel vm={viewOf(faulty, CONSOLE_OFFLINE, [armViewOf('armA', '/dev/ttyACM0')])} />)
+    const faulty = armStatus({ fault: [[3, 5]] })
+    render(<VrLinkPanel vm={viewOf(SNAP_FOLLOWING, CONSOLE_OFFLINE,
+      [armViewOf('armA', '/dev/ttyACM0', faulty)], faulty)} />)
 
     expect(screen.queryByTestId('vr-arm-rows')).toBeNull()
     // 同一条故障还是说出来，只是由整张卡的那条横幅说

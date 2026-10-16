@@ -1,5 +1,5 @@
 import { vrBridge } from './vrDaemonClient'
-import type { VrArmSource, VrBridgeSnapshot, VrLinkSnapshot, VrLinkState } from './vrTypes'
+import type { VrBridgeSnapshot, VrLinkSnapshot, VrLinkState } from './vrTypes'
 
 /**
  * VR 页的数据编排层：**唯一**对外暴露的取数口。
@@ -61,18 +61,38 @@ function finite(value: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback
 }
 
-function optionalMs(value: unknown): number | null {
-  const n = Number(value)
-  return Number.isFinite(n) ? n : null
-}
-
 function asString(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback
 }
 
-/** 桥那边的真实来源（跟随服务 / 控制器）都算真机 */
-function sourceOf(value: unknown): VrArmSource {
-  return value === 'follow_server' || value === 'controller' ? 'real' : 'sim'
+/**
+ * 真机状态（上游汇总服务按臂发的 `ArmStatus`）→ 页面那几个"臂"字段。
+ *
+ * ⚠ **臂的字段只有一个来源，就是这里**。桥的快照里那段 `arm` 只剩身份与去处
+ *   （谁、接在哪、follow 在哪），真机状态桥不转了（`4c7a772` 起）—— 以前页面从桥的
+ *   快照里读 `connected` / `state` / `fault`，那几个字段早就不发了，于是"跟随服务"
+ *   那一跳永远显示"未连接"、故障永远显示不出来，而机械臂其实正在跟着动。
+ *
+ * `armSource` 只说得出"真机"与"不知道"：仿真/真机是桥那一侧的事，新链路上没有地方报
+ * 它（见 `VrLinkSnapshot.armSource`）。**不拿 `sim` 顶上** —— 那会把"不知道"说成
+ * "在跑仿真"。
+ */
+export function armFieldsOf(state: Frame | null): Pick<
+  VrBridgeFields, 'armSource' | 'armConnected' | 'armState' | 'armError' | 'armFault'
+> {
+  const connected = state?.connected === true
+  // 两种版本的跟随服务报的不是一个字段：sdk 报 `fault`（`[关节, 错误]`），stm32 报
+  // `flags`（置位名），语义一致、健康时都空。合成一条列表，`formatArmFault` 都认。
+  const fault = Array.isArray(state?.fault) ? state.fault : []
+  const flags = Array.isArray(state?.flags) ? state.flags : []
+  return {
+    armSource: connected ? 'real' : null,
+    armConnected: connected,
+    armState: typeof state?.state === 'string' ? state.state : null,
+    armError: typeof state?.error === 'string' ? state.error : null,
+    // null = 一个字节都没收到过（页面写"—"），[] = 收到了、是健康的
+    armFault: state === null ? null : [...flags, ...fault],
+  }
 }
 
 /**
@@ -129,20 +149,24 @@ export function emptyBridgeFields(): VrBridgeFields {
     fallbackGuardEnabled: true,
     warnMs: 200,
     fallbackMs: 500,
-    armSource: 'sim',
+    armSource: null,
     armConnected: false,
     armState: null,
     armError: null,
-    armLastOkMs: null,
     armFault: null,
     owner: 'none',
   }
 }
 
-/** 把桥的一份快照映射成页面字段；缺字段一律退默认，不让页面崩。 */
+/**
+ * 把桥的一份快照映射成页面字段；缺字段一律退默认，不让页面崩。
+ *
+ * ⚠ 这里**只管桥这条链路**（头显 / 桥自身 / 状态机 / 兜底 / 归属）。臂那一组
+ *   （连接、状态、故障、来源）不在这份快照里 —— 它由 `armFieldsOf` 从 `vr_arm` 填，
+ *   在 `readArm` 里合上去。两处的分工要守住：桥的快照里那段 `arm` 只剩身份与去处。
+ */
 export function mapBridgeSnapshot(snapshot: VrBridgeSnapshot): VrBridgeFields {
   const headset = snapshot.headset ?? {}
-  const arm = snapshot.arm ?? {}
   const bridge = snapshot.bridge ?? {}
   const link = snapshot.link ?? {}
   const fallback = snapshot.fallback ?? {}
@@ -177,12 +201,9 @@ export function mapBridgeSnapshot(snapshot: VrBridgeSnapshot): VrBridgeFields {
     fallbackGuardEnabled: fallback.guard_enabled ?? true,
     warnMs: finite(link.warn_ms, 200),
     fallbackMs: finite(link.fallback_ms, 500),
-    armSource: sourceOf(arm.source),
-    armConnected: Boolean(arm.connected),
-    armState: typeof arm.state === 'string' ? arm.state : null,
-    armError: typeof arm.error === 'string' ? arm.error : null,
-    armLastOkMs: optionalMs(arm.last_ok_age_ms),
-    armFault: Array.isArray(arm.fault) ? arm.fault : null,
+    // 臂那一组在 `readArm` 里从 `vr_arm` 补上（见 `armFieldsOf`）。这里给的是空态：
+    // 一个字节都没收到过时，页面就该显示"未连接 / —"，而不是拿编造的值顶上。
+    ...armFieldsOf(null),
     owner: asString(snapshot.owner, 'none'),
   }
 }
@@ -329,7 +350,13 @@ class VrLink {
     }
   }
 
-  /** 读一条臂：桥那份快照映射成字段，真机状态里取关节角与设备名。 */
+  /**
+   * 读一条臂：桥那份快照（整机 + 链路）与真机状态（`vr_arm`：连接 / 状态 / 故障 /
+   * 关节角 / 设备名）各取各的，合成一条臂的视图。
+   *
+   * ⚠ 这两份**不能互相顶替**：桥的快照里那段 `arm` 只剩身份与去处，真机状态只有
+   *   `vr_arm` 有。所以臂那一组字段一律以真机状态为准，缺帧就是空态（不是"沿用桥的"）。
+   */
   private readArm(arm: string) {
     const previous = this.entries.get(arm)
     const state = vrBridge.armStateFor(arm)
@@ -340,7 +367,7 @@ class VrLink {
 
     this.entries.set(arm, {
       device: asString(state?.device, previous?.device ?? ''),
-      fields: snapshot ? mapBridgeSnapshot(snapshot) : emptyBridgeFields(),
+      fields: { ...(snapshot ? mapBridgeSnapshot(snapshot) : emptyBridgeFields()), ...armFieldsOf(state) },
       q,
     })
 

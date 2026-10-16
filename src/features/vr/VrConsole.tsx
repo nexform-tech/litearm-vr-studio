@@ -10,11 +10,12 @@ import { VrPreviewPanel } from './VrPreviewPanel'
 import { VrControlPanel } from './VrControlPanel'
 
 /**
- * 六宫格：上/下 × 左/中/右。今天放着四张卡 —— 右下那格是空的，不是漏了：
- * 左列两张（臂映射在上、电机负载在下）、中列两张（3D 预览 + VR 链路）、右上遥操控制。
+ * 三列，每列各自一叠：
+ * 左列电机负载（满高）、中列 3D 预览（满高）、右列三张（遥操控制 / 臂映射 / VR 链路）。
  *
- * 右下空着是刻意的：那一格留给**偶尔才看**的东西，而桥的配置面就收在顶栏右上角
- * 那颗按钮里（`VrConfigDialog`）—— 它是开机改一次的，摆进格子会把常看的那几张挤小。
+ * 左右两列各让一张卡独占，是因为它们是这一页"一直盯着"的两样 —— 负载要看数字、
+ * 3D 要看姿态，按内容高度排都会被压扁。右列三张从上到下：起停（遥操控制）、
+ * 状态（VR 链路）、接线（臂映射）。
  *
  * 列宽下限 20rem：窗口再窄就横向滚动（ROW_OVERFLOW），而不是把卡片压到看不清 ——
  * 与其它页面的取舍一致，见 `lib/responsive.ts`。行高不设下限：整页高度固定在这里，
@@ -62,23 +63,24 @@ export function VrConsole() {
 
   return (
     <div style={GRID}>
-      {/* 左列：臂映射贴在最上面，电机负载吃掉剩下的高度（它自己滚）。
-          映射在最上面不是随手排的：开机顺序就是先确认那两行、再按"开始遥操" ——
-          映射错了按下去就是动错臂，而它是这一页唯一会改机器去向的地方。 */}
+      {/* 左列：电机负载**独占整列**。它是这一页要一直盯着的那张表，之前和臂映射挤在
+          一格、按内容高度排，被压得很扁；给它满高，读数才看得清。 */}
       <div style={{ ...CELL, gridColumn: '1', gridRow: '1 / span 2' }}>
-        <VrArmManifestPanel v={manifest} />
         <VrMotorLoadPanel arms={loads.arms} rated={loads.rated} />
       </div>
 
-      {/* 中列：3D 预览吃掉余下的高度，链路卡片按自然高度贴在它下面 */}
+      {/* 中列：3D 预览**独占整列**。这一页只有它一个地方"看得见机器"，
+          挤它等于把最该看清的东西压小。 */}
       <div style={{ ...CELL, gridColumn: '2', gridRow: '1 / span 2' }}>
         <VrPreviewPanel armSource={vm.bridgeOnline ? vm.armSource : null} arms={vm.arms} />
-        <VrLinkPanel vm={vm} />
       </div>
 
-      {/* 右上：遥操控制 */}
-      <div style={{ ...CELL, gridColumn: '3', gridRow: '1' }}>
+      {/* 右列：从上到下就是操作的顺序 —— 先起链路（遥操控制）、再对着实物确认接线
+          （臂映射）、然后一直盯着它跑得对不对（VR 链路）。 */}
+      <div style={{ ...CELL, gridColumn: '3', gridRow: '1 / span 2' }}>
         <VrControlPanel vm={vm} />
+        <VrLinkPanel vm={vm} />
+        <VrArmManifestPanel v={manifest} />
       </div>
     </div>
   )

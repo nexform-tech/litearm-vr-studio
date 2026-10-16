@@ -134,7 +134,9 @@ function ArmSection({
       data-arm={arm.arm}
       data-side={arm.side}
       data-status={arm.status}
-      className="flex flex-col gap-1.5 rounded-[0.625rem] border border-line-soft px-2.5 py-2"
+      // 两段臂等分这张卡的高度；`min-h` 是下限 —— 窗口太矮时让卡片自己滚，
+      // 而不是把行压扁（那正是这张表最不能发生的事）
+      className="flex min-h-[13rem] flex-1 flex-col gap-1.5 rounded-[0.625rem] border border-line-soft px-2.5 py-2"
     >
       <div className="flex items-center justify-between gap-2">
         {/* 槽位名（左臂 / 右臂）是这一段的标题，臂身份与设备名跟在后面 —— 认到臂时三样
@@ -165,7 +167,9 @@ function ArmSection({
       </div>
 
       {/* 行容器单独挂个 testid：用例要断言"骨架里一个数字都没有"，得把段头的设备名排除在外 */}
-      <div data-testid="load-rows" className="flex flex-col gap-1">
+      {/* 行在段内**均匀铺开**：给满高之后不让余量全堆在底下，8 行 + 夹爪行
+          摊在整段上，读数之间也更好分 */}
+      <div data-testid="load-rows" className="flex min-h-0 flex-1 flex-col justify-between gap-1">
         {jointIndexes(rowCount).map((i) => (
           <MotorRow key={i} name={`J${i + 1}`} row={arm.joints[i] ?? null} rated={rated?.[i] ?? null} />
         ))}

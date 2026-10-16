@@ -135,8 +135,12 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
   ]
 
   return (
-    // 按内容取自然高度：中列余下的高度归 3D 预览（见 VrConsole）
-    <Card className="gap-3 rounded-[0.875rem] px-3.5 py-3.5">
+    // 吃掉右列下半格：它和上面的遥操控制同宽同列，高度由格子给（见 VrConsole）。
+    // `min-h-0` 是必须的 —— 少了它，里面的长内容会把卡片顶出格子而不是自己滚。
+    // 吃掉右列余下的高度，并把内容**铺开**（`justify-between`）—— 只给 `flex-1`
+    // 的话，多出来的高度会整块堆在最后一行下面，看上去像少画了什么。
+    // `min-h` 是下限：窗口矮到装不下时让这一列自己滚，而不是把内容压扁。
+    <Card className="flex min-h-[24rem] flex-1 flex-col justify-between gap-3 overflow-y-auto rounded-[0.875rem] px-3.5 py-3.5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-[0.90625rem] font-semibold text-foreground">
           <Glasses size="0.9375rem" /> {t('link.title')}

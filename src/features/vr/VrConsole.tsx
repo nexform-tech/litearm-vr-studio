@@ -10,7 +10,8 @@ import { VrPreviewPanel } from './VrPreviewPanel'
 import { VrControlPanel } from './VrControlPanel'
 
 /**
- * 六宫格：上/下 × 左/中/右。
+ * 六宫格：上/下 × 左/中/右。今天放着四张卡 —— 右下那格是空的，不是漏了：
+ * 左列两张（臂映射在上、电机负载在下）、中列两张（3D 预览 + VR 链路）、右上遥操控制。
  *
  * 列宽下限 20rem：窗口再窄就横向滚动（ROW_OVERFLOW），而不是把卡片压到看不清 ——
  * 与其它页面的取舍一致，见 `lib/responsive.ts`。行高不设下限：整页高度固定在这里，
@@ -36,9 +37,9 @@ const CELL: CSSProperties = { ...SCROLL_COLUMN, gap: '0.75rem' }
  * 定位：只做「看状态」和「按开关」。手柄数据 90Hz 直接进 metavr 做逆解并驱动
  * 机械臂，控制回路不经过上位机（多一跳就多一份延迟，也把上位机的可用性绑到机械臂上）。
  *
- * 唯一的例外是臂映射卡：它写的是**桥那台机器**上的记录（哪条串口接在哪条臂）。
- * 那件事没法"看"出来 —— 配反了不报错，表现只是左手柄的解发给了右边那条臂 ——
- * 所以它必须能改，而且改在**按下开始遥操之前**。
+ * 唯一的例外是臂映射卡：它写的是**桥那台机器**上的记录（哪条串口接在哪条臂、夹爪在哪个
+ * CAN 口）。那件事没法"看"出来 —— 配反了不报错，表现只是左手柄的解发给了右边那条臂 ——
+ * 所以它必须能改，而且改在**按下开始遥操之前**：它是这一页的第一步，所以摆在左上角。
  *
  * 数据源：都走 daemon 转出来的帧（见 `vrDaemonClient`）。桥连不上就显示空态，
  * 不拿本地编造的数据顶上。见 `vrLink.ts` 与 `__fixtures__/bridgeSnapshots.ts`（真实快照固件）。
@@ -57,8 +58,11 @@ export function VrConsole() {
 
   return (
     <div style={GRID}>
-      {/* 左列：一张卡跨两行（电机负载） */}
+      {/* 左列：臂映射贴在最上面，电机负载吃掉剩下的高度（它自己滚）。
+          映射在最上面不是随手排的：开机顺序就是先确认那两行、再按"开始遥操" ——
+          映射错了按下去就是动错臂，而它是这一页唯一会改机器去向的地方。 */}
       <div style={{ ...CELL, gridColumn: '1', gridRow: '1 / span 2' }}>
+        <VrArmManifestPanel v={manifest} />
         <VrMotorLoadPanel arms={loads.arms} rated={loads.rated} />
       </div>
 
@@ -71,12 +75,6 @@ export function VrConsole() {
       {/* 右上：遥操控制 */}
       <div style={{ ...CELL, gridColumn: '3', gridRow: '1' }}>
         <VrControlPanel vm={vm} />
-      </div>
-
-      {/* 右下：臂映射（哪条串口接在哪条臂）。放在控制卡下面不是随手排的：
-          开机顺序就是先确认这两行、再按"开始遥操"——映射错了按下去就是动错臂。 */}
-      <div style={{ ...CELL, gridColumn: '3', gridRow: '2' }}>
-        <VrArmManifestPanel v={manifest} />
       </div>
     </div>
   )

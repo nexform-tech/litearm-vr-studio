@@ -211,8 +211,8 @@ function PortField({
       : [{ path: value, kind: '' }, ...ports]
 
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="w-8 flex-none text-[0.65625rem] text-ink-muted">{label}</span>
+    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+      <span className="flex-none text-[0.65625rem] text-ink-muted">{label}</span>
       {ports.length === 0 ? (
         <Input
           aria-label={id}
@@ -292,27 +292,30 @@ function ArmRow({
         </span>
       </div>
 
-      <PortField
-        id={`device-${row.arm}`}
-        label={t('manifest.armPort')}
-        value={value}
-        ports={portsFor(ports, 'arm')}
-        disabled={disabled}
-        placeholder="/dev/ttyACM0"
-        onChange={onChange}
-      />
-
-      {hasGripper ? (
+      {/* 一条臂一行：臂的口与它那个夹爪的口并排。两样口是**一条记录**（桥那边按臂存），
+          摆成两行会让人以为它们各存各的、可以只改一半 */}
+      <div className="flex items-center gap-2">
         <PortField
-          id={`gripper-${row.arm}`}
-          label={t('manifest.gripperPort')}
-          value={gripperValue}
-          ports={portsFor(ports, 'gripper')}
+          id={`device-${row.arm}`}
+          label={t('manifest.armPort')}
+          value={value}
+          ports={portsFor(ports, 'arm')}
           disabled={disabled}
-          placeholder="can0"
-          onChange={onChangeGripper}
+          placeholder="/dev/ttyACM0"
+          onChange={onChange}
         />
-      ) : null}
+        {hasGripper ? (
+          <PortField
+            id={`gripper-${row.arm}`}
+            label={t('manifest.gripperPort')}
+            value={gripperValue}
+            ports={portsFor(ports, 'gripper')}
+            disabled={disabled}
+            placeholder="can0"
+            onChange={onChangeGripper}
+          />
+        ) : null}
+      </div>
 
       {row.confirmedAt ? (
         <div className="text-[0.625rem] text-muted-foreground">

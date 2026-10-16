@@ -22,12 +22,24 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { expect, it } from 'vitest'
-import { END_EFFECTOR_LINK, JOINT_NAMES, MODEL_DIR, MODEL_PATH } from './components/robotModel'
+import {
+  DUAL_ARM_MODEL,
+  DUAL_MODEL_DIR,
+  DUAL_MODEL_PATH,
+  END_EFFECTOR_LINK,
+  JOINT_NAMES,
+  MODEL_DIR,
+  MODEL_PATH,
+} from './components/robotModel'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const URDF = join(ROOT, 'public', MODEL_PATH)
 /** Where `loader.packages` sends every `package://` name, so where the meshes must be. */
 const MESH_ROOT = join(ROOT, 'public', MODEL_DIR)
+
+/** 双臂支架那份：**随仓库带**的（不是构建时拉的），见它自己目录里的 README。 */
+const RIG_URDF = join(ROOT, 'public', DUAL_MODEL_PATH)
+const RIG_MESH_ROOT = join(ROOT, 'public', DUAL_MODEL_DIR)
 
 function loadModel() {
   if (!existsSync(URDF)) {
@@ -37,6 +49,16 @@ function loadModel() {
     )
   }
   return readFileSync(URDF, 'utf8')
+}
+
+function loadRig() {
+  if (!existsSync(RIG_URDF)) {
+    throw new Error(
+      `${DUAL_MODEL_PATH} is not there. That one **is** committed — a missing file means ` +
+        'someone deleted it from the tree, not that a fetch was skipped.',
+    )
+  }
+  return readFileSync(RIG_URDF, 'utf8')
 }
 
 /** `name` of every `<tag ...>` in `xml`, in document order. Attribute order does not matter. */
@@ -107,4 +129,41 @@ it('pins exactly the files the model needs in the lock file', () => {
   expect(needed.filter((path) => !pinned.includes(path))).toEqual([])
   expect(pinned.filter((path) => !needed.includes(path))).toEqual([])
   expect(lock.ref).toMatch(/^v?\d+\.\d+\.\d+$/)
+})
+
+// ── 双臂支架那份（随仓库带的） ──────────────────────────────────────────────
+//
+// 它与上面那份的**来源不同**（那份是构建时从另一个仓库拉的，有 lock 的哈希兜着），
+// 但坏法是一样的、也是无声的：URDF 里改了关节名或挪了网格，页面上就只剩地面加一副
+// 坐标轴 —— 而且因为网格是低模、关节是 seven-per-side，肉眼看不出少了什么。
+//
+// 所以这里钉的东西与上面那组刻意一致：名字对得上、网格在盘上、没有多余的残留。
+
+it('双臂：两条链的关节名就是视口要驱动的那两组', () => {
+  const joints = [...loadRig().matchAll(/<joint\b[^>]*>/g)]
+    .filter(([element]) => /\btype="revolute"/.test(element))
+    .map(([element]) => /\bname="([^"]+)"/.exec(element)?.[1])
+
+  expect(joints).toEqual([...DUAL_ARM_MODEL.chains[0].joints, ...DUAL_ARM_MODEL.chains[1].joints])
+})
+
+it('双臂：每条链的末端坐标轴都挂在一个存在的 link 上', () => {
+  const links = tagNames(loadRig(), 'link')
+
+  expect(links).toContain(DUAL_ARM_MODEL.baseLink)
+  for (const chain of DUAL_ARM_MODEL.chains) {
+    expect(links).toContain(chain.endEffector)
+  }
+})
+
+it('双臂：只引用盘上有的网格，也不留下没人用的', () => {
+  const meshes = meshFiles(loadRig())
+
+  expect(meshes.length).toBeGreaterThan(0)
+  expect(meshes.filter((path) => !existsSync(join(RIG_MESH_ROOT, path)))).toEqual([])
+
+  // 反方向同上：这份是随仓库带的，删掉网格不会有人拦，而它照样进 `dist/`
+  const referenced = new Set(meshes.map((path) => path.replace(/^meshes\//, '')))
+  const onDisk = readdirSync(join(RIG_MESH_ROOT, 'meshes'))
+  expect(onDisk.filter((name) => !referenced.has(name))).toEqual([])
 })

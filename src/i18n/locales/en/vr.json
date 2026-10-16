@@ -70,7 +70,8 @@
     "sourceReal": "Real pose",
     "sourceUnknown": "Unknown",
     "modelLabel": "Model · {{model}}",
-    "modelHint": "Note: this page currently renders the same URDF as the control page (the studio/SDK one), while the joint angles the bridge reports were solved by metavr against its own model. Joint origins, axes and limits differ between the two, so the pose on screen will not match what metavr believes — a known gap, not bad data."
+    "modelHint": "Note: with a **single arm** this view renders the same URDF as the control page (studio/SDK) while the joint angles come from metavr’s own model. The two differ in joint origins, axes and limits, so the picture does not match what metavr believes and the arm looks askew. That is a known deviation, not bad data.",
+    "modelHintDual": "With two arms this is the rig model (metavr’s dual_litearm_column_description, low-poly meshes): two side-mounted arms on one column, each driven by its own chain of joint angles — what metavr itself believes."
   },
   "control": {
     "title": "Teleop Control",

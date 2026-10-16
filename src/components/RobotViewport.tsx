@@ -5,7 +5,12 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import URDFLoader from 'urdf-loader'
 import type { URDFRobot } from 'urdf-loader'
 import { defaultPreviewView, fitFrameDistance } from './previewCamera'
-import { END_EFFECTOR_LINK, JOINT_NAMES, MODEL_URL, WORKING_PATH } from './robotModel'
+import {
+  MODEL_TILT_X,
+  SINGLE_ARM_MODEL,
+  type RobotChain,
+  type RobotModel,
+} from './robotModel'
 
 
 export interface RobotViewportHandle {
@@ -15,16 +20,29 @@ export interface RobotViewportHandle {
   focus: () => void
   /** 切换到俯视角度 */
   topView: () => void
-  /** 设置关节角度（单位：弧度，顺序与 joint1..joint7 一致） */
-  setJointPositions: (angles: number[]) => void
+  /**
+   * 设置关节角度（弧度，顺序与那条链的 `joints` 一致）。
+   *
+   * `chain` 省略时取模型的**第一条链**：单臂模型只有一条，调用方不必知道这件事；
+   * 双臂模型有两条，就得按链点名（见 `RobotChain.id`）。
+   */
+  setJointPositions: (angles: number[], chain?: string) => void
 }
 
 interface RobotViewportProps {
+  /** 加载哪一份模型；省略就是机械臂自己那份（见 `robotModel.ts`）。 */
+  model?: RobotModel
   /** 是否显示基座与末端坐标轴 */
   showAxes?: boolean
   /** 暂停渲染（例如全屏弹窗打开时隐藏在下层的视口），恢复后自动补一帧 */
   paused?: boolean
   className?: string
+}
+
+/** 按 `chain` 找一条链；`chain` 省略或对不上时退回第一条（单臂模型就是唯一那条）。 */
+function chainOf(model: RobotModel, chain?: string): RobotChain {
+  if (chain === undefined) return model.chains[0]
+  return model.chains.find((entry) => entry.id === chain) ?? model.chains[0]
 }
 
 function isWebGLAvailable() {
@@ -170,7 +188,7 @@ const frameRobot = (
 }
 
 export const RobotViewport = forwardRef<RobotViewportHandle, RobotViewportProps>(function RobotViewport(
-  { showAxes = true, paused = false, className },
+  { model = SINGLE_ARM_MODEL, showAxes = true, paused = false, className },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -187,7 +205,7 @@ export const RobotViewport = forwardRef<RobotViewportHandle, RobotViewportProps>
   const controlsRef = useRef<OrbitControls | null>(null)
   const robotRef = useRef<URDFRobot | null>(null)
   const baseAxesRef = useRef<THREE.Group | null>(null)
-  const endEffectorAxesRef = useRef<THREE.Group | null>(null)
+  const endEffectorAxesRef = useRef<THREE.Group[]>([])
   const groundPlaneRef = useRef<THREE.Mesh | null>(null)
   const gridHelperRef = useRef<THREE.GridHelper | null>(null)
   const lightsRef = useRef<{
@@ -210,7 +228,7 @@ export const RobotViewport = forwardRef<RobotViewportHandle, RobotViewportProps>
 
   useEffect(() => {
     if (baseAxesRef.current) baseAxesRef.current.visible = showAxes
-    if (endEffectorAxesRef.current) endEffectorAxesRef.current.visible = showAxes
+    for (const group of endEffectorAxesRef.current) group.visible = showAxes
     scheduleRenderRef.current()
   }, [showAxes])
 
@@ -234,10 +252,10 @@ export const RobotViewport = forwardRef<RobotViewportHandle, RobotViewportProps>
       controls.target.set(0, 0, 0)
       controls.update()
     },
-    setJointPositions: (angles: number[]) => {
+    setJointPositions: (angles: number[], chain?: string) => {
       const robot = robotRef.current
       if (!robot) return
-      JOINT_NAMES.forEach((name, i) => {
+      chainOf(model, chain).joints.forEach((name, i) => {
         const joint = robot.joints?.[name]
         if (joint && typeof angles[i] === 'number') {
           joint.setJointValue(angles[i])
@@ -459,7 +477,9 @@ export const RobotViewport = forwardRef<RobotViewportHandle, RobotViewportProps>
     renderer.domElement.addEventListener('webglcontextrestored', onContextRestored, false)
 
     const addBaseAxes = (root: THREE.Object3D) => {
-      const target = (root as URDFRobot).links?.['base_link'] ?? root.getObjectByName('base_link') ?? root
+      const target = (root as URDFRobot).links?.[model.baseLink]
+        ?? root.getObjectByName(model.baseLink)
+        ?? root
       if (!target || target.getObjectByName('__base_axes')) return
       const group = createLabeledAxes(0.12, '__base_axes')
       group.visible = showAxesRef.current
@@ -467,18 +487,22 @@ export const RobotViewport = forwardRef<RobotViewportHandle, RobotViewportProps>
       target.add(group)
     }
 
+    /** 每条链各挂一副末端坐标轴：双臂模型两组都画，单臂就是那一副。 */
     const addEndEffectorAxes = (root: URDFRobot) => {
-      const target = root.links?.[END_EFFECTOR_LINK] ?? root.getObjectByName(END_EFFECTOR_LINK)
-      if (!target || target.getObjectByName('__end_effector_axes')) return
-      const group = createLabeledAxes(0.08, '__end_effector_axes')
-      group.visible = showAxesRef.current
-      endEffectorAxesRef.current = group
-      target.add(group)
+      endEffectorAxesRef.current = []
+      for (const chain of model.chains) {
+        const target = root.links?.[chain.endEffector] ?? root.getObjectByName(chain.endEffector)
+        if (!target || target.getObjectByName('__end_effector_axes')) continue
+        const group = createLabeledAxes(0.08, '__end_effector_axes')
+        group.visible = showAxesRef.current
+        endEffectorAxesRef.current.push(group)
+        target.add(group)
+      }
     }
 
     const onModelLoad = (robot: URDFRobot) => {
       if (disposed) return
-      robot.rotation.x = -Math.PI / 2
+      robot.rotation.x = MODEL_TILT_X
       addEndEffectorAxes(robot)
       addBaseAxes(robot)
       scene.add(robot)
@@ -555,9 +579,9 @@ export const RobotViewport = forwardRef<RobotViewportHandle, RobotViewportProps>
     // 每个网格都解析成 null (urdf-loader 只留一句 `not found in provided package
     // list`), 画面上只剩地面与底座坐标轴, 看着像"模型坏了" (issue #150)。
     // 这里只可能加载打包进来的那一份模型, 所以任何包名都指向它所在的目录即可。
-    loader.packages = () => WORKING_PATH.replace(/\/$/, '')
-    loader.workingPath = WORKING_PATH
-    loader.load(MODEL_URL, onModelLoad, undefined, onModelError)
+    loader.packages = () => model.workingPath.replace(/\/$/, '')
+    loader.workingPath = model.workingPath
+    loader.load(model.url, onModelLoad, undefined, onModelError)
 
     scheduleRender()
 
@@ -612,9 +636,12 @@ export const RobotViewport = forwardRef<RobotViewportHandle, RobotViewportProps>
       controlsRef.current = null
       robotRef.current = null
       baseAxesRef.current = null
-      endEffectorAxesRef.current = null
+      endEffectorAxesRef.current = []
     }
-  }, [])
+    // ⚠ `model` 在这个依赖里是**必须**的：换模型（单臂 ⇄ 双臂）就是把整个场景重建一遍，
+    //   而上一条清收尾是完整的（几何、材质、renderer 全部释放）。其余 prop 走 ref，
+    //   重建 3D 场景的代价太大，不跟着它们重跑。
+  }, [model])
 
   if (webglError) {
     return (

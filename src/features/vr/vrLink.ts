@@ -52,6 +52,13 @@ export type VrBridgeFields = Omit<VrLinkSnapshot, 'q'>
 export type VrArmView = VrLinkSnapshot & {
   /** 臂身份（`vr_state` / `vr_arm` 帧里的 `arm`，也是 `vrBridge.arms` 里那一条） */
   arm: string
+  /**
+   * 这条臂装在哪一侧（桥快照 `arm.side`：`left` / `right`）。
+   *
+   * 3D 预览按它决定这份姿态驱动双臂模型的哪条链 —— 臂身份（`armA`）是**谁**，侧别才是
+   * **装在哪**，而画面上要的是后者。空串 = 这版桥没报（老桥／刚认到还没收到快照）。
+   */
+  side: string
   /** 真机状态报的设备名（`vr_arm` 的 `device`）；没收到过就是空串 */
   device: string
 }
@@ -232,6 +239,7 @@ function qChanged(a: number[], b: number[]): boolean {
 /** 一条臂在这层内部的状态；`emit` 时才包成对外的 `VrArmView`。 */
 type ArmEntry = {
   device: string
+  side: string
   fields: VrBridgeFields
   /** 这条臂最后一次真机姿态；一个真实字节都没收到过时是 null */
   q: number[] | null
@@ -367,6 +375,8 @@ class VrLink {
 
     this.entries.set(arm, {
       device: asString(state?.device, previous?.device ?? ''),
+      // 桥的快照里 `arm` 那段是**身份与去处**（谁、装在哪、follow 在哪），侧别就在里面
+      side: asString(snapshot?.arm?.side, previous?.side ?? ''),
       fields: { ...(snapshot ? mapBridgeSnapshot(snapshot) : emptyBridgeFields()), ...armFieldsOf(state) },
       q,
     })
@@ -381,7 +391,13 @@ class VrLink {
     const ordered = [...this.entries.keys()].sort()
     this.cachedArms = ordered.map((arm) => {
       const entry = this.entries.get(arm) as ArmEntry
-      return { ...entry.fields, q: entry.q ? [...entry.q] : null, arm, device: entry.device }
+      return {
+        ...entry.fields,
+        q: entry.q ? [...entry.q] : null,
+        arm,
+        side: entry.side,
+        device: entry.device,
+      }
     })
     const first = ordered.length > 0 ? (this.entries.get(ordered[0]) as ArmEntry) : null
     this.cached = first

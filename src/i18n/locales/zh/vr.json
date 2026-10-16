@@ -70,7 +70,8 @@
     "sourceReal": "真机姿态",
     "sourceUnknown": "未知",
     "modelLabel": "模型 · {{model}}",
-    "modelHint": "注意：本页当前用控制页同一份 URDF（studio/SDK 那份）渲染，而桥报上来的关节角是 metavr 按它自己那份模型解出来的。两份模型关节 origin/轴向/限位不同，因此画面与 metavr 的认知对不上，看起来会「画歪」——这是已知偏差，不是数据出错。"
+    "modelHint": "注意：**单臂**时这一格用的是控制页同一份 URDF（studio/SDK 那份）渲染，而桥报上来的关节角是 metavr 按它自己那份模型解出来的。两份模型关节 origin/轴向/限位不同，因此画面与 metavr 的认知对不上，看起来会「画歪」——这是已知偏差，不是数据出错。",
+    "modelHintDual": "双臂画的是支架那份模型（metavr 的 dual_litearm_column_description，低模网格）：两条侧装臂挂在同一根立柱上，各由自己那条链的关节角驱动，与 metavr 的认知一致。"
   },
   "control": {
     "title": "遥操控制",

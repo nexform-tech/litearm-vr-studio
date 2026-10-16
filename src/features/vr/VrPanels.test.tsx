@@ -66,8 +66,16 @@ function armViewOf(
   arm: string,
   device: string,
   status: ArmStatusFrame | null = ARM_FOLLOWING,
+  side = 'left',
 ): VrArmView {
-  return { ...mapBridgeSnapshot(SNAP_FOLLOWING), ...armFieldsOf(status), q: null, arm, device }
+  return {
+    ...mapBridgeSnapshot(SNAP_FOLLOWING),
+    ...armFieldsOf(status),
+    q: null,
+    arm,
+    side,
+    device,
+  }
 }
 
 /** 桥完全连不上时的视图：整份空态，一个真实字节都没收到过 */

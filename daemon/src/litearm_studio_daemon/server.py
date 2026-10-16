@@ -44,11 +44,15 @@ from starlette.responses import Response
 from starlette.types import Scope
 
 from . import __version__, logread, obs, window
-from .errors import error_to_dict
+from .errors import ArmHeldByVrError, error_to_dict
 from .statemap import jsonable
 from .session import ENERGY_DOWN_COMMANDS, Session
 
 log = logging.getLogger("litearm_studio_daemon.server")
+
+#: 会**改变串口归属**的 VR 动作：`teleop_start` 把臂交给桥那边的 follow，`stop`/`estop`
+#: 把它还回来。只有这三个会动 `_vr_link_cmd`（`_vr_holds_arm` 的判据之一）。
+VR_LINK_METHODS = frozenset({"vr.teleop_start", "vr.teleop_stop", "vr.estop"})
 
 #: `run()` 允许绑定的地址白名单 —— 只监听本机 (计划 2 节架构: "Studio 本地程序,
 #: 仅监听 127.0.0.1")。想开给局域网没有开关, 只能改代码 (刻意的)。
@@ -291,6 +295,11 @@ class Daemon:
         #: VR 通道 —— 桥是**另一台进程**, 这条会话只订它的快照（`vr_status`）、
         #: 发它的动作（`vr_rpc`）。`None` = 本进程不带 VR（`--no-vr`, 或没有 zenoh）。
         self.vr = vr
+        #: 本进程最后一次**下达成功**的 VR 链路动作（`"start"` / `"stop"` / `None`）。
+        #: 只用来回答一个问题：**这会儿串口是不是该留给 VR**（见 `_vr_holds_arm`）。
+        #: 自己记一份的理由：桥的快照最快也要一个推送周期才反映出刚点下的「开始遥操」，
+        #: 而那几百毫秒正是前端最可能发 `connect` 的时候。
+        self._vr_link_cmd: Optional[str] = None
         self.version = version
         self.ui_dir = ui_dir
         #: **额外**放行的跨源源 (命令行 `--allow-origin`)。`DEV_ORIGINS` 由
@@ -834,6 +843,22 @@ class Daemon:
                     "err": {"kind": "BadMessage", "msg": "connect 的 port 需是字符串"},
                 })
                 return
+            # ⚠ **VR 握着臂时不连**（见 `ArmHeldByVrError`）：串口是独占的，这条 connect
+            #   一旦落地就是从 follow 手里抢口。前端在页面加载/刷新/WS 重连时都会自动
+            #   发这一帧，所以拦在 daemon 这一层 —— 那是唯一知道 VR 正在跑的地方。
+            if self._vr_holds_arm():
+                err = ArmHeldByVrError()
+                obs.warning(obs.UPSTREAM_INVALID,
+                            body=f"connect 被拒: {err}",
+                            fields={"reason": "connect_refused_by_vr",
+                                    "port": raw_port or "",
+                                    "error_kind": type(err).__name__},
+                            trace_id=trace_id)
+                await self._send_direct(ws, client, {
+                    "t": "res", "id": msg.get("id"), "ok": False,
+                    "err": error_to_dict(err),
+                })
+                return
             # 幂等, 且**立刻**回: 握手在命令执行器上跑, 进度由 `conn` 帧报。
             # ⚠ 已连着时指一个**不同**的口 ⇒ `Session.connect` 抛
             #   `PortChangeWhileConnectedError`; 这里必须把它变成 `ok:false` 的应答,
@@ -1036,6 +1061,16 @@ class Daemon:
             return
 
         ok = bool(isinstance(value, dict) and value.get("ok"))
+        if method in VR_LINK_METHODS:
+            # 只记**下达成功**的那次：桥说没接受（`ok: false`）就不算数，否则一次失败的
+            # 「开始遥操」会把「连接」永久锁死。反过来，**停止/急停不论成败都解闸** ——
+            # follow 那边要么真的停了、要么本来就没了，而把操作员锁在"连不上"里更坏
+            # （他手里还有按钮，但按钮点了没用才是最坏的那种）。
+            if method == "vr.teleop_start":
+                if ok:
+                    self._vr_link_cmd = "start"
+            else:
+                self._vr_link_cmd = "stop"
         if not ok:
             detail = value if isinstance(value, dict) else {"raw": value}
             await self._send_direct(ws, client, {
@@ -1055,6 +1090,31 @@ class Daemon:
             "v": {"receipt": value, "handover": handover},
         })
 
+    def _vr_holds_arm(self) -> bool:
+        """这会儿串口是不是该留给 VR（= 遥操正在进行）。
+
+        两个信号取**或**：
+
+        * **本进程最后下达的链路动作** —— `vr.teleop_start` 成功之后、任何一次
+          停止/急停之前都算。它盖住"刚点下去、快照还没到"的那一小段。
+        * **桥推来的快照** `link.forward_enabled` —— 它盖住"遥操是在**别处**起的"
+          （桥那台机器上直接 `--ctl up`、或另一台上位机），那种情况下本进程的
+          动作记录里什么都没有，而串口照样在 follow 手里。
+
+        桥不可达（快照过期，`VrSession` 会退回 `waiting`）时**只信**自己那份记录：
+        否则一条陈旧的 `forward_enabled: true` 会把「连接」永久锁死，而那时 VR
+        其实已经不在了。
+        """
+        if self._vr_link_cmd == "start":
+            return True
+        if self.vr is None or self.vr.status != "connected":
+            return False
+        for snap in self.vr.snapshots().values():
+            link = snap.get("link") if isinstance(snap, dict) else None
+            if isinstance(link, dict) and link.get("forward_enabled"):
+                return True
+        return False
+
     async def _hand_arm_to_vr(self, trace_id: Optional[str]) -> dict:
         """把机械臂从"上位机这条会话"交给桥那边的 follow。
 
@@ -1073,6 +1133,12 @@ class Daemon:
             disabled = await asyncio.to_thread(
                 _wait_arm_disabled, self.session, VR_DISARM_TIMEOUT_S)
             await asyncio.to_thread(self.session.disconnect)
+            # ⚠ 断开是**异步收尾**（`arm.close()` 丢给执行器，见 `Session.disconnect`），
+            #   而独占锁要等 fd 真的关掉才松开 ⇒ 不等这一下，紧随其后的 follow 会撞在
+            #   "已断开但口还锁着"的窗口上。现场症状：页面刚显示已交棒，遥操却起不来。
+            closed = await asyncio.to_thread(self.session.wait_link_closed, 3.0)
+            if not closed:
+                log.warning("交棒时串口没有在 3s 内关干净 —— 仍继续（follow 会自己等）")
         except Exception as e:  # noqa: BLE001 - 交棒失败如实上报, 让操作员决定
             log.warning("把臂交给 VR 时出错（已忽略，继续起 VR）", exc_info=True)
             return {"released": False, "reason": f"{type(e).__name__}: {e}"}

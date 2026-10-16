@@ -11,6 +11,7 @@ import asyncio
 import json
 import socket
 import time
+from pathlib import Path
 from typing import Any, Optional
 
 import pytest
@@ -211,21 +212,26 @@ def test_wait_arm_disabled_reads_the_state_frame() -> None:
 class StubVr:
     """替身：只记调用、只回预设载荷（真 zenoh 那条路在上面的用例里测）。"""
 
+    #: 与真 `VrSession` 同名的连接态 —— `Daemon._vr_holds_arm` 会看它一眼：
+    #: 桥不可达（快照过期）时只信本进程记的那份动作，免得一条陈旧快照把「连接」锁死。
+    status = "waiting"
+
     def __init__(self, *, receipt: Any = None, error: Optional[Exception] = None) -> None:
         self.receipt = {"ok": True, "code": "estop_sent", "result": {}} if receipt is None else receipt
         self.error = error
         self.calls: list[tuple[str, dict]] = []
         self.listeners: list[Any] = []
+        self.snapshot_map: dict = {}
 
     def add_listener(self, cb: Any) -> None:
         self.listeners.append(cb)
 
     def conn_info(self) -> dict:
-        return {"status": "waiting", "endpoint": "tcp/127.0.0.1:7447",
+        return {"status": self.status, "endpoint": "tcp/127.0.0.1:7447",
                 "arms": [], "lastStateAgeMs": None, "error": None}
 
     def snapshots(self) -> dict:
-        return {}
+        return dict(self.snapshot_map)
 
     def execute(self, method: str, params: Optional[dict] = None) -> Any:
         self.calls.append((method, params or {}))
@@ -336,6 +342,119 @@ def test_teleop_start_hands_the_arm_over() -> None:
             ws.send_json({"t": "cmd", "id": 8, "m": "vr.teleop_start", "p": {}})
             res = await_res(ws)
     assert res["v"]["handover"] == {"released": False, "reason": "未连接"}
+
+
+def test_connect_is_refused_while_vr_holds_the_arm() -> None:
+    """遥操正在跑时那条自动 `connect` 必须被**响亮拒绝**。
+
+    现场剧本：VR 页开着遥操，studio 页面刷新（或 daemon 的 WS 重连）→ 前端自动补发
+    `connect`（`main.tsx` 一进页面就发，`client.ts` 的 `_wantSession` 又会在 WS 重开时
+    再发一次）→ 串口是独占的，这一连就从 follow 手里把口抢走 → 遥操断在半路，
+    界面上只看到一句 `connection refused`。前端没有"让出"这个动作可点，所以这道闸门
+    只能落在守着串口这一侧的 daemon 上。
+    """
+    vr = StubVr()
+    vr.status = "connected"
+    vr.snapshot_map = {"armA": {"link": {"forward_enabled": True}}}
+    app, session = make_app(vr)
+    with TestClient(app) as client:
+        with client.websocket_connect("/ws") as ws:
+            drain_handshake(ws)
+            ws.send_json({"t": "connect", "id": 5})
+            res = await_res(ws)
+    assert res["ok"] is False, res
+    assert res["err"]["kind"] == "ArmHeldByVrError", res
+    assert "先在 VR 页上停止遥操" in res["err"]["msg"], res
+    assert session.connected is False, "被拒的 connect 不该偷偷真去连"
+
+
+def test_connect_is_allowed_once_vr_lets_go() -> None:
+    """闸门只拦"VR 正握着"这一种：快照说转发关了，`connect` 照旧放行。
+
+    ⚠ 反面同样要钉：桥**不可达**时（快照过期、`status != connected`）不能拿最后一条
+    陈旧快照继续拦 —— 那会把操作员永久锁在"连不上"里，而那时 VR 其实已经不在了。
+    """
+    vr = StubVr()
+    vr.status = "waiting"                                   # 桥不可达：快照不作数
+    vr.snapshot_map = {"armA": {"link": {"forward_enabled": True}}}
+    app, session = make_app(vr)
+    try:
+        with TestClient(app) as client:
+            with client.websocket_connect("/ws") as ws:
+                drain_handshake(ws)
+                ws.send_json({"t": "connect", "id": 6})
+                res = await_res(ws)
+        assert res.get("err", {}).get("kind") != "ArmHeldByVrError", res
+    finally:
+        session.close()
+
+
+def test_the_gate_follows_this_process_own_actions() -> None:
+    """闸门的第二个信号：**本进程刚下达的那个动作**。
+
+    它盖住的是桥快照还没推到的几百毫秒 —— 而"点完开始遥操、页面正好在这时候重发
+    connect"正是现场最容易撞上的那一拍。
+
+    两条边界一并钉住：
+    * 开始遥操**失败**（桥没接受）⇒ 不算握着口，别把「连接」锁死；
+    * 停止/急停**失败**也解闸 —— follow 要么真停了、要么本来就没了，而"按钮点了没用"
+      是最坏的那种失败。
+    """
+    vr = StubVr()
+    vr.status = "connected"                     # 快照一条都没有：只看本进程的动作
+    app, _ = make_app(vr)
+    daemon = app.state.daemon
+    with TestClient(app) as client:
+        with client.websocket_connect("/ws") as ws:
+            drain_handshake(ws)
+
+            vr.receipt = {"ok": False, "code": "teleop_start_failed",
+                          "error": {"type": "UpstreamRefused", "message": "跟随服务不可达"}}
+            ws.send_json({"t": "cmd", "id": 7, "m": "vr.teleop_start", "p": {}})
+            await_res(ws)
+            assert daemon._vr_holds_arm() is False, "一次失败的开始遥操不该把闸门锁死"
+
+            vr.receipt = {"ok": True, "code": "teleop_started", "result": {}}
+            ws.send_json({"t": "cmd", "id": 8, "m": "vr.teleop_start", "p": {}})
+            await_res(ws)
+            assert daemon._vr_holds_arm() is True, "开始遥操成功了，串口该留给 VR"
+
+            vr.receipt = {"ok": False, "code": "estop_sent_failed",
+                          "error": {"type": "UpstreamRefused", "message": "跟随服务不可达"}}
+            ws.send_json({"t": "cmd", "id": 9, "m": "vr.estop", "p": {}})
+            await_res(ws)
+            assert daemon._vr_holds_arm() is False, "停止失败也不许把闸门焊死"
+
+
+def test_handover_waits_until_the_port_is_actually_closed() -> None:
+    """交棒返回时，串口必须**已经**关干净 —— 不是"已经丢给执行器去关"。
+
+    `Session.disconnect()` 把 `arm.close()` 丢进执行器就返回，而独占锁要等 fd 真的
+    关掉才松开。不等这一下，紧随其后的 follow 会撞在"页面显示已交棒、口却还锁着"的
+    窗口上（现场症状就是遥操起不来）。
+    """
+    session = Session(fake=True, reconnect=False,
+                      poll_period=0.05, state_push_interval=0.05)
+    app = create_app(session, vr=StubVr(), repo_dist=Path("/nonexistent-ui"))
+    try:
+        assert session.connect() is True
+        deadline = time.monotonic() + 5.0
+        while not session.connected and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert session.connected, f"假会话没连上: {session.arm_info()}"
+
+        with TestClient(app) as client:
+            with client.websocket_connect("/ws") as ws:
+                drain_handshake(ws)
+                ws.send_json({"t": "cmd", "id": 12, "m": "vr.teleop_start", "p": {}})
+                res = await_res(ws)
+
+        assert res["v"]["handover"]["released"] is True, res
+        assert session.connected is False, "交棒之后本进程不该还握着臂"
+        # 超时给 0：能立刻回 True ⇒ 那次 close 在**交棒返回之前**就做完了。
+        assert session.wait_link_closed(0.0) is True, "交棒返回时串口还没关干净"
+    finally:
+        session.close()
 
 
 def test_bridge_refusal_comes_back_as_a_failed_res() -> None:

@@ -377,6 +377,9 @@ class Session:
         self._safety_executor = ThreadPoolExecutor(max_workers=1,
                                                    thread_name_prefix="litearm-safety")
         self._stop = threading.Event()
+        #: 最近一次"关掉旧链路"的收尾（`disconnect()` 把它丢给执行器就返回，见那里）。
+        #: 交棒给 VR 时必须等它 —— `wait_link_closed`。
+        self._last_close: Optional[Any] = None
         self._poll_thread: Optional[threading.Thread] = None
         #: 状态轮询线程**自己的**停止信号 —— 与 `_stop` (整个会话收尾) 分开。
         #: ⚠ 上一版 `_stop_polling()` 只清引用再 `join(1.0)`, 而轮询循环判的是 `_stop`
@@ -678,7 +681,11 @@ class Session:
         self._stop_polling()
         arm = self._take_arm()
         if arm is not None:
-            self._executor.submit(self._close_arm, arm)
+            # ⚠ 关链路是**异步**的（丢给执行器就返回）：`arm.close()` 要停零重力保活线程、
+            # 再关 pyserial 的 fd —— 而串口的独占锁（flock）**要等 fd 关掉才松开**。
+            # 于是"断开"与"别人能打开这个口"之间隔着一小段真实时间。要交棒给 VR 的
+            # 那条路必须等它（`wait_link_closed`），否则 follow 会撞在这个窗口上。
+            self._last_close = self._executor.submit(self._close_arm, arm)
         with self._lock:
             self._state = None
             self._state_dict = None
@@ -694,6 +701,28 @@ class Session:
                  fields={"port": closed_port, "had_link": arm is not None})
         self._broadcast({"t": "conn", **self.arm_info()})
         return True
+
+    def wait_link_closed(self, timeout_s: float = 3.0) -> bool:
+        """等**串口真的被关掉**（= 独占锁松开），返回是否等到。
+
+        为什么需要它：`disconnect()` 把 `arm.close()` 丢给执行器就返回（理由见那里），
+        而交棒给 VR 那条路（`server._hand_arm_to_vr`）紧接着就要让桥那边的 follow
+        去打开**同一个口**。不等这一下，follow 会撞在"fd 还没关、flock 还握着"的
+        窗口上 —— 现场症状是 follow 报打不开串口、遥操起不来，而人刚看到"已断开"。
+
+        超时不抛：这是**尽力而为的收尾**，真等不到也不该把交棒整条路堵死
+        （follow 那边现在会等口，见 litearm-vr-follow 的 `serial_wait`）。
+        """
+        with self._lock:
+            future = self._last_close
+        if future is None:
+            return True
+        try:
+            future.result(timeout=timeout_s)
+            return True
+        except Exception:  # noqa: BLE001 - 超时/收尾自身出错: 如实回 False, 不拦后续
+            log.warning("等串口关闭超时 (%.1fs) —— 仍然继续", timeout_s, exc_info=True)
+            return False
 
     def _take_arm(self) -> Optional[Arm]:
         with self._lock:

@@ -134,6 +134,7 @@
     "motionTimeout": "运动超时：控制器未在预期时间内完成动作，请检查机械臂状态",
     "badMessage": "与本地程序的通信协议错误：{{message}}",
     "portChangeWhileConnected": "机械臂已连接在另一个串口上：换口请先按「断开」，再选新口连接",
+    "armHeldByVr": "VR 遥操正在使用机械臂（串口现在归它）：连上去会把串口抢走、把遥操打断。请先在 VR 页上停止遥操，再点「连接」",
     "stopFailed": "急停指令未能送达：{{message}}",
     "jogFailed": "点动未执行：{{message}}",
     "disconnectFailed": "断开未确认：{{message}}。机械臂可能仍然连着，请重试",

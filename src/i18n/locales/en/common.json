@@ -134,6 +134,7 @@
     "motionTimeout": "Motion timed out: the controller did not finish within the expected time, please check robot status",
     "badMessage": "Protocol error talking to the local daemon: {{message}}",
     "portChangeWhileConnected": "The arm is already connected on another serial port: press Disconnect, then connect the new port",
+    "armHeldByVr": "VR teleoperation is using the arm (it holds the serial port right now): connecting would take the port away from it and cut the session short. Stop the teleop on the VR page first, then press Connect",
     "stopFailed": "Emergency stop was not delivered: {{message}}",
     "jogFailed": "Jog did not run: {{message}}",
     "disconnectFailed": "Disconnect was not confirmed: {{message}}. The arm may still be connected — please retry",

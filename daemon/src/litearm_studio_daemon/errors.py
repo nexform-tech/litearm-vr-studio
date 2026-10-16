@@ -215,3 +215,24 @@ class PortChangeWhileConnectedError(DaemonError):
             f"已连接 {connected}；换口请先断开 (本次请求的 {requested} 未生效)")
         self.connected = connected
         self.requested = requested
+
+
+class ArmHeldByVrError(DaemonError):
+    """VR 遥操正握着机械臂时又来了一条 `connect` (`kind` = `ArmHeldByVrError`)。
+
+    串口是**独占**的（SDK 打开时带 `flock`），而 `vr.teleop_start` 会把臂交给桥那边的
+    follow。这时候再连一次不是"多此一举"，是**把口从 follow 手里抢走**：follow 当场
+    打不开串口，遥操断在半路 —— 界面上表现为 VR 链路卡里那句 `connection refused`。
+
+    为什么闸门必须落在 daemon：前端在三种很平常的情况下都会重发 `connect` ——
+    应用一打开（哪个页面都算）、页面刷新、WS 重连（daemon 重启/webview 抖动）。
+    那些都是**无意的**，前端没有"让出"这个动作可点，所以只有守着串口这一侧才拦得住。
+
+    与 `PortChangeWhileConnectedError` 同一口径：响亮拒绝，不静默忽略 ——
+    静默的话，操作员看到的是"已连接"，而遥操那头正在断。
+    """
+
+    def __init__(self, detail: str = ""):
+        message = ("VR 遥操正在使用机械臂（串口现在归它）—— 连上去会把串口抢走、"
+                   "把遥操打断。请先在 VR 页上停止遥操，再点「连接」。")
+        super().__init__(f"{message}{detail}")

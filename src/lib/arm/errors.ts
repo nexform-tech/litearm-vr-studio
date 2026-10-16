@@ -26,6 +26,9 @@ const KIND_KEYS: Record<string, string> = {
   BadMessage: 'badMessage',
   // 设备选择：已连着时指了另一个口，daemon 拒了这次 connect 的 `res`（不是 `conn` 帧）。
   PortChangeWhileConnectedError: 'portChangeWhileConnected',
+  // 串口归 VR：遥操正在跑时那条（自动）connect 被 daemon 拒了 —— 前端在页面加载、
+  // 刷新、WS 重连时都会发它，所以这句话要说清"下一步做什么"，而不是当成故障。
+  ArmHeldByVrError: 'armHeldByVr',
   // 夹爪 (§4.3)。daemon 的类名与这里的键一一对应。
   GripperNotConnectedError: 'gripperNotConnected',
   GripperLinkError: 'gripperLinkError',

@@ -96,7 +96,7 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
   ]
 
   /**
-   * 链路逐跳，按数据流方向排：头显 → 桥 → metavr → 跟随服务 → 机械臂。
+   * 链路逐跳，按数据流方向排：头显 → 桥 → teleop（逆解）→ 跟随服务 → 机械臂。
    * 每跳只报两件事：这一跳通没通、它自己的开销是多少 —— 端口与地址是各服务的配置，
    * 不是这一页要看的状态。
    */
@@ -109,8 +109,8 @@ export function VrLinkPanel({ vm }: { vm: VrLinkView }) {
     },
     {
       name: t('link.relayName'),
-      detail: vm.metavrConnected ? t('link.diagOn') : t('link.diagOff'),
-      active: vm.metavrConnected,
+      detail: vm.teleopConnected ? t('link.diagOn') : t('link.diagOff'),
+      active: vm.teleopConnected,
     },
     {
       name: t('link.followName'),

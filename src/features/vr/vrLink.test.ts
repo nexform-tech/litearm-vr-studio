@@ -87,7 +87,7 @@ describe('mapBridgeSnapshot · 头显与转发指标', () => {
     // （见 `armFieldsOf` 那一段）
     expect(fields.armConnected).toBe(false)
     expect(fields.armState).toBeNull()
-    expect(fields.metavrConnected).toBe(true)
+    expect(fields.teleopConnected).toBe(true)
     expect(fields.owner).toBe('vr')
     expect(fields.fallbackActive).toBe(false)
     expect(fields.forwardEnabled).toBe(true)
@@ -111,7 +111,7 @@ describe('mapBridgeSnapshot · 头显与转发指标', () => {
     expect(fields.following).toBe(false)
     expect(fields.linkState).toBe('idle')
     expect(fields.bridgeOnline).toBe(true)
-    expect(fields.metavrConnected).toBe(true)
+    expect(fields.teleopConnected).toBe(true)
     expect(fields.sinceFrameMs).toBe(0)
   })
 })

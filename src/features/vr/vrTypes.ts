@@ -78,8 +78,8 @@ export type VrLinkSnapshot = {
   forwardCostMs: number
   /** 最近窗口内的转发耗时峰值（ms） */
   forwardCostMaxMs: number
-  /** 桥到 metavr 的连接是否在 */
-  metavrConnected: boolean
+  /** 桥到 teleop（逆解那一跳）的连接是否在 */
+  teleopConnected: boolean
   /** 订阅状态的客户端数（含本页） */
   statusClients: number
 
@@ -154,7 +154,15 @@ export type VrBridgeSnapshot = {
     forward_cost_last_ms?: number | null
     forward_cost_max_ms?: number | null
     clients?: { headset?: number; status?: number }
-    metavr_connected?: boolean
+    /**
+     * 桥到 teleop 的连接在不在（桥侧 `forwarder.subscribed`）。
+     *
+     * ⚠ 桥在 2026-10-15「上游正名为 teleop」那次改名里把它从 `metavr_connected` 改成了
+     *   `teleop_connected`。读到 `undefined` 时页面写的是"未连接"——那是**假的**（桥好好的），
+     *   所以名字对不上这件事在链路卡上会伪装成故障。同一处的进程名也从 `metavr` 正名为
+     *   `teleop`（`processes` / 事件里的 `process`）。
+     */
+    teleop_connected?: boolean
   }
   headset?: {
     online?: boolean

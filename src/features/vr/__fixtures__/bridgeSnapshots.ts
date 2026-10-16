@@ -21,6 +21,11 @@ import type { VrBridgeSnapshot } from '../vrTypes'
  *   这条分界必须守住：以前这份固件里躺着老桥的 `arm.connected/state/fault`，而桥早
  *   就不发它们了。页面照着读，于是"跟随服务"那一跳永远显示"未连接"、故障永远显示不
  *   出来 —— 用例却全绿，因为固件和代码错到了一起。**固件要跟着被仿的对端走。**
+ *
+ * ⚠ 2026-10-16 又栽在同一个坑上：桥在 10-15「上游正名为 teleop」时把 `metavr_connected`
+ *   改成了 `teleop_connected`（进程名 `metavr` → `teleop`，日志名同理），而这份固件没跟。
+ *   于是链路卡上"逆解服务"那一跳永远显示"未连接"，用例还是全绿。这次一并对齐：桥发什么
+ *   名字，固件就写什么名字。
  */
 
 /** no_headset */
@@ -46,7 +51,7 @@ export const SNAP_NO_HEADSET: VrBridgeSnapshot = {
     "forward_cost_last_ms": null,
     "forward_cost_max_ms": null,
     "forward_cost_ms": null,
-    "metavr_connected": true,
+    "teleop_connected": true,
     "online": true
   },
   "events": [],
@@ -83,7 +88,7 @@ export const SNAP_NO_HEADSET: VrBridgeSnapshot = {
   "owner": "none",
   "processes": {
     "follow_server": "stopped",
-    "metavr": "stopped"
+    "teleop": "stopped"
   },
   "processes_detail": {
     "follow_server": {
@@ -95,7 +100,7 @@ export const SNAP_NO_HEADSET: VrBridgeSnapshot = {
       "status": "stopped",
       "uptime_s": null
     },
-    "metavr": {
+    "teleop": {
       "command": "/usr/bin/python3 -c import sys; sys.exit(3)",
       "exit_code": null,
       "last_error": null,
@@ -130,7 +135,7 @@ export const SNAP_FOLLOWING: VrBridgeSnapshot = {
     "forward_cost_last_ms": 0.093,
     "forward_cost_max_ms": 0.146,
     "forward_cost_ms": 0.098,
-    "metavr_connected": true,
+    "teleop_connected": true,
     "online": true
   },
   "events": [],
@@ -167,7 +172,7 @@ export const SNAP_FOLLOWING: VrBridgeSnapshot = {
   "owner": "vr",
   "processes": {
     "follow_server": "stopped",
-    "metavr": "stopped"
+    "teleop": "stopped"
   },
   "processes_detail": {
     "follow_server": {
@@ -179,7 +184,7 @@ export const SNAP_FOLLOWING: VrBridgeSnapshot = {
       "status": "stopped",
       "uptime_s": null
     },
-    "metavr": {
+    "teleop": {
       "command": "/usr/bin/python3 -c import sys; sys.exit(3)",
       "exit_code": null,
       "last_error": null,
@@ -214,7 +219,7 @@ export const SNAP_FALLBACK: VrBridgeSnapshot = {
     "forward_cost_last_ms": 0.08,
     "forward_cost_max_ms": 0.281,
     "forward_cost_ms": 0.104,
-    "metavr_connected": true,
+    "teleop_connected": true,
     "online": true
   },
   "events": [
@@ -228,24 +233,24 @@ export const SNAP_FALLBACK: VrBridgeSnapshot = {
     {
       "code": "process_started",
       "data": {
-        "log": "logs/metavr.log",
+        "log": "logs/teleop.log",
         "pid": 453862,
-        "process": "metavr"
+        "process": "teleop"
       },
       "id": 2,
       "level": "info",
-      "message": "进程 metavr 已启动",
+      "message": "进程 teleop 已启动",
       "ts": 1789637804339
     },
     {
       "code": "process_crashed",
       "data": {
         "exit_code": 3,
-        "process": "metavr"
+        "process": "teleop"
       },
       "id": 3,
       "level": "danger",
-      "message": "进程 metavr 意外退出（code=3）；本服务不会自动重启它",
+      "message": "进程 teleop 意外退出（code=3）；本服务不会自动重启它",
       "ts": 1789637804377
     },
     {
@@ -320,7 +325,7 @@ export const SNAP_FALLBACK: VrBridgeSnapshot = {
   "owner": "vr",
   "processes": {
     "follow_server": "stopped",
-    "metavr": "crashed"
+    "teleop": "crashed"
   },
   "processes_detail": {
     "follow_server": {
@@ -332,7 +337,7 @@ export const SNAP_FALLBACK: VrBridgeSnapshot = {
       "status": "stopped",
       "uptime_s": null
     },
-    "metavr": {
+    "teleop": {
       "command": "/usr/bin/python3 -c import sys; sys.exit(3)",
       "exit_code": 3,
       "last_error": "退出码 3",
@@ -367,7 +372,7 @@ export const SNAP_STOPPED: VrBridgeSnapshot = {
     "forward_cost_last_ms": 0.098,
     "forward_cost_max_ms": 0.325,
     "forward_cost_ms": 0.107,
-    "metavr_connected": true,
+    "teleop_connected": true,
     "online": true
   },
   "events": [
@@ -381,24 +386,24 @@ export const SNAP_STOPPED: VrBridgeSnapshot = {
     {
       "code": "process_started",
       "data": {
-        "log": "logs/metavr.log",
+        "log": "logs/teleop.log",
         "pid": 453862,
-        "process": "metavr"
+        "process": "teleop"
       },
       "id": 2,
       "level": "info",
-      "message": "进程 metavr 已启动",
+      "message": "进程 teleop 已启动",
       "ts": 1789637804339
     },
     {
       "code": "process_crashed",
       "data": {
         "exit_code": 3,
-        "process": "metavr"
+        "process": "teleop"
       },
       "id": 3,
       "level": "danger",
-      "message": "进程 metavr 意外退出（code=3）；本服务不会自动重启它",
+      "message": "进程 teleop 意外退出（code=3）；本服务不会自动重启它",
       "ts": 1789637804377
     },
     {
@@ -510,7 +515,7 @@ export const SNAP_STOPPED: VrBridgeSnapshot = {
   "owner": "none",
   "processes": {
     "follow_server": "stopped",
-    "metavr": "crashed"
+    "teleop": "crashed"
   },
   "processes_detail": {
     "follow_server": {
@@ -522,7 +527,7 @@ export const SNAP_STOPPED: VrBridgeSnapshot = {
       "status": "stopped",
       "uptime_s": null
     },
-    "metavr": {
+    "teleop": {
       "command": "/usr/bin/python3 -c import sys; sys.exit(3)",
       "exit_code": 3,
       "last_error": "退出码 3",

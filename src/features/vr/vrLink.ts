@@ -145,7 +145,7 @@ export function emptyBridgeFields(): VrBridgeFields {
     bridgeUptimeS: 0,
     forwardCostMs: 0,
     forwardCostMaxMs: 0,
-    metavrConnected: false,
+    teleopConnected: false,
     statusClients: 0,
     linkState: 'idle',
     linkEnabled: true,
@@ -197,7 +197,9 @@ export function mapBridgeSnapshot(snapshot: VrBridgeSnapshot): VrBridgeFields {
     bridgeUptimeS: finite(bridge.uptime_s),
     forwardCostMs: finite(bridge.forward_cost_ms),
     forwardCostMaxMs: finite(bridge.forward_cost_max_ms),
-    metavrConnected: Boolean(bridge.metavr_connected),
+    // 桥那边叫 `teleop_connected`（2026-10-15 从 `metavr_connected` 正名过来）。名字写错
+    // 的后果不是报错而是"永远显示未连接"——读 `undefined` 一样是 false（见 `vrTypes.ts`）。
+    teleopConnected: Boolean(bridge.teleop_connected),
     statusClients: Math.round(finite(bridge.clients?.status)),
     linkState: linkStateOf(link.state, headset.following ? 'following' : 'idle'),
     linkEnabled: link.enabled ?? true,

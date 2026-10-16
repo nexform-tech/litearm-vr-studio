@@ -451,9 +451,10 @@ class FakeVrSession:
                 "forward_cost_last_ms": 0.09,
                 "forward_cost_max_ms": 0.32,
                 "clients": {"headset": 1, "status": 1},
-                # metavr 是桥管的进程，与遥操开没开无关（`no_headset` 那份真实固件里
-                # 它也是 true）
-                "metavr_connected": True,
+                # teleop（逆解那一跳）是桥管的进程，与遥操开没开无关（`no_headset` 那份
+                # 真实固件里它也是 true）。字段名照桥现在的契约写，别用改名前那个
+                # `metavr_connected` —— 页面读的是这个名字。
+                "teleop_connected": True,
             },
             # ⚠ 头显**一直连着**：它推它的帧，跟"遥操开没开"是两件事 —— 桥停掉转发之后
             #   帧照旧进来，只是被拦下不转发（`frames_blocked` 就是这些）。

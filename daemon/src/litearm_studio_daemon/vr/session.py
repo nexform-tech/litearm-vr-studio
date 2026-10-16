@@ -70,12 +70,19 @@ _CONNECT_TIMEOUT_MS = 3000
 #: 打不开会话时的重试间隔。
 _RETRY_S = 5.0
 
-#: `vr.*` 命令 → 桥的动作名。这三个都是**整机动作**：桥那边任何一条臂的话题收到
-#: 都作用到整条链路（安全动作不做半边），所以发给哪条臂都一样。
+#: `vr.*` 命令 → 桥的动作名。这几个都是**整机动作**：桥那边任何一条臂的话题收到
+#: 都作用到整条链路（安全动作不做半边，臂清单一台机器也只有一份），所以发给哪条臂
+#: 都一样。
+#:
+#: 后两条是**臂清单**（哪条串口接在哪条臂）：`params` 原样进请求体（见 `execute`），
+#: 所以 `vr.set_arm_devices` 的 `{"devices": {...}}` 一路透传到桥那边，这边不解释、
+#: 也不替它判 —— 判据（同名口、正在跑、自定义命令）全在桥那边一处。
 ACTIONS = {
     "vr.teleop_start": "teleop.start",
     "vr.teleop_stop": "teleop.stop",
     "vr.estop": "estop",
+    "vr.list_ports": "ports.list",
+    "vr.set_arm_devices": "arms.set",
 }
 
 

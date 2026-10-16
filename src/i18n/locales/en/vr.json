@@ -94,5 +94,33 @@
     "conflictTitle": "Both links are driving the arm",
     "conflictBody": "The bridge reports the VR side is following while the console side is also driving the arm. The two links are mutually exclusive — the same motors cannot be commanded by two controllers. Stop one side now and verify the arm state.",
     "rearmHint": "Stopped or e-stopped: press grip again to resume following"
+  },
+  "manifest": {
+    "title": "Arm mapping",
+    "hint": "Which serial port is which arm — a wrong mapping does not error, it just drives the other arm",
+    "side": {
+      "left": "Left arm",
+      "right": "Right arm",
+      "unknown": "Arm"
+    },
+    "sourceRecord": "Confirmed",
+    "sourceConfig": "Install default",
+    "sourceUnknown": "Not reported",
+    "confirmedAt": "Confirmed {{time}}",
+    "mismatch": "The follow server actually opened {{device}} — not the one selected above",
+    "kind": {
+      "by-id": "stable, recommended",
+      "serial": "changes on replug",
+      "can": "CAN"
+    },
+    "pick": "Pick a port",
+    "save": "Save to the bridge",
+    "saving": "Saving…",
+    "saved": "Saved: {{arms}}",
+    "savedNothing": "Already what the bridge uses — nothing changed",
+    "refresh": "Refresh",
+    "portsUnavailable": "Could not list candidate ports ({{reason}}) — you can type the port name instead.",
+    "busy": "Teleop is running, or an upstream process still is — stop it first (the port is frozen into the command line at start).",
+    "noArms": "The bridge has not reported any arm yet — two rows appear once it does."
   }
 }

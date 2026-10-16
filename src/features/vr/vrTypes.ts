@@ -176,6 +176,23 @@ export type VrBridgeSnapshot = {
     connected?: boolean
     last_ok_age_ms?: number | null
     error?: string | null
+
+    // ── 臂的身份与去处（2026-10-15 之后桥就在这里报这些，见 bridge 的 DESIGN §4.4）──
+    //
+    // ⚠ 上面那几个 `source/q/state/fault/connected` 是**老桥**的形状：桥从
+    //   `4c7a772` 起不再照下游，真机状态改由上游汇总服务按臂发（`vr_arm`）。
+    //   两套字段一起留在这里，是因为快照类型要能同时描述两种桥 —— 页面按是否存在
+    //   决定显示什么，而不是拿空值当"没连接"。
+    /** 上游的槽：`left` / `right`（决定由哪只手柄驱动） */
+    side?: string
+    /** 这条臂的硬件口（`/dev/serial/by-id/…` 或 CAN 口名） */
+    device?: string
+    /** 这个口是谁定的：`config`（装机时写的）/ `record`（操作员在界面上确认过的） */
+    device_source?: string
+    /** 来源是 `record` 时的确认时间（ISO 8601）；没有就是 null */
+    device_confirmed_at?: string | null
+    /** 这条臂的跟随服务端点 `host:port` */
+    follow?: string
   }
   processes?: Record<string, string>
   processes_detail?: Record<string, VrProcessDetail>

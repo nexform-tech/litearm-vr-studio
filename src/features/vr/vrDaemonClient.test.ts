@@ -85,7 +85,23 @@ describe('VR 通道客户端（走 daemon）', () => {
 
     fake.emit('vr_conn', connFrame)
     expect(client.sendAction('teleop.start')).toBe(true)
-    expect(fake.sendCmd).toHaveBeenCalledWith('vr.teleop_start')
+    expect(fake.sendCmd).toHaveBeenCalledWith('vr.teleop_start', undefined)
+    // 带参的动作要把参数**原样**送过去（丢参数是那种"传了却没生效"的错，最难查）
+    expect(client.sendAction('teleop.start', { arm: 'armA' })).toBe(true)
+    expect(fake.sendCmd).toHaveBeenLastCalledWith('vr.teleop_start', { arm: 'armA' })
+  })
+
+  it('臂映射：候选口与写回都走桥（命令名与参数原样）', async () => {
+    const fake = fakeSocket()
+    const client = new VrDaemonClient(fake.socket)
+    fake.emit('vr_conn', connFrame)
+
+    await client.listPorts()
+    expect(fake.sendCmd).toHaveBeenLastCalledWith('vr.list_ports')
+
+    await client.setArmDevices({ armA: '/dev/serial/by-id/usb-A' })
+    expect(fake.sendCmd).toHaveBeenLastCalledWith('vr.set_arm_devices',
+      { devices: { armA: '/dev/serial/by-id/usb-A' } })
   })
 
   it('回执存下来给页面读（急停没停成不能显示成成功）', async () => {

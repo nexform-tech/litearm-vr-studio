@@ -138,6 +138,31 @@ def test_action_goes_out_as_a_query_and_returns_the_bridge_receipt(
         vr.close()
 
 
+def test_arm_manifest_actions_pass_params_through(bridge: FakeBridge) -> None:
+    """臂清单两条命令：名字映射到桥的动作名，参数**原样**进请求体。
+
+    判据（同名口、正在跑、自定义命令）全在桥那边一处 —— 这边不替它解释、也不预判，
+    否则两边各有一套规则，迟早出现"界面放行、桥拒绝"的怪状。
+    """
+    bridge.reply = {"ok": True, "code": "arms_set", "result": {"applied": ["armA"]}}
+    vr = VrSession(endpoint=bridge.endpoint)
+    vr.start()
+    try:
+        assert wait_until(lambda: vr.status == "waiting"), vr.conn_info()
+        bridge.push("armA", {"arm_id": "armA"})   # 有快照才知道动作发给谁
+        assert wait_until(lambda: vr.status == "connected"), vr.conn_info()
+        vr.execute("vr.list_ports")
+        receipt = vr.execute("vr.set_arm_devices",
+                             {"devices": {"armA": "/dev/serial/by-id/usb-A2"}})
+        assert receipt["code"] == "arms_set"
+        assert bridge.actions == [
+            {"action": "ports.list"},
+            {"action": "arms.set", "devices": {"armA": "/dev/serial/by-id/usb-A2"}},
+        ]
+    finally:
+        vr.close()
+
+
 def test_bridge_offline_is_reported_and_actions_refuse() -> None:
     """桥不在：状态如实报 error（几秒内，不干等），动作直接拒。"""
     vr = VrSession(endpoint=f"tcp/127.0.0.1:{free_port()}")
@@ -249,6 +274,26 @@ def test_vr_action_returns_the_bridge_receipt() -> None:
     assert res["ok"] is True
     assert res["v"]["receipt"] == vr.receipt
     assert vr.calls == [("vr.teleop_start", {})]
+
+
+def test_set_arm_devices_reaches_the_channel_with_its_params() -> None:
+    """服务层只是**转达**：`p` 里的 devices 一个字不改地到通道上。
+
+    桥拒绝时（`ok: false`）也如实回一条 `ok:false` 的 `res` —— 界面据此显示原因
+    （同一个口给了两条臂、跟随服务还在跑、命令是自定义的…）。
+    """
+    vr = StubVr(receipt={"ok": False, "code": "Busy",
+                         "error": {"type": "Busy", "message": "teleop 正在运行"}})
+    app, _ = make_app(vr)
+    with TestClient(app) as client:
+        with client.websocket_connect("/ws") as ws:
+            drain_handshake(ws)
+            ws.send_json({"t": "cmd", "id": 9, "m": "vr.set_arm_devices",
+                          "p": {"devices": {"armA": "/dev/serial/by-id/usb-A2"}}})
+            res = await_res(ws)
+    assert res["ok"] is False
+    assert vr.calls == [("vr.set_arm_devices",
+                         {"devices": {"armA": "/dev/serial/by-id/usb-A2"}})]
 
 
 def test_teleop_start_hands_the_arm_over() -> None:

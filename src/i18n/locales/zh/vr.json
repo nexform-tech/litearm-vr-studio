@@ -94,5 +94,33 @@
     "conflictTitle": "两条链路同时在控机械臂",
     "conflictBody": "桥报 VR 侧在跟随，同时上位机侧也在驱动机械臂。两条链路互斥，同一批电机不能被两个控制器同时占用 —— 立即停掉其中一侧，并确认机械臂状态。",
     "rearmHint": "已停止或急停过：重新按 grip 才会恢复跟随"
+  },
+  "manifest": {
+    "title": "臂映射",
+    "hint": "哪条串口接在哪条臂 —— 配反了不报错，只会让左手柄去驱动右臂",
+    "side": {
+      "left": "左臂",
+      "right": "右臂",
+      "unknown": "臂"
+    },
+    "sourceRecord": "已确认",
+    "sourceConfig": "装机默认",
+    "sourceUnknown": "桥未报",
+    "confirmedAt": "{{time}} 确认",
+    "mismatch": "跟随服务实际开的是 {{device}} —— 与上面选的不符",
+    "kind": {
+      "by-id": "按设备序列号，推荐",
+      "serial": "拔插会变",
+      "can": "CAN"
+    },
+    "pick": "选一个口",
+    "save": "保存到桥",
+    "saving": "保存中…",
+    "saved": "已保存：{{arms}}",
+    "savedNothing": "与桥现在认的一致，没有改动",
+    "refresh": "刷新候选",
+    "portsUnavailable": "候选口列不出来（{{reason}}），可以直接手填口名。",
+    "busy": "正在遥操，或上游进程还在跑 —— 先停掉再改（命令行里的串口是启动那一刻冻下来的）。",
+    "noArms": "桥还没认到任何一条臂 —— 连上之后这里会出现两条。"
   }
 }

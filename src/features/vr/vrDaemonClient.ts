@@ -148,13 +148,17 @@ export class VrDaemonClient {
    *
    * 返回"通道通不通"——回执是异步的（`lastReceipt` / `lastActionError`），桥不在时
    * 调用方照旧该把按钮禁用。
+   *
+   * `payload` 原样进请求体（daemon 那边不解释、桥那边按动作自己读）—— 这三个动作今天
+   * 不带参数，留着是为了下一个带参的动作不必再改一遍这条通路（以前这里把它丢掉了，
+   * 那种"参数明明传了却没生效"的错最难查）。
    */
-  sendAction = (action: string, _payload?: Record<string, unknown>): boolean => {
+  sendAction = (action: string, payload?: Record<string, unknown>): boolean => {
     const method = ACTIONS[action]
     if (!method) return false
     if (!this.online) return false
     this.socket
-      .sendCmd(method)
+      .sendCmd(method, payload)
       .then((value) => {
         const reply = asObject(value)
         this.receiptValue = asObject(reply?.receipt) ?? reply
@@ -168,6 +172,26 @@ export class VrDaemonClient {
       })
     return true
   }
+
+  /**
+   * 列出**桥那台机器**上可能是机械臂的硬件口。
+   *
+   * 为什么不自己列：默认同机、允许跨机（桥的设计文档决策 4）。桥在另一台机器上时，
+   * 本机枚举出来的口与真正插着臂的那台毫无关系 —— 列得越多，越容易挑一个"本机看着对、
+   * 现场其实不存在"的名字。
+   */
+  listPorts = async (): Promise<Json | null> =>
+    asObject(await this.socket.sendCmd('vr.list_ports'))
+
+  /**
+   * 确认「哪条串口接在哪条臂」—— 桥负责落盘并当场生效。
+   *
+   * 与 `sendAction` 的差别：这里**把 promise 交回调用方**。那张卡要显示桥拒绝的原话
+   * （同一个口给了两条臂、跟随服务还在跑、命令是自定义的…），而"最近一次回执"是给
+   * 三个开关按钮共用的槽位，卡片读它会串台。
+   */
+  setArmDevices = async (devices: Record<string, string>): Promise<Json | null> =>
+    asObject(await this.socket.sendCmd('vr.set_arm_devices', { devices }))
 
   private _applyDevice<T>(msg: Json, into: Map<string, T>) {
     const arm = typeof msg.arm === 'string' ? msg.arm : ''

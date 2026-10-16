@@ -1,7 +1,6 @@
 {
   "topbar": {
     "bridgeLabel": "桥",
-    "bridgeHint": "桥跑在机械臂那台机器上，地址因现场而异 —— 这一页不会去连任何默认地址，请把现场的地址填在这里",
     "addressLabel": "桥地址",
     "addressApply": "应用",
     "addressPlaceholder": "ws://192.168.31.139:8765/ws/status",
@@ -102,7 +101,6 @@
   },
   "manifest": {
     "title": "臂映射",
-    "hint": "哪条串口接在哪条臂、夹爪在哪个 CAN 口 —— 配反了不报错，只会让左手柄去驱动右臂",
     "side": {
       "left": "左臂",
       "right": "右臂",
@@ -126,29 +124,101 @@
     "gripperMismatch": "夹爪服务实际报的是 {{device}} —— 与上面选的不符"
   },
   "config": {
-    "title": "桥的配置",
-    "hint": "改的是桥那台机器上的配置 —— 在这里改过的项会压过它的 config.toml",
-    "refresh": "重新读一遍",
-    "loading": "正在问桥要配置…",
-    "unavailable": "桥还没连上 —— 连上之后这里会列出能改的那些项。",
-    "busy": "正在遥操，或上游进程还在跑 —— 先停掉再改（命令行是启动那一刻冻下来的）。",
-    "save": "保存到桥",
+    "title": "链路配置",
+    "open": "链路配置",
+    "loading": "正在读取桥接服务配置…",
+    "unavailable": "尚未连接到桥接服务，连接后显示可修改项。",
+    "busy": "遥操或上游进程运行中，暂不可修改。受管进程的命令行在启动时已固定。",
+    "save": "保存",
+    "saveNow": "保存",
     "saving": "保存中…",
     "saved": "已保存：{{keys}}",
-    "savedNothing": "与桥现在的一致，没有改动",
+    "savedShort": "已保存",
+    "savedNothing": "与当前配置一致，无改动",
     "revert": "撤销",
-    "reset": "恢复成配置文件的值",
-    "pick": "选一个",
+    "reset": "恢复配置文件的值",
+    "refresh": "重新读取",
+    "pick": "请选择",
+    "noValue": "（空）",
     "on": "开",
     "off": "关",
-    "sourceOverride": "页面改过",
+    "sourceOverride": "页面设置",
     "sourceConfig": "config.toml",
-    "sourceDefault": "出厂默认",
-    "notWritable": "不给改",
-    "needsRestart": "重启后生效",
-    "pendingThis": "已存下，重启桥之后才生效 —— 现在跑的还是旧值。",
-    "pendingRestart": "这几项存下了但还没生效，要重启桥：{{keys}}",
-    "open": "配置",
-    "livesAt": "改过的项写在 {{path}}（压过 config.toml）"
+    "sourceDefault": "默认值",
+    "notWritable": "只读",
+    "needsRestart": "需重启",
+    "appliesNow": "立即生效",
+    "appliesOnSave": "保存后生效",
+    "pendingThis": "已保存，重启桥接服务后生效；当前仍为原值。",
+    "pendingRestart": "以下项已保存，需重启桥接服务后生效：{{keys}}",
+    "livesAt": "覆盖项保存于 {{path}}",
+    "boolHint": "左为「{{on}}」，右为「{{off}}」",
+    "label": {
+      "machine.real": "真机模式",
+      "machine.side": "驱动手柄",
+      "machine.viewer": "视图窗口",
+      "machine.upright": "正装",
+      "machine.hand": "灵巧手",
+      "machine.gripper": "夹爪",
+      "machine.hand_remote": "灵巧手地址",
+      "machine.gripper_remote": "夹爪地址",
+      "machine.arms": "机械臂构型",
+      "follow.mode": "跟随方式",
+      "follow.ctrl_mode": "控制律",
+      "follow.serial": "单臂串口",
+      "follow.dry_run": "空跑模式",
+      "arms.A.device": "左臂串口",
+      "arms.A.grip": "左臂夹爪",
+      "arms.A.host": "左臂主机",
+      "arms.A.port": "左臂端口",
+      "arms.B.device": "右臂串口",
+      "arms.B.grip": "右臂夹爪",
+      "arms.B.host": "右臂主机",
+      "arms.B.port": "右臂端口",
+      "bridge.log_level": "日志级别",
+      "bridge.log_format": "日志格式",
+      "bridge.log_file": "日志文件",
+      "bridge.manifest_file": "记录文件位置",
+      "upstream.manage": "托管的进程"
+    },
+    "bool": {
+      "machine.real": [
+        "真机",
+        "仿真"
+      ],
+      "machine.side": [
+        "左手柄",
+        "右手柄"
+      ],
+      "machine.upright": [
+        "正装",
+        "侧装"
+      ],
+      "machine.arms": [
+        "单臂",
+        "双臂"
+      ],
+      "machine.hand": [
+        "启用",
+        "停用"
+      ],
+      "machine.gripper": [
+        "启用",
+        "停用"
+      ],
+      "follow.dry_run": [
+        "启用",
+        "停用"
+      ]
+    },
+    "section": {
+      "machine": "机器与安装",
+      "follow": "跟随链路",
+      "bridge": "桥接服务",
+      "upstream": "上游进程",
+      "safety": "安全",
+      "arms.A": "左臂",
+      "arms.B": "右臂"
+    }
   }
 }

@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Lock, SlidersHorizontal, TriangleAlert } from 'lucide-react'
+import { SlidersHorizontal, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -24,16 +23,21 @@ import type { BridgeConfigRow } from './useBridgeConfig'
 /**
  * 桥的配置面 —— 顶栏右上角那颗按钮点开的表单。
  *
- * 为什么收进弹窗、而不是页面上再摆一张卡：这一页摆的是**遥操时一直要盯着**的东西
- * （链路、负载、3D、臂映射）。配置是开机时改一次、之后就再也不看的，占一格会把
- * 常看的那几张挤小。而它又必须在这一页上 —— 改的是同一台桥。
+ * 为什么收进弹窗、而不是在页面上再占一格：这一页六格摆的是**遥操时要一直盯着**的东西
+ * （链路、负载、3D、臂映射）。配置改一次就不用再看了，占一格会把常看的那几张挤小。
+ * 而它又必须在这一页上 —— 改的是同一台桥。
  *
- * 表单**不写死任何键名**：能改哪些、各自什么取值、改完怎么生效、不给改的为什么，
+ * 表单**不写死有哪些键**：能改哪些、各自什么取值、改完怎么生效、不给改的为什么，
  * 全是桥下发的（`config.schema`）。桥以后新增配置项，这里自动多一行。
+ *
+ * ⚠ 但**名字要给人看的**：桥下发的是键名（`ctrl_mode` 这种，写给配置文件看的，且全是
+ *   英文）。所以按路径查一句人话（`config.label.<路径>`），**查不到就退回键名** ——
+ *   桥新增的键照样出现，只是暂时没名字。两个取值那一类的键连两态的名字也给人话：
+ *   写"开/关"对"真机"没有任何意义，得写"真机/仿真"。
  *
  * 三件事必须看得见，否则就是现场最难查的那类问题：
  *
- *   * **这个值来自哪一层** —— 出厂默认 / `config.toml` / 页面改过。页面上改过的
+ *   * **这个值来自哪一层** —— 出厂默认 / `config.toml` / 页面改过。页面改过的
  *     **压过**配置文件，所以"改了 config.toml 重启却什么都没变"是正常行为。
  *   * **改完怎么生效** —— 立即 / 重建受管进程的命令行（链路忙时桥会拒）/ 需重启桥。
  *     最后那一档存下去但**不当场生效**，页面上要写明，不能显示成已经生效。
@@ -59,7 +63,7 @@ export function VrConfigButton() {
         <SlidersHorizontal className="size-3.5" />
         {t('config.open')}
       </Button>
-      {/* 弹窗开着才挂载：`useBridgeConfig` 会在挂载时拉一次配置面，
+      {/* 弹窗开着才挂载：`useBridgeConfig` 在挂载时拉一次配置面，
           关着的时候不该有一条常驻的取数在跑 */}
       {open ? <VrConfigDialog open={open} onOpenChange={setOpen} /> : null}
     </>
@@ -75,26 +79,26 @@ function VrConfigDialog({
 }) {
   const { t } = useTranslation('vr')
   const v = useBridgeConfig()
-  const sections = groupBySection(v.rows)
+  // 只显示**能改**的项。只读的那些列出来只会占地方 —— 点不动，也没有可做的动作。
+  const sections = groupBySection(v.rows.filter((row) => row.writable))
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[36rem]" data-testid="vr-config-dialog">
+      <DialogContent className="sm:max-w-[40rem]" data-testid="vr-config-dialog">
         <DialogHeader>
           <DialogTitle>{t('config.title')}</DialogTitle>
-          <DialogDescription>{t('config.hint')}</DialogDescription>
         </DialogHeader>
 
-        <div className="flex max-h-[26rem] flex-col gap-3 overflow-y-auto pr-1">
+        <div className="flex max-h-[28rem] flex-col gap-3 overflow-y-auto pr-1">
           {v.rows.length === 0 ? (
-            <div className="text-[0.75rem] text-muted-foreground">
+            <div className="text-[0.8125rem] text-muted-foreground">
               {v.loading ? t('config.loading') : t('config.unavailable')}
             </div>
           ) : (
             sections.map(([section, rows]) => (
-              <div key={section} className="flex flex-col gap-1.5">
-                <div className="text-[0.6875rem] font-medium tracking-wide text-muted-foreground uppercase">
-                  {section}
+              <div key={section} className="flex flex-col gap-2">
+                <div className="text-[0.75rem] font-medium tracking-wide text-muted-foreground">
+                  {t(`config.section.${section}`, { defaultValue: section })}
                 </div>
                 {rows.map((row) => (
                   <ConfigRow
@@ -111,21 +115,21 @@ function VrConfigDialog({
           )}
 
           {!v.canEdit && v.rows.length > 0 ? (
-            <div className="text-[0.6875rem] leading-relaxed text-muted-foreground">
+            <div className="text-[0.75rem] leading-relaxed text-muted-foreground">
               {t('config.busy')}
             </div>
           ) : null}
 
           {v.error ? (
-            <div className="flex items-start gap-1.5 rounded-[0.625rem] border border-danger-line bg-danger-soft px-2.5 py-2 text-[0.6875rem] leading-relaxed text-danger">
-              <TriangleAlert className="mt-px size-3.5 flex-none" />
+            <div className="flex items-start gap-1.5 rounded-[0.625rem] border border-danger-line bg-danger-soft px-2.5 py-2 text-[0.75rem] leading-relaxed text-danger">
+              <TriangleAlert className="mt-px size-4 flex-none" />
               {/* 桥拒绝的原话（"不从页面上改"、取值不认、链路忙…），不翻译 */}
               <span>{v.error}</span>
             </div>
           ) : null}
 
           {v.saved !== null ? (
-            <div className="text-[0.6875rem] text-muted-foreground">
+            <div className="text-[0.75rem] text-muted-foreground">
               {v.saved.length === 0
                 ? t('config.savedNothing')
                 : t('config.saved', { keys: v.saved.join('、') })}
@@ -133,14 +137,14 @@ function VrConfigDialog({
           ) : null}
 
           {v.pendingRestart.length > 0 ? (
-            <div className="text-[0.6875rem] leading-relaxed text-warn">
+            <div className="text-[0.75rem] leading-relaxed text-warn">
               {t('config.pendingRestart', { keys: v.pendingRestart.join('、') })}
             </div>
           ) : null}
         </div>
 
         <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0 truncate font-mono text-[0.625rem] text-muted-foreground">
+          <div className="min-w-0 truncate font-mono text-[0.6875rem] text-muted-foreground">
             {v.overridesFile ? t('config.livesAt', { path: v.overridesFile }) : ''}
           </div>
           <div className="flex flex-none items-center gap-2">
@@ -180,28 +184,12 @@ function groupBySection(rows: BridgeConfigRow[]): Array<[string, BridgeConfigRow
   return [...out.entries()]
 }
 
-/** 开关那两粒的样式：与设置页同一套（这一页没有自己的设计语言，照抄才是对的）。 */
-const SEGMENT = {
-  containerStyle: {
-    display: 'flex' as const,
-    gap: '0.1875rem',
-    background: 'var(--line-soft)',
-    borderRadius: '0.5625rem',
-    padding: '0.1875rem',
-    alignSelf: 'flex-start' as const,
-  },
-  itemStyle: {
-    padding: '0.1875rem 0.625rem',
-    borderRadius: '0.4375rem',
-    fontSize: '0.6875rem',
-    color: 'var(--ink-subtle)',
-    fontWeight: 500,
-  },
-  activeItemStyle: {
-    background: 'var(--seg-active)',
-    color: 'var(--ink)',
-    fontWeight: 600,
-  },
+/** 这一项叫什么（给人看的）。查不到就退回键名 —— 桥新增的键照样能改。 */
+function labelOf(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  row: BridgeConfigRow,
+): string {
+  return t(`config.label.${row.path}`, { defaultValue: row.key })
 }
 
 /** 这一项的值是谁定的 —— 页面上最要紧的一件事（页面改过的压过配置文件）。 */
@@ -227,54 +215,47 @@ function ConfigRow({
   const { t } = useTranslation('vr')
   return (
     <div
-      className="flex flex-col gap-1 rounded-[0.625rem] border border-line-soft px-2.5 py-2"
+      className="flex flex-col gap-1.5 rounded-[0.625rem] border border-line-soft px-3 py-2.5"
       data-testid={`config-row-${row.path}`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-1.5">
-          {!row.writable ? <Lock className="size-3 flex-none text-muted-foreground" /> : null}
-          <span className="font-mono text-[0.6875rem] text-foreground">{row.path}</span>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <span className="text-[0.8125rem] font-medium text-foreground">{labelOf(t, row)}</span>
         </div>
-        <div className="flex flex-none items-center gap-1.5">
+        <div className="flex flex-none items-center gap-2">
           {row.apply === 'restart' ? (
-            <span className="text-[0.625rem] text-muted-foreground">
-              {t('config.needsRestart')}
-            </span>
+            <span className="text-[0.6875rem] text-warn">{t('config.needsRestart')}</span>
           ) : null}
-          <span className="text-[0.625rem] text-muted-foreground">
-            {row.writable ? t(sourceLabelKey(row.source)) : t('config.notWritable')}
+          <span className="text-[0.6875rem] text-muted-foreground">
+            {t(sourceLabelKey(row.source))}
           </span>
         </div>
       </div>
 
       <Control row={row} disabled={disabled} onChange={onChange} />
 
-      {row.locked_why ? (
-        <div className="text-[0.625rem] leading-relaxed text-muted-foreground">
-          {row.locked_why}
-        </div>
-      ) : row.doc ? (
-        <div className="text-[0.625rem] leading-relaxed text-muted-foreground">{row.doc}</div>
+      {row.doc ? (
+        <div className="text-[0.6875rem] leading-relaxed text-muted-foreground">{row.doc}</div>
       ) : null}
 
       {row.pending_restart ? (
-        <div className="text-[0.625rem] text-warn">{t('config.pendingThis')}</div>
+        <div className="text-[0.6875rem] text-warn">{t('config.pendingThis')}</div>
       ) : null}
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         {row.dirty ? (
           <button
             type="button"
-            className="text-[0.625rem] text-muted-foreground underline-offset-2 hover:underline"
+            className="text-[0.6875rem] text-muted-foreground underline-offset-2 hover:underline"
             onClick={onRevert}
           >
             {t('config.revert')}
           </button>
         ) : null}
-        {row.resetable && row.writable ? (
+        {row.resetable ? (
           <button
             type="button"
-            className="text-[0.625rem] text-muted-foreground underline-offset-2 hover:underline"
+            className="text-[0.6875rem] text-muted-foreground underline-offset-2 hover:underline"
             disabled={disabled}
             onClick={onReset}
           >
@@ -297,26 +278,34 @@ function Control({
   onChange: (value: unknown) => void
 }) {
   const { t } = useTranslation('vr')
-  const value = row.draft
 
   if (row.kind === 'bool') {
-    const on = value === true || String(value) === 'true'
+    const on = row.draft === true || String(row.draft) === 'true'
+    // 两态的名字也给人话：写"开/关"对"真机"没有任何意义。
+    // 认得的键在 i18n 里给一对词，认不得就退回 开/关。
+    const words = t(`config.bool.${row.path}`, {
+      returnObjects: true,
+      defaultValue: [t('config.on'), t('config.off')],
+    }) as unknown as string[]
+    const [onWord, offWord] = Array.isArray(words) ? words : ['开', '关']
     return (
       <SegmentedControl
         ariaLabel={row.path}
         items={[
           {
             key: 'on',
-            label: t('config.on'),
+            label: onWord,
             active: on,
             disabled,
+            title: t('config.boolHint', { on: onWord, off: offWord }),
             onClick: () => onChange(true),
           },
           {
             key: 'off',
-            label: t('config.off'),
+            label: offWord,
             active: !on,
             disabled,
+            title: t('config.boolHint', { on: onWord, off: offWord }),
             onClick: () => onChange(false),
           },
         ]}
@@ -330,15 +319,15 @@ function Control({
   if (row.kind === 'enum') {
     return (
       <Select
-        value={String(value ?? '')}
+        value={String(row.draft ?? '')}
         onValueChange={(next) => onChange(next)}
         disabled={disabled}
       >
         <SelectTrigger
-          className="h-8 w-full font-mono text-[0.6875rem]"
+          className="h-8 w-full text-[0.8125rem]"
           data-testid={`config-select-${row.path}`}
         >
-          <SelectValue placeholder={t('config.pick')} />
+          <SelectValue />
         </SelectTrigger>
         <SelectContent>
           {row.values.map((option) => (
@@ -354,11 +343,36 @@ function Control({
   // text / int / manage：都退回手填 —— 桥按声明的类型收值，写错它会当场点名
   return (
     <Input
-      value={String(value ?? '')}
+      value={String(row.draft ?? '')}
       disabled={disabled}
-      className="h-8 w-full font-mono text-[0.6875rem]"
+      placeholder={t('config.noValue')}
+      className="h-8 w-full font-mono text-[0.8125rem]"
       data-testid={`config-input-${row.path}`}
       onChange={(event) => onChange(event.target.value)}
     />
   )
+}
+
+/** 两态那两粒：与设置页同一套（这一页没有自己的设计语言，照抄才是对的）。 */
+const SEGMENT = {
+  containerStyle: {
+    display: 'flex' as const,
+    gap: '0.1875rem',
+    background: 'var(--line-soft)',
+    borderRadius: '0.5625rem',
+    padding: '0.1875rem',
+    alignSelf: 'flex-start' as const,
+  },
+  itemStyle: {
+    padding: '0.25rem 0.75rem',
+    borderRadius: '0.4375rem',
+    fontSize: '0.8125rem',
+    color: 'var(--ink-subtle)',
+    fontWeight: 500,
+  },
+  activeItemStyle: {
+    background: 'var(--seg-active)',
+    color: 'var(--ink)',
+    fontWeight: 600,
+  },
 }

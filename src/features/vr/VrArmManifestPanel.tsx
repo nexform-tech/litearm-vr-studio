@@ -92,9 +92,6 @@ export function VrArmManifestPanel({ v }: { v: ArmManifestView }) {
           <div className="text-[0.90625rem] font-semibold text-foreground">
             {t('manifest.title')}
           </div>
-          <div className="text-[0.6875rem] leading-relaxed text-muted-foreground">
-            {t('manifest.hint')}
-          </div>
         </div>
         <Button
           type="button"

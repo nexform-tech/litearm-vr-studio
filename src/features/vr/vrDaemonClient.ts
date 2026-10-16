@@ -223,8 +223,12 @@ export class VrDaemonClient {
    * 桥没回执时抛（与 `setArmDevices` 一样把 promise 交回调用方，卡片要显示原话）。
    */
   loadConfig = async (): Promise<VrConfigSchema | null> => {
-    const reply = asObject(await this.socket.sendCmd('vr.get_config'))
-    this.configValue = asObject(reply?.result) ?? null
+    // ⚠ 回执是**包在 `v.receipt` 里**的（`sendCmd` 解出来的是 `v`，不是 receipt 本身）——
+    //   与 `setArmDevices` 那条路同一个形状，那边由 `asReceipt` 拆。这里直接读
+    //   `reply.result` 会永远是 undefined，而症状是"横带整条不出现"，不报错。
+    const value = asObject(await this.socket.sendCmd('vr.get_config'))
+    const receipt = asObject(value?.receipt)
+    this.configValue = asObject(receipt?.result) ?? null
     this.notify()
     return this.config as VrConfigSchema | null
   }

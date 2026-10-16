@@ -1,7 +1,6 @@
 {
   "topbar": {
     "bridgeLabel": "Bridge",
-    "bridgeHint": "The bridge runs on the machine that owns the arm, so its address differs per site — this page never connects to a default; put the site's address here",
     "addressLabel": "Bridge URL",
     "addressApply": "Apply",
     "addressPlaceholder": "ws://192.168.31.139:8765/ws/status",
@@ -102,7 +101,6 @@
   },
   "manifest": {
     "title": "Arm mapping",
-    "hint": "Which serial port is which arm, and which CAN channel its gripper is on — a wrong mapping does not error, it just drives the other arm",
     "side": {
       "left": "Left arm",
       "right": "Right arm",
@@ -126,29 +124,101 @@
     "gripperMismatch": "The gripper service reports {{device}} — not what is selected above"
   },
   "config": {
-    "title": "Bridge configuration",
-    "hint": "These live on the bridge machine — anything set here overrides its config.toml",
-    "refresh": "Reload",
-    "loading": "Asking the bridge for its configuration…",
-    "unavailable": "The bridge is not connected yet — the editable settings appear here once it is.",
-    "busy": "Teleop is running, or the upstream processes are — stop them first (their command lines were frozen at launch).",
-    "save": "Save to bridge",
+    "title": "Teleop link configuration",
+    "open": "Link config",
+    "loading": "Reading the bridge configuration…",
+    "unavailable": "Not connected to the bridge; editable settings appear once it is.",
+    "busy": "Teleop or the upstream processes are running. Managed command lines are fixed at launch.",
+    "save": "Save",
+    "saveNow": "Save",
     "saving": "Saving…",
     "saved": "Saved: {{keys}}",
-    "savedNothing": "Already matches the bridge — nothing changed",
-    "revert": "Undo",
+    "savedShort": "Saved",
+    "savedNothing": "No changes",
+    "revert": "Discard",
     "reset": "Reset to config file",
-    "pick": "Pick one",
+    "refresh": "Reload",
+    "pick": "Select",
+    "noValue": "(empty)",
     "on": "On",
     "off": "Off",
     "sourceOverride": "set here",
     "sourceConfig": "config.toml",
-    "sourceDefault": "factory default",
+    "sourceDefault": "default",
     "notWritable": "read-only",
-    "needsRestart": "on restart",
-    "pendingThis": "Saved, but it only takes effect after the bridge restarts — it is still running the old value.",
-    "pendingRestart": "Saved but not in effect yet; restart the bridge: {{keys}}",
-    "open": "Configuration",
-    "livesAt": "Overrides live in {{path}} (they beat config.toml)"
+    "needsRestart": "needs restart",
+    "appliesNow": "applies now",
+    "appliesOnSave": "applies on save",
+    "pendingThis": "Saved; takes effect after the bridge restarts. The current value is unchanged.",
+    "pendingRestart": "Saved, pending a bridge restart: {{keys}}",
+    "livesAt": "Overrides are stored in {{path}}",
+    "boolHint": "Left is {{on}}, right is {{off}}",
+    "label": {
+      "machine.real": "Real arm",
+      "machine.side": "Driving hand",
+      "machine.viewer": "Viewer",
+      "machine.upright": "Upright",
+      "machine.hand": "Hand",
+      "machine.gripper": "Gripper",
+      "machine.hand_remote": "Hand address",
+      "machine.gripper_remote": "Gripper address",
+      "machine.arms": "Arm configuration",
+      "follow.mode": "Follow link",
+      "follow.ctrl_mode": "Control law",
+      "follow.serial": "Serial port",
+      "follow.dry_run": "Dry run",
+      "arms.A.device": "Left arm port",
+      "arms.A.grip": "Left gripper",
+      "arms.A.host": "Left host",
+      "arms.A.port": "Left port",
+      "arms.B.device": "Right arm port",
+      "arms.B.grip": "Right gripper",
+      "arms.B.host": "Right host",
+      "arms.B.port": "Right port",
+      "bridge.log_level": "Log level",
+      "bridge.log_format": "Log format",
+      "bridge.log_file": "Log file",
+      "bridge.manifest_file": "Record file location",
+      "upstream.manage": "Managed processes"
+    },
+    "bool": {
+      "machine.real": [
+        "Real",
+        "Simulation"
+      ],
+      "machine.side": [
+        "Left hand",
+        "Right hand"
+      ],
+      "machine.upright": [
+        "Upright",
+        "Side"
+      ],
+      "machine.arms": [
+        "Single",
+        "Dual"
+      ],
+      "machine.hand": [
+        "Enabled",
+        "Disabled"
+      ],
+      "machine.gripper": [
+        "Enabled",
+        "Disabled"
+      ],
+      "follow.dry_run": [
+        "Enabled",
+        "Disabled"
+      ]
+    },
+    "section": {
+      "machine": "Machine and mounting",
+      "follow": "Following",
+      "bridge": "Bridge service",
+      "upstream": "Upstream processes",
+      "safety": "Safety",
+      "arms.A": "Left arm",
+      "arms.B": "Right arm"
+    }
   }
 }

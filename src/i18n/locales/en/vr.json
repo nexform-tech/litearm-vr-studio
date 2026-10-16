@@ -108,7 +108,6 @@
     "sourceRecord": "Confirmed",
     "sourceConfig": "Install default",
     "sourceUnknown": "Not reported",
-    "confirmedAt": "Confirmed {{time}}",
     "mismatch": "The follow server actually opened {{device}} — not the one selected above",
     "pick": "Pick a port",
     "save": "Save to the bridge",

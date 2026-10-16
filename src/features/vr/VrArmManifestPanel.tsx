@@ -317,12 +317,6 @@ function ArmRow({
         ) : null}
       </div>
 
-      {row.confirmedAt ? (
-        <div className="text-[0.625rem] text-muted-foreground">
-          {t('manifest.confirmedAt', { time: row.confirmedAt })}
-        </div>
-      ) : null}
-
       {mismatch ? (
         <div className="text-[0.65625rem] leading-relaxed text-danger">
           {t('manifest.mismatch', { device: row.reported })}

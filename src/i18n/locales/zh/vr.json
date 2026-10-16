@@ -108,7 +108,6 @@
     "sourceRecord": "已确认",
     "sourceConfig": "装机默认",
     "sourceUnknown": "桥未报",
-    "confirmedAt": "{{time}} 确认",
     "mismatch": "跟随服务实际开的是 {{device}} —— 与上面选的不符",
     "pick": "选一个口",
     "save": "保存到桥",

@@ -48,41 +48,39 @@ function loadLevel(ratio: number | null): LoadLevel {
 }
 
 /**
- * 桥一条臂都没认到时摆的那一段：**只有骨架，没有读数**。
- *
- * 臂身份是空串 —— `vrBridge.arms` 里的臂身份不会为空，所以空串在这里就是"没有臂"的记号
- * （`ArmSection` 照它把段头改写成"未认到臂"，也不再叠一句"没数据"）。轴数取内置轴数，
- * 与"两条臂都没读数"那一段同一条路：摆的是位置，不是数。
+ * 槽位的段头文案。键在这里**写成字面量**（而不是拼 `load.side.${side}`）：静态扫键器
+ * 只认字面量，拼出来的键漏翻时页面会直接把键名印给操作员（见 i18n 的守卫用例）。
  */
-const NO_ARM: ArmLoadView = { arm: '', device: '', status: 'missing', joints: [], gripper: null }
+const SIDE_LABEL = { left: 'load.side.left', right: 'load.side.right' } as const
 
 /**
- * 电机负载表（照 OpenArmX 负载监控那张图）：**每条臂一段**，每段：臂身份与设备名 →
- * 电机 / 实时负载条 / 当前 / 本次峰值，末尾一行是夹爪。
+ * 电机负载表（照 OpenArmX 负载监控那张图）：**两个槽固定摆着 —— 左臂在上、右臂在下**，
+ * 每个槽：臂身份与设备名 → 电机 / 实时负载条 / 当前 / 本次峰值，末尾一行是夹爪。
  *
  * 数据来自**真机状态**（`vr_arm` / `vr_grip`，上游汇总服务发的），不是上位机那条
  * 本机串口链路 —— VR 遥操时串口在跟随服务手里，那一路是死的，见 `useArmLoads`。
  * 唯一还走 daemon 的是额定力矩 `tau_max`：那是设备侧静态参数，不是实时读数。
  *
- * 没有读数的那一段（真机状态还没到，或跟随服务自己报了断开）照常摆出整张表：
- * 空条 + "—"，并在段头写明是"未连接"还是"没数据"。空条与"负载为 0"必须看得出区别。
+ * 为什么槽位固定、没读数也照摆：结构在不在是"这一页在监控哪两条臂"的说明，缺的只是
+ * 格子里的读数。桥没起来、头显没连上时把表收成一句空态，操作员读到的会是"这个功能不在
+ * 这台机器上"；而"左臂 / 右臂"两行本身就是操作员找读数的坐标。空槽与"负载为 0"必须
+ * 看得出区别：没读数写"—"（空条 + 三格"—"），一格数都不编。
  *
- * 桥一条臂都没认到（桥没起来、快照还没到）时同样摆出一段（见 {@link NO_ARM}）：段头写
- * "未认到臂"，7 行 + 夹爪每格"—"。结构在不在是"这一页在监控什么"的说明，缺的只是格子里的
- * 读数 —— 把表收成一句空态，操作员读到的会是"这个功能不在这台机器上"。
+ * 槽里还没认到臂时，段头只有槽位名（"左臂" / "右臂"），臂身份与设备名留空 —— 不写
+ * "未认到臂"那种占位话：位置是固定的，认没认到臂由那两处空着说明。
  */
 export function VrMotorLoadPanel({
   arms,
   rated,
 }: {
-  /** 按 `vrBridge.arms` 排出来的一条条臂（单臂一条、双臂两条） */
+  /** 两个槽（左臂在前、右臂在后），可能各是一条臂，也可能空着（见 `useArmLoads`） */
   arms: ArmLoadView[]
   /** 逐轴额定力矩；null = 没读到（界面不编百分比） */
   rated: (number | null)[] | null
 }) {
   const { t } = useTranslation('vr')
 
-  // 没有读数的那几段按"有读数那一臂的轴数"摆空位（同一台机器两臂同构），
+  // 没有读数的那几个槽按"有读数那一臂的轴数"摆空位（同一台机器两臂同构），
   // 一条臂都没读到就按内置轴数 —— 摆的是位置，不编数
   const placeholderRows =
     arms.find((arm) => arm.joints.length > 0)?.joints.length ?? DEFAULT_JOINT_COUNT
@@ -96,15 +94,15 @@ export function VrMotorLoadPanel({
         <div className="text-[0.6875rem] text-muted-foreground">{t('load.source')}</div>
       </div>
 
-      {arms.length === 0 ? (
-        // 桥一条臂都没认到：没有臂可分段，但仍然摆一段（见 NO_ARM）。
-        // 这里**不**收成一句空态：表在不在本身就是"这一页在监控什么"的说明
-        <ArmSection arm={NO_ARM} rated={rated} placeholderRows={placeholderRows} />
-      ) : (
-        arms.map((arm) => (
-          <ArmSection key={arm.arm} arm={arm} rated={rated} placeholderRows={placeholderRows} />
-        ))
-      )}
+      {arms.map((arm) => (
+        // 槽位（left / right）是这一段的身份：空槽没有臂身份可当键
+        <ArmSection
+          key={arm.side || arm.arm}
+          arm={arm}
+          rated={rated}
+          placeholderRows={placeholderRows}
+        />
+      ))}
     </Card>
   )
 }
@@ -122,7 +120,7 @@ function ArmSection({
   const { t } = useTranslation('vr')
   const rowCount = arm.joints.length || placeholderRows
   // 断开与"没收到过"要分开说：前者的责任在跟随服务那一侧，后者是这一帧还没来。
-  // 臂身份为空（桥一条臂都没认到）时不再叠一句状态：段头已经写明"未认到臂"
+  // 空槽（这个位置上还没有臂）不叠状态：那一段本来就没有可说的读数
   const state =
     arm.status === 'offline'
       ? t('load.offline')
@@ -134,15 +132,20 @@ function ArmSection({
     <div
       data-testid="load-arm"
       data-arm={arm.arm}
+      data-side={arm.side}
       data-status={arm.status}
       className="flex flex-col gap-1.5 rounded-[0.625rem] border border-line-soft px-2.5 py-2"
     >
       <div className="flex items-center justify-between gap-2">
-        {/* 臂身份与设备名：双臂时一眼分得清这两段说的是哪条臂 */}
+        {/* 槽位名（左臂 / 右臂）是这一段的标题，臂身份与设备名跟在后面 —— 认到臂时三样
+            都在，还没认到时只剩槽位名（位置照样摆着，空的只是名字与读数） */}
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <span className="truncate text-[0.78125rem] font-semibold text-foreground">
-            {arm.arm || t('load.noArmName')}
+          <span className="flex-none text-[0.78125rem] font-semibold text-foreground">
+            {arm.side ? t(SIDE_LABEL[arm.side]) : arm.arm}
           </span>
+          {arm.side && arm.arm ? (
+            <span className="flex-none font-mono text-[0.65625rem] text-ink-muted">{arm.arm}</span>
+          ) : null}
           {arm.device ? (
             <span className="truncate font-mono text-[0.65625rem] text-ink-muted">{arm.device}</span>
           ) : null}

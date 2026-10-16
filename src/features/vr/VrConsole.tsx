@@ -44,7 +44,8 @@ const CELL: CSSProperties = { ...SCROLL_COLUMN, gap: '0.75rem' }
  * 数据源：都走 daemon 转出来的帧（见 `vrDaemonClient`）。桥连不上就显示空态，
  * 不拿本地编造的数据顶上。见 `vrLink.ts` 与 `__fixtures__/bridgeSnapshots.ts`（真实快照固件）。
  *
- * 按臂渲染：桥认到几条臂，负载卡就是几段（`useArmLoads`）。3D 预览**只有一个视图** ——
+ * 负载卡**固定两段**：左臂在上、右臂在下（`useArmLoads` 排槽）—— 没认到臂、没读数的那
+ * 一段照摆空骨架，位置与"这一页盯的是哪两条臂"不随桥在不在变。3D 预览**只有一个视图** ——
  * 它画的是一台机器：一条臂时是立式那份模型，两条臂时是支架那份（两条侧装臂同一根立柱，
  * 见 `VrPreviewPanel`）。单臂部署下这跟"只有一条"是一回事。
  */

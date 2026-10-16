@@ -69,14 +69,21 @@ function gripState(over: Frame = {}): Frame {
   }
 }
 
-/** 假读数源：`vrBridge` 就长这样（见 useArmLoads 的 `ArmReadoutSource`）。 */
+/**
+ * 假读数源：`vrBridge` 就长这样（见 useArmLoads 的 `ArmReadoutSource`）。
+ *
+ * `sides` 是桥在快照里报的槽位（`arm.side`）：它决定这条臂摆在哪一行。不写就是"桥没说"，
+ * 那时按臂清单的顺序补空位（第一条补左、第二条补右）。
+ */
 function sourceOf(
   arms: string[],
   states: Record<string, Frame | null>,
   grips: Record<string, Frame | null> = {},
+  sides: Record<string, 'left' | 'right'> = {},
 ): ArmReadoutSource {
   return {
     arms,
+    snapshotFor: (arm) => (sides[arm] ? { arm: { side: sides[arm] } } : null),
     armStateFor: (arm) => states[arm] ?? null,
     gripStateFor: (arm) => grips[arm] ?? null,
   }
@@ -91,6 +98,13 @@ function loadsOf(src: ArmReadoutSource, peaks: PeakBook = new Map()): ArmLoadVie
 function sectionOf(arm: string): HTMLElement {
   const found = screen.getAllByTestId('load-arm').find((el) => el.getAttribute('data-arm') === arm)
   if (!found) throw new Error(`没有 ${arm} 那一段`)
+  return found
+}
+
+/** 取一段（按槽位）：空槽没有臂身份，只能用 left / right 找。 */
+function slotOf(side: 'left' | 'right'): HTMLElement {
+  const found = screen.getAllByTestId('load-arm').find((el) => el.getAttribute('data-side') === side)
+  if (!found) throw new Error(`没有 ${side} 那个槽`)
   return found
 }
 
@@ -216,8 +230,13 @@ describe('电机负载 · 读数来源（真机状态）', () => {
     expect(gripOffline.gripper?.tau).toBeNull()
   })
 
-  it('桥一条臂都没认到就不编一段出来', () => {
-    expect(loadsOf(sourceOf([], {}))).toEqual([])
+  it('桥一条臂都没认到：两个槽照样在，槽里没有臂、没有读数', () => {
+    // 槽位是页面自己的结构（这一页盯的是左右两条臂），不随桥在不在变；但槽里**不编**
+    // 一条臂出来 —— 臂身份是空串，读数一格都没有
+    expect(loadsOf(sourceOf([], {}))).toEqual([
+      { side: 'left', arm: '', device: '', status: 'missing', joints: [], gripper: null },
+      { side: 'right', arm: '', device: '', status: 'missing', joints: [], gripper: null },
+    ])
   })
 
   it('桥改口不再报某条臂时，它的峰值一起丢掉', () => {
@@ -228,9 +247,64 @@ describe('电机负载 · 读数来源（真机状态）', () => {
     )
     expect(peaks.size).toBe(2)
 
-    const left = loadsOf(sourceOf(['armA'], { armA: armState([2]) }), peaks)
-    expect(left.map((view) => view.arm)).toEqual(['armA'])
+    const after = loadsOf(sourceOf(['armA'], { armA: armState([2]) }), peaks)
+    expect(after[0].arm).toBe('armA')
+    expect(after[1].arm).toBe('') // 右槽空着，但槽还在
     expect([...peaks.keys()]).toEqual(['armA#0'])
+  })
+})
+
+describe('电机负载 · 槽位（左臂在上、右臂在下）', () => {
+  const dual = () =>
+    loadsOf(
+      sourceOf(
+        ['armA', 'armB'],
+        { armA: armState([1]), armB: armState([2]) },
+        {},
+        { armA: 'left', armB: 'right' },
+      ),
+    )
+
+  it('槽位由桥报的 arm.side 定，不由臂身份的名字定', () => {
+    // 身份跟着话题走、槽位跟着手柄走：这两件事不是一回事。故意把 B 放在左手柄那侧，
+    // 页面就得照桥说的摆 —— 名字排序摆出来的顺序在改过接线的机器上是错的
+    const views = loadsOf(
+      sourceOf(
+        ['armA', 'armB'],
+        { armA: armState([1]), armB: armState([2]) },
+        {},
+        { armA: 'right', armB: 'left' },
+      ),
+    )
+
+    expect(views.map((v) => [v.side, v.arm])).toEqual([
+      ['left', 'armB'],
+      ['right', 'armA'],
+    ])
+  })
+
+  it('两个槽恒在：只有一条臂时另一个槽空着，第三条第臂跟在后头', () => {
+    const one = loadsOf(sourceOf(['armA'], { armA: armState([1]) }, {}, { armA: 'right' }))
+    expect(one.map((v) => [v.side, v.arm])).toEqual([
+      ['left', ''],
+      ['right', 'armA'],
+    ])
+
+    const three = loadsOf(
+      sourceOf(['armA', 'armB', 'armC'], { armA: armState([1]), armB: armState([2]), armC: armState([3]) }),
+    )
+    // 桥没报槽位的两条按顺序补空位（第一条补左、第二条补右），补不进去的照旧跟在后面
+    expect(three.map((v) => [v.side, v.arm])).toEqual([
+      ['left', 'armA'],
+      ['right', 'armB'],
+      ['', 'armC'],
+    ])
+  })
+
+  it('两个槽都排好后再轮到臂身份：读到的臂一条都不吞', () => {
+    const views = dual()
+    expect(views.map((v) => v.arm)).toEqual(['armA', 'armB'])
+    expect(views.map((v) => v.side)).toEqual(['left', 'right'])
   })
 })
 
@@ -372,7 +446,7 @@ describe('电机负载表 · 双臂', () => {
     const views = loadsOf(sourceOf(['armA'], { armA: armState([1.2, 0.4]) }))
     render(<VrMotorLoadPanel arms={views} rated={[RATED, RATED]} />)
 
-    const rows = screen.getByTestId('load-rows')
+    const rows = within(sectionOf('armA')).getByTestId('load-rows')
     const grip = within(rows).getByText('夹爪').parentElement as HTMLElement
     expect(within(grip).getAllByText('—')).toHaveLength(3)
     expect(within(grip).queryAllByTestId('load-fill')).toHaveLength(0)
@@ -430,7 +504,7 @@ describe('电机负载表 · 分档与额定', () => {
   })
 })
 
-describe('电机负载表 · 认不到臂与已删掉的输入', () => {
+describe('电机负载表 · 两个固定的槽与已删掉的输入', () => {
   beforeEach(async () => {
     localStorage.clear()
     await i18n.changeLanguage('zh')
@@ -440,28 +514,78 @@ describe('电机负载表 · 认不到臂与已删掉的输入', () => {
     cleanup()
   })
 
-  it('一条臂都没认到：照样摆一段表，7 行 + 夹爪全写"—"，段头写"未认到臂"', () => {
-    render(<VrMotorLoadPanel arms={[]} rated={null} />)
+  it('一条臂都没认到：两个槽照样摆着，7 行 + 夹爪全写"—"，段头只有槽位名', () => {
+    // 真话：桥连不上时这一页仍然摆出"左臂 / 右臂"两段空表。桥没起来只是"现在还没有数"，
+    // 不是"没有可监控的量"：表收成一句空态，操作员读到的会是"这个功能不在这台机器上"，
+    // 而结构在不在本身才是"这一页在监控什么"的说明
+    render(<VrMotorLoadPanel arms={loadsOf(sourceOf([], {}))} rated={null} />)
 
-    // 桥没起来只是"现在还没有数"，不是"没有可监控的量"：表收成一句空态，操作员读到的
-    // 会是"这个功能不在这台机器上"，而结构在不在本身才是"这一页在监控什么"的说明
-    expect(screen.getAllByTestId('load-arm')).toHaveLength(1)
-    expect(screen.getByText('未认到臂')).toBeTruthy()
-    // 表头那四列也在，和别的段一模一样
-    expect(screen.getByText('电机')).toBeTruthy()
-    expect(screen.getByText('实时负载条')).toBeTruthy()
-    expect(screen.getByText('当前')).toBeTruthy()
-    expect(screen.getByText('本次峰值')).toBeTruthy()
-    expectEmptyRows(screen.getByTestId('load-rows'), EMPTY_ROWS)
+    expect(screen.getAllByTestId('load-arm')).toHaveLength(2)
+    expect(screen.getByText('左臂')).toBeTruthy()
+    expect(screen.getByText('右臂')).toBeTruthy()
+    // 左在上、右在下：不是"随便两段"，顺序就是操作员找读数的那条坐标
+    const sections = screen.getAllByTestId('load-arm')
+    expect(sections.map((el) => el.getAttribute('data-side'))).toEqual(['left', 'right'])
+    // 占位话（"未认到臂"）不写：位置是固定的，认没认到臂由段头那两处空着说明
+    expect(screen.queryByText('未认到臂')).toBeNull()
+    // 表头那四列也在，两个槽各一份，和别的段一模一样
+    for (const col of ['电机', '实时负载条', '当前', '本次峰值']) {
+      expect(screen.getAllByText(col)).toHaveLength(2)
+    }
+    for (const side of ['left', 'right'] as const) {
+      expectEmptyRows(within(slotOf(side)).getByTestId('load-rows'), EMPTY_ROWS)
+    }
   })
 
-  it('英文下这一段也说得出来（i18n 两种语言都要有）', async () => {
-    await i18n.changeLanguage('en')
-    render(<VrMotorLoadPanel arms={[]} rated={null} />)
+  it('认到臂但一个字节都没收到：空槽与"有臂没数"分得开', () => {
+    // 有臂的那一段照旧说"没数据"；没臂的那一段什么都不说 —— 两者都不是 0
+    render(
+      <VrMotorLoadPanel
+        arms={loadsOf(sourceOf(['armB'], { armB: null }, {}, { armB: 'right' }))}
+        rated={null}
+      />,
+    )
 
-    // "未认到臂"与夹爪行的名字在 en 里都要有：漏一个键，界面就会直接印出 `load.noArmName`
-    expect(screen.getByText('No arm recognized')).toBeTruthy()
-    expectEmptyRows(screen.getByTestId('load-rows'), ['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'J7', 'Gripper'])
+    expect(slotOf('left').getAttribute('data-arm')).toBe('')
+    expect(within(slotOf('left')).queryByText('没数据')).toBeNull()
+    expect(slotOf('right').getAttribute('data-arm')).toBe('armB')
+    expect(within(slotOf('right')).getByText('没数据')).toBeTruthy()
+    for (const side of ['left', 'right'] as const) {
+      expectEmptyRows(within(slotOf(side)).getByTestId('load-rows'), EMPTY_ROWS)
+    }
+  })
+
+  it('认到臂时三样都在：槽位名、臂身份、设备名', () => {
+    render(
+      <VrMotorLoadPanel
+        arms={loadsOf(
+          sourceOf(['armB'], { armB: armState([1]) }, {}, { armB: 'left' }),
+        )}
+        rated={[RATED]}
+      />,
+    )
+
+    const left = slotOf('left')
+    expect(within(left).getByText('左臂')).toBeTruthy()
+    expect(within(left).getByText('armB')).toBeTruthy()
+    expect(within(left).getByText('/dev/ttyACM0')).toBeTruthy()
+    // 空着的右槽反过来：只有槽位名，没有身份、没有设备名
+    const right = slotOf('right')
+    expect(within(right).getByText('右臂')).toBeTruthy()
+    expect(within(right).queryByText('armB')).toBeNull()
+  })
+
+  it('英文下这两个槽也说得出来（i18n 两种语言都要有）', async () => {
+    await i18n.changeLanguage('en')
+    render(<VrMotorLoadPanel arms={loadsOf(sourceOf([], {}))} rated={null} />)
+
+    // 槽位名与夹爪行的名字在 en 里都要有：漏一个键，界面就会直接印出 `load.side.left`
+    expect(screen.getByText('Left arm')).toBeTruthy()
+    expect(screen.getByText('Right arm')).toBeTruthy()
+    expectEmptyRows(
+      within(slotOf('left')).getByTestId('load-rows'),
+      ['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'J7', 'Gripper'],
+    )
   })
 
   it('数据话题那四个输入框已经不在了，本机也不再存话题', () => {

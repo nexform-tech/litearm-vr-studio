@@ -43,8 +43,13 @@ export type LoadRow = {
  */
 export type ArmLoadStatus = 'live' | 'offline' | 'missing'
 
+/** 槽位：上游的 `left` / `right`（由哪只手柄驱动）。空串 = 这条臂没说自己落在哪个槽。 */
+export type ArmSide = 'left' | 'right' | ''
+
 export type ArmLoadView = {
-  /** 臂身份（`vr_state` / `vr_arm` 帧里的 `arm`） */
+  /** 摆在哪一行：`left` 在上、`right` 在下；空串 = 第三条第臂之类，跟在两个槽之后 */
+  side: ArmSide
+  /** 臂身份（`vr_state` / `vr_arm` 帧里的 `arm`）；空串 = 这个槽上还没有臂 */
   arm: string
   /** 真机状态报的设备名（`vr_arm` 的 `device`） */
   device: string
@@ -60,9 +65,14 @@ export type ArmLoadView = {
  */
 export type ArmReadoutSource = {
   arms: string[]
+  /** 这条臂的桥快照 —— 这里只读一样东西：它落在哪个槽（`arm.side`） */
+  snapshotFor(arm: string): ArmSnapshotSide
   armStateFor(arm: string): Frame | null
   gripStateFor(arm: string): Frame | null
 }
+
+/** 快照里跟这张表有关的那一处：`arm.side`（`VrBridgeSnapshot` 结构上就长这样）。 */
+export type ArmSnapshotSide = { arm?: { side?: string } } | null
 
 type Frame = Record<string, unknown>
 
@@ -109,7 +119,13 @@ function rowOf(peaks: PeakBook, key: string, tau: number | null, tMos?: number |
 }
 
 /** 一条臂这一拍的全部读数。 */
-function armLoadOf(arm: string, state: Frame | null, grip: Frame | null, peaks: PeakBook): ArmLoadView {
+function armLoadOf(
+  arm: string,
+  side: ArmSide,
+  state: Frame | null,
+  grip: Frame | null,
+  peaks: PeakBook,
+): ArmLoadView {
   const device = typeof state?.device === 'string' ? state.device : ''
   // 只有跟随服务自己说"连着"才认这些数：它报断开时那几个数组可能还是上一帧的量，
   // 拿着当当前值比空着更危险
@@ -135,6 +151,7 @@ function armLoadOf(arm: string, state: Frame | null, grip: Frame | null, peaks: 
   if (!gripLive) peaks.delete(`${arm}#grip`)
 
   return {
+    side,
     arm,
     device,
     status: !state ? 'missing' : !live ? 'offline' : rows.length > 0 ? 'live' : 'missing',
@@ -143,11 +160,47 @@ function armLoadOf(arm: string, state: Frame | null, grip: Frame | null, peaks: 
   }
 }
 
+/** 桥说这条臂落在哪个槽（快照的 `arm.side`）；认不出来就是空串（按顺序补空位）。 */
+function sideOf(bridge: ArmReadoutSource, arm: string): ArmSide {
+  const side = bridge.snapshotFor(arm)?.arm?.side
+  return side === 'left' || side === 'right' ? side : ''
+}
+
+/** 空槽：这个位置上还没有臂，也没有读数 —— 面板照摆 7 行 + 夹爪，每格写"—"。 */
+function emptySlot(side: 'left' | 'right'): ArmLoadView {
+  return { side, arm: '', device: '', status: 'missing', joints: [], gripper: null }
+}
+
+/**
+ * 排成**两个槽**：左臂在上、右臂在下。
+ *
+ * 槽位由 `arm.side` 定（上游的 left / right，决定由哪只手柄驱动），不由臂身份的名字定：
+ * 身份跟着话题走、槽位跟着手柄走，两者不是一回事。没说自己落在哪个槽的臂按顺序补空位
+ * （第一条补左、第二条补右）；补不进去的（第三条第臂）原样跟在两个槽后头 —— 读到的东西
+ * 一条都不吞。
+ */
+function toSlots(views: ArmLoadView[]): ArmLoadView[] {
+  const pool = [...views]
+  const take = (match: (view: ArmLoadView) => boolean): ArmLoadView | null => {
+    const i = pool.findIndex(match)
+    return i < 0 ? null : pool.splice(i, 1)[0]
+  }
+  // 补空位补进来的那条臂跟着槽位改名：段头写的是"左臂 / 右臂"，摆在哪一行就说哪一行
+  // （臂身份就印在旁边，读的人对得上号）。桥没说槽位时按位置读，总好过不写。
+  const slot = (side: 'left' | 'right'): ArmLoadView => {
+    const view = take((v) => v.side === side) ?? take((v) => v.side === '')
+    return view ? { ...view, side } : emptySlot(side)
+  }
+  return [slot('left'), slot('right'), ...pool]
+}
+
 /**
  * 按臂读一遍 —— 一次采样就是一次调用。
  *
- * 臂清单来自 `vrBridge.arms`（桥认到快照的那几条，已排序）：一条都没认到时这里就是空数组 ——
- * 读数这一层不替桥编一条臂出来，界面上那段空骨架由负载卡自己摆（它摆的是结构，不是数据）。
+ * 臂清单来自 `vrBridge.arms`（桥认到快照的那几条，已排序），槽位来自各自快照的
+ * `arm.side`。**输出恒为两个槽起**（左、右）：桥一条臂都没认到时是两个空槽。读数这一层
+ * 不替桥编一条臂出来（空槽里没有任何读数），但"这一页盯的是左右两条臂"是页面自己的结构，
+ * 不随桥在不在变 —— 桥没起来时收成一句空态，操作员读到的会是"没这个功能"。
  * 只动峰值本，其余是纯读。
  */
 export function readArmLoads(bridge: ArmReadoutSource, peaks: PeakBook): ArmLoadView[] {
@@ -156,7 +209,10 @@ export function readArmLoads(bridge: ArmReadoutSource, peaks: PeakBook): ArmLoad
   for (const key of [...peaks.keys()]) {
     if (!arms.some((arm) => key.startsWith(`${arm}#`))) peaks.delete(key)
   }
-  return arms.map((arm) => armLoadOf(arm, bridge.armStateFor(arm), bridge.gripStateFor(arm), peaks))
+  const views = arms.map((arm) =>
+    armLoadOf(arm, sideOf(bridge, arm), bridge.armStateFor(arm), bridge.gripStateFor(arm), peaks),
+  )
+  return toSlots(views)
 }
 
 export type ArmLoads = {

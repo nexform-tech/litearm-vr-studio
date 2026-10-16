@@ -49,7 +49,10 @@
     "source": "Source · live arm state",
     "offline": "not connected",
     "noData": "no data",
-    "noArmName": "No arm recognized",
+    "side": {
+      "left": "Left arm",
+      "right": "Right arm"
+    },
     "gripper": "Gripper",
     "colMotor": "Motor",
     "colBar": "Live load",

@@ -49,7 +49,10 @@
     "source": "数据源 · 真机状态",
     "offline": "未连接",
     "noData": "没数据",
-    "noArmName": "未认到臂",
+    "side": {
+      "left": "左臂",
+      "right": "右臂"
+    },
     "gripper": "夹爪",
     "colMotor": "电机",
     "colBar": "实时负载条",

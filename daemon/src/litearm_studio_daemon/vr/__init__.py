@@ -4,6 +4,7 @@
 各走各的命令前缀（`vr.`）。
 """
 
+from .fake import FakeVrSession
 from .session import ACTIONS, DEFAULT_ENDPOINT, STATUS_KEYEXPR, VrSession
 
-__all__ = ["VrSession", "DEFAULT_ENDPOINT", "ACTIONS", "STATUS_KEYEXPR"]
+__all__ = ["VrSession", "FakeVrSession", "DEFAULT_ENDPOINT", "ACTIONS", "STATUS_KEYEXPR"]

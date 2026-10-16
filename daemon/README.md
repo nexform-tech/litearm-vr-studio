@@ -329,6 +329,41 @@ litearm-studio-daemon --no-gripper
 - 夹爪只在 Linux 上提供（SDK 需要 `PF_CAN`）；Windows 版构建里它是**缺席**的，不是禁用
   的。`--fake` 例外：仿真后端是纯 Python，任何平台都能跑。
 
+## VR 遥操通道（litearm-vr-bridge）
+
+守护进程替页面说 zenoh：前端跑在浏览器/webview 里说不了原生 zenoh（要它说就得配一台带
+remote-api 插件的 router），而守护进程是 Python，`eclipse-zenoh` 一个包就能直连桥的监听
+端点。页面照旧只认它跟守护进程之间那条本机 WebSocket，多出来的是四种帧：`vr_conn`、
+`vr_state`（桥的快照）、`vr_arm` / `vr_grip`（上游那台状态汇总按臂发的真机状态）。
+
+```bash
+# 没有桥、没有头显、没有真机：VR 通道走假件，臂映射卡照样点得动
+litearm-studio-daemon --fake
+
+# 有桥时：默认连本机 tcp/127.0.0.1:7447，桥在别的机器上就指过去
+litearm-studio-daemon --vr-endpoint tcp/192.168.31.20:7447
+
+# 完全不要 VR 通道
+litearm-studio-daemon --no-vr
+```
+
+几条必须知道的规矩：
+
+- **`--fake` 覆盖 VR，与它覆盖臂和夹爪是同一条纪律**（[`docs/GRIPPER_INTEGRATION.md`](../docs/GRIPPER_INTEGRATION.md)
+  §5.5：「`--fake` must cover the gripper too, or the page is untestable in CI」）。少了它，
+  **臂映射卡**在任何没有桥的机器上都是空的——而那是这一页唯一会改机器去向的入口。
+  假件是纯 Python，所以 `--fake` 下**连 zenoh 都不需要装**。
+- **假件演的是"桥 + 上游汇总"两份角色，但不碰 zenoh、不写记录文件**：改动只活在那个进程的
+  内存里（真桥是落盘的，换台上位机连过去看到的是同一份）。它证明得了「页面的交互是对的」，
+  证明不了「桥会照做」——后者只能在现场或有桥的台架上走。
+- **假件里两条臂、两个夹爪**：`vr_arm` / `vr_grip` 按臂各发一份，夹爪各占一个 CAN 口
+  （`can0` / `can1`）。候选口是 `/dev/ttyACM0`、`/dev/ttyACM1`、`can0`、`can1`。
+- **改映射要先停下遥操**：跟随服务的命令行里的串口是启动那一刻冻下来的，所以桥在
+  「跟随服务还在跑」时会拒掉 `arms.set`（`Busy`）。判据在桥那边，页面只是原样显示它的原话。
+- **`vr_conn` 会定期重播**（2s，见 `server._vr_conn_loop`）。它是**状态**不是事件：桥一直
+  连着、状态从头到尾没变过时，只在握手时报一条就等于没报——页面那侧的 VR 模块是按路由
+  懒加载的，它挂上监听时握手早过去了。
+
 ## 打包（Phase 5）
 
 **本地出包就一条命令**（需要 Docker）：

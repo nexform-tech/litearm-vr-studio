@@ -19,7 +19,7 @@ from .obs import handlers as obs_handlers
 from .obs import schema as obs_schema
 from .server import DEFAULT_HTTP_PORT, HTTP_PORT_TRIES, _is_loopback, serve
 from .session import Session
-from .vr import DEFAULT_ENDPOINT as VR_DEFAULT_ENDPOINT, VrSession
+from .vr import DEFAULT_ENDPOINT as VR_DEFAULT_ENDPOINT, FakeVrSession, VrSession
 from .window import WindowUnavailable
 
 
@@ -103,9 +103,10 @@ def build_parser() -> argparse.ArgumentParser:
                    help="把同样的 JSONL 记录也写到 stderr —— 前台运行或交给 "
                         "Fluent Bit / 容器运行时采集时用; 不改变文件行为")
     p.add_argument("--no-vr", action="store_true",
-                   help="不起 VR 通道 (默认会连 litearm-vr-bridge 的 zenoh 端点)")
+                   help="不起 VR 通道 (默认会连 litearm-vr-bridge 的 zenoh 端点;"
+                        " --fake 下是本地假件, 不连桥)")
     p.add_argument("--vr-endpoint", default=None, metavar="tcp/HOST:PORT",
-                   help=f"VR 桥的 zenoh 端点 (默认 {VR_DEFAULT_ENDPOINT})")
+                   help=f"VR 桥的 zenoh 端点 (默认 {VR_DEFAULT_ENDPOINT}; --fake 下无意义)")
     return p
 
 
@@ -163,9 +164,19 @@ def build_vr_session(args: argparse.Namespace):
     与夹爪同一套取舍：**没有就不提供**，而不是给一个按下去只会失败的按钮。
     VR 这条通道没有硬件依赖（只连 zenoh 端点），所以"打不开"不是"不提供" ——
     桥不在时它停在 `waiting`，界面照实显示"桥不在线"，桥一起来自己就通了。
+
+    ``--fake`` 走假件（`vr/fake.py`），与假臂、假夹爪同一个道理：这一页的主线
+    （看状态 + 改臂映射 + 按开关）在没有桥、没有头显、没有真机的机器上也要走得通，
+    否则**臂映射那张卡**永远没法验（它读的全是桥的快照与回执）。假件是纯 Python，
+    所以 `--fake` 下**不需要 zenoh** —— 这也是那条 "if zenoh is missing" 判据要排在
+    假件之后的原因。
     """
     if args.no_vr:
         return None
+    if args.fake:
+        session = FakeVrSession()
+        session.start()
+        return session
     try:
         import zenoh  # noqa: F401 - 只问一句"这个构建有没有它"
     except ImportError:

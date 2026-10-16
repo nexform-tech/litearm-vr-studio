@@ -18,6 +18,18 @@ const LEVEL_COLOR = {
   unknown: '#5c6b7f',
 } as const
 
+/**
+ * 夹爪那一行的底色：蓝色。
+ *
+ * 为什么不能用灰来区分：这张表里灰（`unknown`）说的是**"读不到额定值、算不出档位"**，而
+ * 夹爪没有额定值是它的**常态**，不是没读到。更实际的问题是灰太弱 —— 一行夹爪混在七行关节
+ * 里根本看不见，而它恰恰是"这一下夹住了没有、在不在使劲"要看的那一行。
+ *
+ * 取色与旁边三档同一族：都要压在同一个深色轨道（`TRACK`）上，所以比主题里那个 `--info`
+ * 亮一档。蓝只表达"这一行是夹爪"；档位（黄/红）将来有额定值了照旧按它自己的算。
+ */
+const GRIPPER_COLOR = '#3b82f6'
+
 /** 档位同时挂成 `data-level`：颜色可以改，档位的含义不该跟着变 */
 export type LoadLevel = keyof typeof LEVEL_COLOR
 
@@ -154,14 +166,25 @@ function ArmSection({
         {jointIndexes(rowCount).map((i) => (
           <MotorRow key={i} name={`J${i + 1}`} row={arm.joints[i] ?? null} rated={rated?.[i] ?? null} />
         ))}
-        <MotorRow name={t('load.gripper')} row={arm.gripper} rated={null} />
+        <MotorRow name={t('load.gripper')} row={arm.gripper} rated={null} accent="gripper" />
       </div>
     </div>
   )
 }
 
 /** 一行读数：没有读数的那一行照画空条（条里写"—"），与"负载为 0"分得开。 */
-function MotorRow({ name, row, rated }: { name: string; row: LoadRow | null; rated: number | null }) {
+function MotorRow({
+  name,
+  row,
+  rated,
+  accent = 'joint',
+}: {
+  name: string
+  row: LoadRow | null
+  rated: number | null
+  /** 这一行是关节还是夹爪 —— 只影响颜色，不影响档位（见 `GRIPPER_COLOR`） */
+  accent?: 'joint' | 'gripper'
+}) {
   const { t } = useTranslation('vr')
 
   if (!row || row.tau === null) {
@@ -208,7 +231,14 @@ function MotorRow({ name, row, rated }: { name: string; row: LoadRow | null; rat
           data-testid="load-fill"
           data-level={level}
           className="absolute inset-y-0 left-0"
-          style={{ width: `${fillPct}%`, background: LEVEL_COLOR[level] }}
+          style={{
+            width: `${fillPct}%`,
+            // 夹爪没有额定值 ⇒ 档位落在 unknown；那是它的常态，画蓝而不是灰
+            background:
+              accent === 'gripper' && level === 'unknown'
+                ? GRIPPER_COLOR
+                : LEVEL_COLOR[level],
+          }}
         />
         {tickPct === null ? null : (
           // 额定负载标线：深底上的白线（原图口径）

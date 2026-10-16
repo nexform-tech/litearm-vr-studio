@@ -287,6 +287,22 @@ describe('电机负载表 · 双臂', () => {
     expect(within(grip).getAllByText('1.25 N·m')).toHaveLength(2)
   })
 
+  it('夹爪条的蓝与"读不到额定值"的灰分得开', () => {
+    // 额定值整份读不到 ⇒ 关节那几行也落在同一档（`unknown`）。两张条此时的 `data-level`
+    // 一模一样，**颜色不该跟着一样**：这张表里灰说的是"读不到额定值、算不出档位"，
+    // 而夹爪没有额定值是天经地义 —— 它要的是"这一行是夹爪"，不是"这行没数"。
+    render(<VrMotorLoadPanel arms={dual()} rated={null} />)
+
+    const fills = within(sectionOf('armA')).getAllByTestId('load-fill')
+    const joint = fills[0]
+    const gripper = fills.at(-1) as HTMLElement
+    expect(joint.getAttribute('data-level')).toBe('unknown')
+    expect(gripper.getAttribute('data-level')).toBe('unknown')
+    expect(gripper.style.background).not.toBe(joint.style.background)
+    // 而且不能是空色：`style.background` 读不出来时上面那条断言会假绿
+    expect(gripper.style.background).not.toBe('')
+  })
+
   it('没读到数的那一段照常摆表：7 行 + 夹爪都在，每格是"—"', () => {
     render(<VrMotorLoadPanel arms={dual()} rated={Array(7).fill(RATED)} />)
 

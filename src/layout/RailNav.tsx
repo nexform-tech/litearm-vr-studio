@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Activity, CircleDot, Glasses, Languages, Moon, Settings, Sun } from 'lucide-react'
+import { Glasses, Languages, Moon, Sun } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
@@ -7,14 +7,9 @@ import { useTheme } from '@/lib/theme'
 
 const RAIL_ITEMS: {
   to: string
-  navKey: 'control' | 'vr' | 'log' | 'settings'
+  navKey: 'vr'
   icon: ComponentType<{ size?: number | string; color?: string }>
-}[] = [
-  { to: '/control', navKey: 'control', icon: CircleDot },
-  { to: '/vr', navKey: 'vr', icon: Glasses },
-  { to: '/log', navKey: 'log', icon: Activity },
-  { to: '/settings', navKey: 'settings', icon: Settings },
-]
+}[] = [{ to: '/vr', navKey: 'vr', icon: Glasses }]
 
 const railItemClass = 'flex w-[3.75rem] flex-col items-center gap-1 rounded-[0.6875rem] py-[0.5625rem] no-underline transition-colors hover:bg-[#222c3a]'
 

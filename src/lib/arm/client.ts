@@ -240,7 +240,7 @@ export function normalizeLicense(raw: unknown): LicenseSnapshot {
 /**
  * 拥有全应用唯一的 daemon WebSocket 连接：
  * 下行接收 hello/conn/state/res，上行发送 connect/disconnect/cmd。
- * status 与 state 两个独立的订阅通道，只关心连接状态的 UI（TopBar）不会
+ * status 与 state 两个独立的订阅通道，只关心连接状态的 UI（VrTopBar）不会
  * 因为每个状态帧重渲染。
  */
 export class ArmClient {

@@ -29,21 +29,5 @@ export type {
 } from './firmware'
 export { DEFAULT_JOINT_COUNT, MAX_JOINT_COUNT, jointIndexes, resolveJointCount, useJointCount } from './axes'
 export { useArmConnection } from './useArmConnection'
-export { useArmPorts } from './useArmPorts'
-export type { ArmPortsState } from './useArmPorts'
-export { useArmState } from './useArmState'
-export { useArmMetrics } from './useArmMetrics'
-export type { SeriesSample, MetricSeries, MetricChip, MetricType, ArmMetricsReturn, UseArmMetricsOptions } from './useArmMetrics'
-export { GripperClient, gripperClient, normalizeGripperState } from './gripperClient'
-export type {
-  CalibrationSource,
-  GripperAlert,
-  GripperBusy,
-  GripperCalibProgress,
-  GripperConnInfo,
-  GripperState,
-  MotionSettings,
-} from './gripperClient'
 export { DaemonSocket } from './socket'
 export type { CommandError, SocketLifecycle } from './socket'
-export { gripperFail, useGripperAlerts, useGripperCalibration, useGripperChannels, useGripperConnection, useGripperState } from './useGripper'

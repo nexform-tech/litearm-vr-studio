@@ -1,8 +1,8 @@
 /**
  * 测试用的最小假 WebSocket —— 手动控制 open/message/close。
  *
- * 给 `client.test.ts` 与端到端那条生命周期用例共用: 前者钉单条协议行为, 后者用**真的**
- * `ArmClient` + 真的 `useArmPorts`/`TopBar` 走一遍"页面加载自动连 → 断开 → 换口连接"。
+ * 给 `client.test.ts` 与连接生命周期用例共用: 前者钉单条协议行为, 后者用**真的**
+ * `ArmClient` 走一遍"页面加载自动连 → 断开 → 重连"。
  * 两处都要求同一份 `sent`/`frames()` 观察面, 复制一份必然漂移。
  */
 export class FakeWebSocket {

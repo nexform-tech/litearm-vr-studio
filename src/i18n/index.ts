@@ -6,14 +6,6 @@ import commonZh from './locales/zh/common.json'
 import commonEn from './locales/en/common.json'
 import navZh from './locales/zh/nav.json'
 import navEn from './locales/en/nav.json'
-import soloZh from './locales/zh/solo.json'
-import soloEn from './locales/en/solo.json'
-import settingsZh from './locales/zh/settings.json'
-import settingsEn from './locales/en/settings.json'
-import logsZh from './locales/zh/logs.json'
-import logsEn from './locales/en/logs.json'
-import gripperZh from './locales/zh/gripper.json'
-import gripperEn from './locales/en/gripper.json'
 import vrZh from './locales/zh/vr.json'
 import vrEn from './locales/en/vr.json'
 
@@ -22,19 +14,11 @@ export const resources = {
   zh: {
     common: commonZh,
     nav: navZh,
-    solo: soloZh,
-    settings: settingsZh,
-    logs: logsZh,
-    gripper: gripperZh,
     vr: vrZh,
   },
   en: {
     common: commonEn,
     nav: navEn,
-    solo: soloEn,
-    settings: settingsEn,
-    logs: logsEn,
-    gripper: gripperEn,
     vr: vrEn,
   },
 } as const
@@ -46,7 +30,7 @@ i18n
     resources,
     fallbackLng: 'zh',
     defaultNS,
-    ns: ['common', 'nav', 'solo', 'settings', 'logs', 'gripper', 'vr'],
+    ns: ['common', 'nav', 'vr'],
     interpolation: {
       escapeValue: false,
     },

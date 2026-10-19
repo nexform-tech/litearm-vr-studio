@@ -37,7 +37,7 @@ vi.mock('@/lib/arm', () => ({
   },
 }))
 
-const { TopBar } = await import('./TopBar')
+const { VrTopBar } = await import('./VrTopBar')
 
 const activityChip = () => screen.queryByTestId('vr-topbar-console-activity')
 
@@ -52,7 +52,7 @@ beforeEach(async () => {
 
 describe('VR 页顶栏', () => {
   it('写的是 VR 页的标题，控制页那几个控制一个都不在', () => {
-    render(<TopBar />)
+    render(<VrTopBar />)
 
     expect(screen.getByText('VR 遥操控制台')).toBeTruthy()
     // 串口下拉、连接、断开：这些是"本控制台驱动哪台设备"，与 VR 链路无关
@@ -68,14 +68,14 @@ describe('VR 页顶栏', () => {
   })
 
   it('桥地址不再是个输入项（页面不自己连桥）', () => {
-    render(<TopBar />)
+    render(<VrTopBar />)
 
     expect(screen.queryByLabelText('桥地址')).toBeNull()
     expect(screen.queryByText('应用')).toBeNull()
   })
 
   it('桥的在线状态与版本不在这里说（那是链路卡的事）', () => {
-    render(<TopBar />)
+    render(<VrTopBar />)
 
     for (const word of ['已连接', '未连接', '未设置']) {
       expect(screen.queryByText(word)).toBeNull()
@@ -86,7 +86,7 @@ describe('VR 页顶栏', () => {
   it('上位机闲着的时候不挂任何标签', () => {
     mocks.status.current = 'connected'
     mocks.conn.current = { port: '/dev/ttyACM0' }
-    render(<TopBar />)
+    render(<VrTopBar />)
 
     expect(activityChip()).toBeNull()
   })
@@ -95,29 +95,10 @@ describe('VR 页顶栏', () => {
     mocks.status.current = 'connected'
     mocks.conn.current = { port: '/dev/ttyACM0' }
     mocks.robotState.current = 'moving'
-    render(<TopBar />)
+    render(<VrTopBar />)
 
     expect(activityChip()?.textContent).toBe('上位机在动')
     // 悬停里说明具体在干什么（复用控制卡那套文案）
     expect(activityChip()?.getAttribute('title')).toBe('正在执行运动指令')
-  })
-})
-
-describe('顶栏的分派', () => {
-  it('控制页仍然是原来那条：有连接按钮', () => {
-    mocks.pathname.current = '/control'
-    render(<TopBar />)
-
-    expect(screen.getByText('机械臂控制台')).toBeTruthy()
-    expect(document.getElementById('topbar-connect-btn')).toBeTruthy()
-    expect(screen.queryByLabelText('桥地址')).toBeNull()
-  })
-
-  it('titleMap 里没有的路径落到控制页那条，而不是 VR 那条', () => {
-    mocks.pathname.current = '/'
-    render(<TopBar />)
-
-    expect(screen.getByText('机械臂控制台')).toBeTruthy()
-    expect(screen.queryByLabelText('桥地址')).toBeNull()
   })
 })

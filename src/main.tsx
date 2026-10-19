@@ -4,9 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import './styles/index.css'
 import './i18n'
 import { AppShell } from './layout/AppShell'
-import { LogsPage, SettingsPage, SoloConsole, VrConsole } from './routes'
-import { telemetryRecorder } from './features/telemetry/telemetryRecorder'
-import { logStore } from './lib/log/logStore'
+import { VrConsole } from './routes'
 import { armClient } from './lib/arm/client'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ThemedToaster } from './components/ThemedToaster'
@@ -16,12 +14,9 @@ import { initTheme } from './lib/theme'
 // 设过 class，这里再按同一规则算一次，保证 dev/web 版本行为一致。
 initTheme()
 
-// 上位机一打开就连本机 daemon，并启动两条**与所在页面无关**的记录通道：
-// - 遥测记录器：跟随机械臂连接把采样写进 IndexedDB；
-// - 日志流：把 daemon 的 `log` 帧收进内存 + 缓存（权威历史是 daemon 的 JSONL 文件）。
+// VR-only 上位机：没有控制页，也没有遥测/日志记录通道。
+// 页面仍走 daemon 的 WebSocket（VR 链路的状态与动作），所以这里照常连。
 armClient.connect()
-telemetryRecorder.start()
-logStore.start()
 
 // React 19 dev 构建会对每次 commit 调 performance.measure() 且从不清理，
 // 这是 dev 模式内存无限上涨的直接原因（生产构建无此代码，不受影响）。
@@ -44,15 +39,9 @@ createRoot(document.getElementById('root')!).render(
         >
           <Routes>
             <Route element={<AppShell />}>
-              <Route index element={<Navigate to="/control" replace />} />
-              <Route path="/control" element={<SoloConsole />} />
-              {/* 旧路径兼容重定向 */}
-              <Route path="/solo" element={<Navigate to="/control" replace />} />
+              <Route index element={<Navigate to="/vr" replace />} />
               <Route path="/vr" element={<VrConsole />} />
-              <Route path="/log" element={<LogsPage />} />
-              <Route path="/telemetry" element={<Navigate to="/log" replace />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="*" element={<Navigate to="/control" replace />} />
+              <Route path="*" element={<Navigate to="/vr" replace />} />
             </Route>
           </Routes>
         </Suspense>

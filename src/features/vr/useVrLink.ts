@@ -33,7 +33,7 @@ export function useVrLink(): VrLinkView {
   // 上位机链路：studio 自己连着机械臂，桥看不到这一半。
   // 地址取 daemon 报的串口（`conn.port`）——本仓库的上位机链路是
   // studio → 本机 daemon → 串口，没有 litearm-server 那样的 host:port 端点，
-  // 所以这里沿用 TopBar 显示连接用的同一个字段。
+  // 所以这里沿用 VrTopBar 显示连接用的同一个字段。
   const { status: armStatus, motionBusy, conn: armConn } = useArmConnection()
   // 只取状态机名字（字符串）而不是整份 RobotState：快照是引用比较，
   // 这样机械臂静止时（50Hz 广播内容不变）不会带着整页重渲染。

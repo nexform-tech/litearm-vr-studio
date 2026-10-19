@@ -1,17 +1,8 @@
 {
-  "control": "控制",
-  "controlTitle": "机械臂控制台",
   "vr": "VR",
   "vrTitle": "VR 遥操控制台",
-  "log": "日志",
-  "logTitle": "日志",
-  "settings": "设置",
-  "settingsTitle": "控制器参数",
-  "connect": "连接",
   "themeToDark": "切换为深色配色",
   "themeToLight": "切换为浅色配色",
   "themeDarkLabel": "深色",
-  "themeLightLabel": "浅色",
-  "gripper": "夹爪",
-  "gripperTitle": "LiteGrip 夹爪"
+  "themeLightLabel": "浅色"
 }

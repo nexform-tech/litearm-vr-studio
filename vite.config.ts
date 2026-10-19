@@ -10,7 +10,7 @@ export default defineConfig({
     rolldownOptions: {
       output: {
         // 手动拆 vendor：按依赖分组生成独立 chunk（react / router / i18n / ui /
-        // charts / three / 兜底 vendor）。配合路由级与 3D 视口按需加载，让首屏
+        // three / 兜底 vendor）。配合路由级与 3D 视口按需加载，让首屏
         // 主包只剩应用壳；vendor chunk 内容稳定，可长期缓存、并行加载。
         codeSplitting: {
           groups: [
@@ -27,11 +27,6 @@ export default defineConfig({
             {
               name: 'i18n',
               test: /node_modules[\\/](?:i18next|react-i18next)[\\/]/,
-              priority: 20,
-            },
-            {
-              name: 'charts',
-              test: /node_modules[\\/](?:chart\.js|react-chartjs-2)[\\/]/,
               priority: 20,
             },
             {

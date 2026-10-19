@@ -1,17 +1,8 @@
 {
-  "control": "Control",
-  "controlTitle": "Robot Arm Console",
   "vr": "VR",
   "vrTitle": "VR Teleop Console",
-  "log": "Logs",
-  "logTitle": "Logs",
-  "settings": "Settings",
-  "settingsTitle": "Controller Parameters",
-  "connect": "Connect",
   "themeToDark": "Switch to dark theme",
   "themeToLight": "Switch to light theme",
   "themeDarkLabel": "Dark",
-  "themeLightLabel": "Light",
-  "gripper": "Gripper",
-  "gripperTitle": "LiteGrip Gripper"
+  "themeLightLabel": "Light"
 }

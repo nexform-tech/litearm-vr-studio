@@ -164,7 +164,8 @@ describe('i18n keys', () => {
     expect(namespaces('zh')).toEqual(namespaces('en'))
     expect(Object.keys(resources.en).sort()).toEqual(namespaces('en'))
     expect(Object.keys(resources.zh).sort()).toEqual(namespaces('en'))
-    expect(namespaces('en').length).toBeGreaterThan(5)
+    // VR-only 版本只剩 common / nav / vr 三个命名空间。
+    expect(namespaces('en').length).toBeGreaterThan(2)
   })
 
   it('每个命名空间的键集合在两种语言里一致', () => {
@@ -199,7 +200,8 @@ describe('i18n keys', () => {
 
     expect(missing).toEqual([])
     // 扫描器要是哪天扫不出东西, 上面那条会变成空转 —— 这个下限就是防它的。
-    expect(checked).toBeGreaterThan(300)
+    // VR-only 版本删掉了控制/日志/设置页的引用，实测 150 条；留一半余量。
+    expect(checked).toBeGreaterThan(100)
   })
 
   it('动态查表不会被当成字面量引用', () => {

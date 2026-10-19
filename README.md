@@ -4,6 +4,13 @@
 
 **LiteArm Studio** is the operator console for LiteArm 7-DoF collaborative robotic arms. It is a browser UI served by a local Python daemon: the daemon is the **only** process that touches the hardware, and the UI talks to it over a WebSocket on `127.0.0.1`.
 
+> **VR-only build.** This branch keeps only the **VR teleop console** (`/vr`). The
+> manual control page (joint sliders / Cartesian jogging / gripper), the log page,
+> and the settings page were removed, along with their navigation entries and
+> page-only modules. Everything under `daemon/` and `sdk/` is unchanged; the
+> hardware daemon and the VR bridge are untouched. Any feature descriptions below
+> that mention those pages describe the upstream, full-featured edition.
+
 ---
 
 ## Architecture

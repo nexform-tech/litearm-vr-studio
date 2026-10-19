@@ -56,8 +56,7 @@ export type VrOwnership = {
  *
  * `ready` / `holding` 是静止态（上位机连上但没在动，或者动完停在那里），不算在控；
  * 这与桥判 `owner=vr` 的口径一致（桥也只在 following / MOVE_* 时算 VR 在控）。
- * 状态取值见 `features/solo/soloUtils.ts` 的 ARM_OPERATIONAL_STATES 与
- * `features/solo/useSoloState.ts` 的阻抗分支。
+ * 状态名来自 daemon 的 `state` 帧；阻抗分支用 `*_impedance` 这一族名字。
  */
 const CONSOLE_ACTIVITY_BY_STATE: Record<string, VrConsoleActivity> = {
   moving: 'motion',

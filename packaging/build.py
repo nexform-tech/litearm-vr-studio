@@ -4,10 +4,10 @@
 
 ```bash
 python packaging/build.py
-# 产物：packaging/dist/litearm-studio-daemon[.exe]              （单文件，默认）
+# 产物：packaging/dist/litearm-vr-studio-daemon[.exe]              （单文件，默认）
 
 LITEARM_STUDIO_BUNDLE_MODE=onedir python packaging/build.py
-# 产物：packaging/dist/litearm-studio-daemon/litearm-studio-daemon[.exe]
+# 产物：packaging/dist/litearm-vr-studio-daemon/litearm-vr-studio-daemon[.exe]
 ```
 
 两种形态的取舍见 `bundle_mode()`：单文件每次启动都要把整包解到临时目录，目录不用。
@@ -55,7 +55,7 @@ VERSION_FILE = DAEMON_SRC / "litearm_studio_daemon" / "_build_version.py"
 #: 打包期注入的激活服务地址（可选）。与版本号同一个套路：构建时生成、不入库、
 #: 用完删掉。见 `activation.default_activation_url()`。
 ACTIVATION_URL_FILE = DAEMON_SRC / "litearm_studio_daemon" / "_build_activation_url.py"
-EXE_NAME = "litearm-studio-daemon"
+EXE_NAME = "litearm-vr-studio-daemon"
 
 #: 窗口后端的选择。`gtk` 借系统的 WebKitGTK（产物小），`qt` 自带 Chromium（产物 ~250 MB）。
 #: 没设就自动：有 GTK 用 GTK，否则 Qt。见 `window_backend()`。

@@ -1,4 +1,4 @@
-# LiteArm Studio - Makefile
+# LiteArm VR Studio - Makefile
 #
 # Prerequisites: Node.js 20+ and pnpm.
 #
@@ -27,7 +27,7 @@ PY ?= .venv/bin/python
 .PHONY: help setup dev test lint typecheck build preview sdk deb deb-image pdf pdf-zh pdf-en docs doc
 
 help: ## Show available commands
-	@echo 'LiteArm Studio'
+	@echo 'LiteArm VR Studio'
 	@echo
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-18s %s\n", $$1, $$2}'
 
@@ -56,7 +56,7 @@ deb: ## Build the installable Debian package (Docker, Ubuntu 22.04 base)
 	./scripts/build-deb.sh
 
 deb-image: ## (Re)build the container image the .deb build runs in
-	docker build -f packaging/deb.Dockerfile -t litearm-studio-deb-builder:22.04 .
+	docker build -f packaging/deb.Dockerfile -t litearm-vr-studio-deb-builder:22.04 .
 
 sdk: ## Install the pinned SDK submodules (litearm-python + litegrip-python) into the venv
 	# 两个 SDK 都不在 PyPI 上: 唯一来源是本仓的 git submodule (sdk/), 版本 = 钉住的 tag。

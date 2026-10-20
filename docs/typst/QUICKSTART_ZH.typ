@@ -235,7 +235,7 @@ LiteArm 是由 *NEXFORM ROBOTICS* 针对具身智能、工业自动化、医疗�
 
 + *7 自由度冗余构型*：拥有超越常规 6 轴机械臂的零空间运动冗余，可在末端位姿保持不变的前提下灵活避让机身障碍物，极度适合狭窄空间作业。
 + *驱控一体伺服模组*：自研轻量化电机模组，内置高精度双绝对值编码器，实现高速高精度的力位闭环伺服控制。
-+ *全开放多层软件生态*：配套提供跨平台图形化控制软件 *LiteArm Studio*、高性能 *Python SDK* 及 *ROS / ROS2* 开源驱动包。
++ *全开放多层软件生态*：配套提供跨平台图形化控制软件 *LiteArm VR Studio*、高性能 *Python SDK* 及 *ROS / ROS2* 开源驱动包。
 + *数字孪生实时反馈*：原生支持 3D 机械臂数字孪生渲染与 250 Hz 高频双向状态遥测。
 
 == 产品外观与结构
@@ -263,14 +263,14 @@ LiteArm 是由 *NEXFORM ROBOTICS* 针对具身智能、工业自动化、医疗�
 
 == 系统架构与通信拓扑
 
-LiteArm Studio 是「本地程序 + 浏览器界面」：`litearm-studio-daemon` 独占到机械臂的 USB 串口，界面由它托管，两者通过本机回环上的 WebSocket 通信。**没有后端服务器，也没有需要填写的 IP。**
+LiteArm VR Studio 是「本地程序 + 浏览器界面」：`litearm-vr-studio-daemon` 独占到机械臂的 USB 串口，界面由它托管，两者通过本机回环上的 WebSocket 通信。**没有后端服务器，也没有需要填写的 IP。**
 
 ```text
 浏览器窗口（React 界面，由本地程序托管）
    │ HTTP → 静态资源、/api/health
    │ WS   → 状态推送 / 命令
    ▼
-litearm-studio-daemon（Python，只监听 127.0.0.1）
+litearm-vr-studio-daemon（Python，只监听 127.0.0.1）
    ▼
 litearm-python ──USB CDC（1d50:606f @921600）──> STM32 ──CAN──> 电机
 ```
@@ -327,19 +327,19 @@ litearm-python ──USB CDC（1d50:606f @921600）──> STM32 ──CAN──
   请务必在断电状态下插拔电源与 CAN 线缆，严禁带电热插拔主电源接口！
 ]
 
-== 启动本地程序 (litearm-studio-daemon)
+== 启动本地程序 (litearm-vr-studio-daemon)
 
 #heading(level: 3, numbering: none, outlined: false)[1. 启动]
 
 ```bash
 # 离线：用 SDK 的假传输跑完整会话，不需要任何硬件
-litearm-studio-daemon --fake
+litearm-vr-studio-daemon --fake
 
 # 真机：自动发现 USB CDC 设备
-litearm-studio-daemon
+litearm-vr-studio-daemon
 
 # 指定串口 / 端口 / 不自动开窗口
-litearm-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
+litearm-vr-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
 ```
 
 #quote-box(rgb("#2563EB"))[
@@ -352,13 +352,13 @@ litearm-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
 - *WebSocket*：`ws://127.0.0.1:<端口>/ws`
 - *健康检查*：`http://127.0.0.1:<端口>/api/health`
 
-== 上位机安装 (LiteArm Studio)
+== 上位机安装 (LiteArm VR Studio)
 
 #heading(level: 3, numbering: none, outlined: false)[Windows 系统]
 
-+ 从发布页下载 `litearm-studio-<版本号>-windows-amd64.exe`，双击运行即可，没有安装向导。
++ 从发布页下载 `litearm-vr-studio-<版本号>-windows-amd64.exe`，双击运行即可，没有安装向导。
 + 程序未做代码签名，首次运行 Windows 会提示"Windows 已保护你的电脑"，选择"更多信息"→"仍要运行"。
-+ 校验下载：`certutil -hashfile litearm-studio-<版本号>-windows-amd64.exe SHA256`，与同目录的 `.sha256` 比对。
++ 校验下载：`certutil -hashfile litearm-vr-studio-<版本号>-windows-amd64.exe SHA256`，与同目录的 `.sha256` 比对。
 
 #heading(level: 3, numbering: none, outlined: false)[Linux / Ubuntu 系统]
 
@@ -367,19 +367,19 @@ litearm-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
 mkdir -p ~/Downloads && cd ~/Downloads
 version=0.12.0
 base="https://github.com/nexform-tech/litearm-studio/releases/download/v${version}"
-curl -LO "$base/litearm-studio_${version}_amd64.deb"
-curl -LO "$base/litearm-studio_${version}_amd64.deb.sha256"
-sha256sum -c "litearm-studio_${version}_amd64.deb.sha256"   # 应输出 OK
-sudo apt install "./litearm-studio_${version}_amd64.deb"
-litearm-studio
+curl -LO "$base/litearm-vr-studio_${version}_amd64.deb"
+curl -LO "$base/litearm-vr-studio_${version}_amd64.deb.sha256"
+sha256sum -c "litearm-vr-studio_${version}_amd64.deb.sha256"   # 应输出 OK
+sudo apt install "./litearm-vr-studio_${version}_amd64.deb"
+litearm-vr-studio
 
 # 方式二：其他发行版用单文件可执行程序（下载后没有执行权限，需要 glibc 2.35+）
 mkdir -p ~/Applications && cd ~/Applications
-curl -LO "$base/litearm-studio-${version}-linux-amd64"
-curl -LO "$base/litearm-studio-${version}-linux-amd64.sha256"
-sha256sum -c "litearm-studio-${version}-linux-amd64.sha256"
-chmod +x "litearm-studio-${version}-linux-amd64"
-./"litearm-studio-${version}-linux-amd64"
+curl -LO "$base/litearm-vr-studio-${version}-linux-amd64"
+curl -LO "$base/litearm-vr-studio-${version}-linux-amd64.sha256"
+sha256sum -c "litearm-vr-studio-${version}-linux-amd64.sha256"
+chmod +x "litearm-vr-studio-${version}-linux-amd64"
+./"litearm-vr-studio-${version}-linux-amd64"
 ```
 
 #quote-box(rgb("#2563EB"))[
@@ -395,7 +395,7 @@ chmod +x "litearm-studio-${version}-linux-amd64"
 
 #heading(level: 3, numbering: none)[步骤 1：启动并连接]
 
-+ 运行 `litearm-studio-daemon`，程序会自行开窗；若没有可用浏览器，就打开终端打印出的地址。
++ 运行 `litearm-vr-studio-daemon`，程序会自行开窗；若没有可用浏览器，就打开终端打印出的地址。
 + 本地程序**自动查找**机械臂的 USB CDC 设备（VID:PID `1d50:606f`），**不需要填写任何 IP 或端口**。
 + 顶栏徽标显示 `已连接` 与本次解析到的 **端口名 · 固件版本**；若会话没有建立，点击顶栏的「连接」。
 + 全新机械臂必须先激活，否则「使能」无效：进入「设置 → 授权激活」，填写注册信息并提交（见用户手册 §1.4）。
@@ -428,7 +428,7 @@ chmod +x "litearm-studio-${version}-linux-amd64"
 
 + 检查 USB 线缆与控制器供电，确认设备以 VID:PID `1d50:606f` 枚举（Linux 用 `lsusb`，Windows 在设备管理器里应出现 COM 口）。
 + Linux 下确认当前用户能打开串口设备（`dialout` 组）；用 `.deb` 安装时 udev 规则已经装好。
-+ 若设备出现在非默认路径，显式指定：`litearm-studio-daemon --port /dev/ttyACM1`。
++ 若设备出现在非默认路径，显式指定：`litearm-vr-studio-daemon --port /dev/ttyACM1`。
 + 访问 `http://127.0.0.1:<端口>/api/health`，`connected` 必须为 `true`；`conn.status` 是 `error` 时，`conn.error` 字段就是原因（设备不存在、固件不匹配、链路故障）。
 + 默认端口 49321 被占用时，程序会自动往后找并打印，请以打印出的地址为准。
 

@@ -1,4 +1,4 @@
-"""命令行入口 —— `litearm-studio-daemon [--fake] [--port P] [--http-port N] …`
+"""命令行入口 —— `litearm-vr-studio-daemon [--fake] [--port P] [--http-port N] …`
 
 计划 2 节「设备发现」与交付形态的落点: 一个本地程序, 双击/一条命令起, 监听本机,
 **由本进程自己开一个应用窗口** (`window` 模块), 因此关掉窗口就是退出整个程序。
@@ -38,8 +38,8 @@ def _log_level(value: str) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="litearm-studio-daemon",
-        description="LiteArm Studio 本地程序 —— 单臂会话 + 状态推送 + 命令执行")
+        prog="litearm-vr-studio-daemon",
+        description="LiteArm VR Studio 本地程序 —— 单臂会话 + 状态推送 + 命令执行")
     p.add_argument("--fake", action="store_true",
                    help="用 SDK 的假传输 (litearm.testing.FakeTransport) 起会话, 不碰真硬件")
     p.add_argument("--fake-unactivated", dest="fake_activated", action="store_false",
@@ -87,7 +87,7 @@ def build_parser() -> argparse.ArgumentParser:
     # 这个文件不会。默认目录按平台惯例 (见 `obs.handlers.default_log_dir`)。
     p.add_argument("--log-dir", metavar="DIR", default=None,
                    help="结构化日志目录 (默认按平台惯例: Linux 为 "
-                        "$XDG_STATE_HOME/litearm-studio; 也可用环境变量 "
+                        "$XDG_STATE_HOME/litearm-vr-studio; 也可用环境变量 "
                         f"{obs_handlers.LOG_DIR_ENV})")
     p.add_argument("--log-level", metavar="LEVEL", default="INFO",
                    type=_log_level, choices=sorted(obs_schema.SEVERITY_NUMBERS),
@@ -147,14 +147,14 @@ def _reuse_the_running_instance(args: argparse.Namespace,
                        version=__version__, fake=False)
     if url is None:
         return None
-    print(f"[litearm-studio-daemon] 已有实例在运行, 复用它: {url}")
+    print(f"[litearm-vr-studio-daemon] 已有实例在运行, 复用它: {url}")
     if args.no_open:
         # 显式要求无界面 ⇒ 不碰任何窗口。地址仍然打出来, 操作员想开就自己开。
-        print(f"[litearm-studio-daemon] 界面在 {url} (--no-open: 没有开窗)")
+        print(f"[litearm-vr-studio-daemon] 界面在 {url} (--no-open: 没有开窗)")
     elif focus_running(url):
-        print("[litearm-studio-daemon] 已把它的窗口抬到前面")
+        print("[litearm-vr-studio-daemon] 已把它的窗口抬到前面")
     else:
-        print(f"[litearm-studio-daemon] 它没有窗口可抬起 (无界面运行?); 界面在 {url}")
+        print(f"[litearm-vr-studio-daemon] 它没有窗口可抬起 (无界面运行?); 界面在 {url}")
     return 0
 
 
@@ -267,7 +267,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         obs.error(obs.STARTUP_REFUSED, body="--fake-unactivated 未配合 --fake",
                   fields={"reason": "invalid_option_combination"})
         return 2
-    obs.info(obs.DAEMON_STARTED, body=f"守护进程启动 (LiteArm Studio {__version__})",
+    obs.info(obs.DAEMON_STARTED, body=f"守护进程启动 (LiteArm VR Studio {__version__})",
              fields={"fake": bool(args.fake), "http_port": int(args.http_port),
                      "log_dir": str(log_dir or obs_handlers.default_log_dir()),
                      "log_file": str(obs.log_path() or ""),

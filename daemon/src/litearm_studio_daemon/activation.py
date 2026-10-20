@@ -326,7 +326,7 @@ def _post_json(url: str, payload: dict, timeout: float) -> Tuple[int, bytes]:
             "Content-Type": "application/json; charset=utf-8",
             "Accept": "application/json",
             # 只报"这是本上位机", 不带任何个人/设备信息 —— 个人信息都在 body 里, 由用户同意过。
-            "User-Agent": "litearm-studio",
+            "User-Agent": "litearm-vr-studio",
         })
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:   # noqa: S310 - 地址由本包常量/命令行决定

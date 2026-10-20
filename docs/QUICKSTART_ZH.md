@@ -11,14 +11,14 @@ date: "2026 年 10 月 6 日"
 
 ## 1. 系统架构与环境要求
 
-LiteArm Studio 是「本地 Python 程序 + 浏览器界面」：程序独占到机械臂的 USB 串口，界面由该程序托管，并通过本机回环上的 WebSocket 与它通信。**没有 server，也没有要填的 IP。**
+LiteArm VR Studio 是「本地 Python 程序 + 浏览器界面」：程序独占到机械臂的 USB 串口，界面由该程序托管，并通过本机回环上的 WebSocket 与它通信。**没有 server，也没有要填的 IP。**
 
 ```
 浏览器窗口 (React UI，由本地程序托管)
    │  HTTP  → 静态资源、/api/health
    │  WS    → 状态推送(下行) / 命令(上行)
    ▼
-litearm-studio-daemon  (Python，只监听 127.0.0.1)
+litearm-vr-studio-daemon  (Python，只监听 127.0.0.1)
    ▼
 litearm-python  ──USB CDC (1d50:606f @921600)──>  STM32  ──CAN──>  电机
 ```
@@ -68,13 +68,13 @@ pnpm install && pnpm build
 
 ```bash
 # 离线：用 SDK 的假传输跑完整会话，不需要任何硬件
-litearm-studio-daemon --fake
+litearm-vr-studio-daemon --fake
 
 # 真机：自动发现 USB CDC 设备
-litearm-studio-daemon
+litearm-vr-studio-daemon
 
 # 指定串口 / 端口 / 不自动开窗口
-litearm-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
+litearm-vr-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
 ```
 
 启动后会打印实际监听的地址（默认 `http://127.0.0.1:49321/`；被占用会自动换并打印新端口），并打开**自己的嵌入式应用窗口**——机器上不需要装任何浏览器。关掉那个窗口就是退出程序。
@@ -137,7 +137,7 @@ litearm-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
 
 - 检查 USB 线缆与控制器供电。
 - 确认设备以 VID:PID `1d50:606f` 枚举。
-- 若它出现在别的设备路径下，显式指定：`litearm-studio-daemon --port /dev/ttyACM1`。
+- 若它出现在别的设备路径下，显式指定：`litearm-vr-studio-daemon --port /dev/ttyACM1`。
 - Linux 下确认当前用户有权限打开串口设备（`dialout` 组）。
 
 ### 3D 面板只有地面，没有机械臂

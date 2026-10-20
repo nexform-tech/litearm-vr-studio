@@ -108,7 +108,7 @@ def test_an_empty_port_does_not_forget_the_record(tmp_path: Path) -> None:
 def test_the_record_follows_xdg_config_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(ports.CONFIG_ENV, raising=False)
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
-    assert ports.default_config_path() == tmp_path / "cfg" / "litearm-studio" / "arm.json"
+    assert ports.default_config_path() == tmp_path / "cfg" / "litearm-vr-studio" / "arm.json"
 
 
 # ------------------------------------------------------- 这次连哪个口 (会话层)

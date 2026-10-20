@@ -204,7 +204,7 @@ def configure(*, log_dir: Optional[Path] = None, version: str = "",
             file_handler = build_file_handler(path, max_bytes=max_bytes, backups=backups)
         except OSError as e:
             file_handler = None
-            print(f"[litearm-studio-daemon] 无法写入日志文件 {path}: {e}；"
+            print(f"[litearm-vr-studio-daemon] 无法写入日志文件 {path}: {e}；"
                   f"本次只输出到 stderr", file=sys.stderr)
         if file_handler is not None:
             _logger.addHandler(file_handler)

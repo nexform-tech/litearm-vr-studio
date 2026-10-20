@@ -1,4 +1,4 @@
-"""LiteArm Studio 本地程序 (守护进程)。
+"""LiteArm VR Studio 本地程序 (守护进程)。
 
 对外只有三样东西: 本模块的 `create_app` (FastAPI 应用)、`Session` (会话)、
 以及 `__main__` 的命令行入口。前端契约见
@@ -29,7 +29,7 @@ def _resolve_version() -> str:
         pass
     try:
         from importlib.metadata import version as _pkg_version
-        return _pkg_version("litearm-studio-daemon")
+        return _pkg_version("litearm-vr-studio-daemon")
     except Exception:  # noqa: BLE001 - 没装包 (源码直接跑)
         return "0.0.0+unknown"
 

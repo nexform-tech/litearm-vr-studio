@@ -1,6 +1,6 @@
-# Gripper integration in LiteArm Studio
+# Gripper integration in LiteArm VR Studio
 
-This document specifies how LiteGrip gripper control is added to LiteArm Studio;
+This document specifies how LiteGrip gripper control is added to LiteArm VR Studio;
 read it if you are implementing or reviewing the daemon-side gripper session, the
 WebSocket contract, or the gripper UI.
 
@@ -8,7 +8,7 @@ WebSocket contract, or the gripper UI.
 
 **In scope**
 
-- A second device session inside `litearm-studio-daemon` that drives one LiteGrip
+- A second device session inside `litearm-vr-studio-daemon` that drives one LiteGrip
   over SocketCAN.
 - The WebSocket frames and commands the UI uses for it, alongside the existing arm
   contract.
@@ -48,7 +48,7 @@ browser (React UI)
   │ HTTP  static assets
   │ WS    /ws   (one socket, one command id space)
   ▼
-litearm-studio-daemon       (Python, 127.0.0.1 only)
+litearm-vr-studio-daemon       (Python, 127.0.0.1 only)
   ├── ArmSession        ──USB CDC──► STM32 ──┐
   └── GripperSession    ──PF_CAN───► can0 ───┤ one CAN bus, 1 Mbit classic
                                              └─► arm joints + LiteGrip DM4310 (0x08 / 0x18)
@@ -398,7 +398,7 @@ Per-channel record, next to the daemon's existing settings:
  "lastChannel":"can0"}
 ```
 
-It is `$XDG_CONFIG_HOME/litearm-studio/gripper.json` (`~/.config/...` by
+It is `$XDG_CONFIG_HOME/litearm-vr-studio/gripper.json` (`~/.config/...` by
 default), overridable with `LITEARM_STUDIO_GRIPPER_CONFIG`. The write is atomic
 and the read is lenient: a field that cannot be parsed costs that field, not the
 record, and a file that is not JSON at all reads back as no records.

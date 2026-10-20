@@ -6,7 +6,7 @@ schema has no field for — above all the measured travel, which is the numerato
 of every millimetre the UI shows (see ``docs/GRIPPER_INTEGRATION.md`` §5.6).
 
 The file lives next to the daemon's other settings, under
-``$XDG_CONFIG_HOME/litearm-studio/gripper.json`` (``~/.config`` by default), and
+``$XDG_CONFIG_HOME/litearm-vr-studio/gripper.json`` (``~/.config`` by default), and
 is overridable with ``LITEARM_STUDIO_GRIPPER_CONFIG`` for tests and for operators
 who keep their configuration somewhere else.
 
@@ -37,13 +37,13 @@ CONFIG_ENV = "LITEARM_STUDIO_GRIPPER_CONFIG"
 
 
 def default_config_path() -> Path:
-    """``$XDG_CONFIG_HOME/litearm-studio/gripper.json``, expanded."""
+    """``$XDG_CONFIG_HOME/litearm-vr-studio/gripper.json``, expanded."""
     override = os.environ.get(CONFIG_ENV)
     if override:
         return Path(override).expanduser()
     base = os.environ.get("XDG_CONFIG_HOME")
     root = Path(base).expanduser() if base else Path.home() / ".config"
-    return root / "litearm-studio" / "gripper.json"
+    return root / "litearm-vr-studio" / "gripper.json"
 
 
 @dataclass(frozen=True)

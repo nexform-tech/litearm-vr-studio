@@ -1,4 +1,4 @@
-# Real toolchain gate for litearm-studio (React + Vite web UI).
+# Real toolchain gate for litearm-vr-studio (React + Vite web UI).
 #
 # Adapted from the repository-standards placeholder, which was a test gate for a
 # documentation-only repository and asked to be replaced by the project's real

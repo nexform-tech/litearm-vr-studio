@@ -13,7 +13,7 @@
 #
 # Build it once (the entry point does this for you when it is missing):
 #
-#     docker build -f packaging/deb.Dockerfile -t litearm-studio-deb-builder:22.04 .
+#     docker build -f packaging/deb.Dockerfile -t litearm-vr-studio-deb-builder:22.04 .
 #
 # Then a package build is ~90 seconds instead of ~4 minutes: without the image every run
 # reinstalls the apt packages and the whole Python dependency set.

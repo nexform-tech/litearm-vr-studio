@@ -1,13 +1,13 @@
 ---
-title: "LiteArm Studio"
+title: "LiteArm VR Studio"
 subtitle: "User Manual"
-title-meta: "LiteArm Studio User Manual"
+title-meta: "LiteArm VR Studio User Manual"
 author: "NEXFORM ROBOTICS"
 version: "v1.1"
 date: "October 6, 2026"
 ---
 
-# LiteArm Studio User Manual
+# LiteArm VR Studio User Manual
 
 ## 1. Introduction & Connection
 
@@ -16,16 +16,16 @@ date: "October 6, 2026"
 
 ### 1.1 Overview
 
-LiteArm Studio is the graphical host software for LiteArm 7-DoF (J1–J7) robotic arms. It provides real-time motion control, status monitoring, and system management.
+LiteArm VR Studio is the graphical host software for LiteArm 7-DoF (J1–J7) robotic arms. It provides real-time motion control, status monitoring, and system management.
 
-The software is **one local program** (`litearm-studio-daemon`) plus **one browser UI**: the program owns the arm's USB serial port and serves the UI, which talks to it over the loopback interface. **There is no backend server, and no IP address to configure.**
+The software is **one local program** (`litearm-vr-studio-daemon`) plus **one browser UI**: the program owns the arm's USB serial port and serves the UI, which talks to it over the loopback interface. **There is no backend server, and no IP address to configure.**
 
 ```
 Browser window (React UI, served by the local program)
    │ HTTP → static assets, /api/health
    │ WS   → state push / commands
    ▼
-litearm-studio-daemon (listens on 127.0.0.1 only)
+litearm-vr-studio-daemon (listens on 127.0.0.1 only)
    ▼
 STM32 firmware ──USB CDC (1d50:606f)──> CAN ──> motors
 ```
@@ -43,9 +43,9 @@ Download the executable for your platform and verify it against the `.sha256` pu
 
 | Platform | File | How to run |
 | :--- | :--- | :--- |
-| Ubuntu / Debian | `litearm-studio-<version>_amd64.deb` | `sudo apt install ./litearm-studio-<version>_amd64.deb` |
-| Windows | `litearm-studio-<version>-windows-amd64.exe` | Double-click |
-| Other Linux | `litearm-studio-<version>-linux-amd64` | `chmod +x`, then run |
+| Ubuntu / Debian | `litearm-vr-studio-<version>_amd64.deb` | `sudo apt install ./litearm-vr-studio-<version>_amd64.deb` |
+| Windows | `litearm-vr-studio-<version>-windows-amd64.exe` | Double-click |
+| Other Linux | `litearm-vr-studio-<version>-linux-amd64` | `chmod +x`, then run |
 
 The `.deb` also installs a desktop entry and the udev rule that lets the logged-in user open the
 arm's serial port. The standalone Linux file is not executable as downloaded, and it needs glibc
@@ -121,7 +121,7 @@ Payload is not here: configure it under **Settings → Payload**. It is not part
 
 ## 2. User Interface Overview
 
-LiteArm Studio consists of the left navigation rail, top status bar, and central workspace. Use the navigation rail to switch between functional modules.
+LiteArm VR Studio consists of the left navigation rail, top status bar, and central workspace. Use the navigation rail to switch between functional modules.
 
 ---
 

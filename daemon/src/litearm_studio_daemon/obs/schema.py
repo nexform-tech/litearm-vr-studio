@@ -33,7 +33,7 @@ from __future__ import annotations
 from typing import Any, Dict, Final, Mapping, Tuple
 
 #: ``service.name`` — the OTLP resource attribute. One value per process.
-SERVICE_NAME: Final[str] = "litearm-studio-daemon"
+SERVICE_NAME: Final[str] = "litearm-vr-studio-daemon"
 
 # --------------------------------------------------------------------------- levels
 

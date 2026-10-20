@@ -1,8 +1,8 @@
-# LiteArm Studio
+# LiteArm VR Studio
 
 **English** | [简体中文](README_ZH.md)
 
-**LiteArm Studio** is the operator console for LiteArm 7-DoF collaborative robotic arms. It is a browser UI served by a local Python daemon: the daemon is the **only** process that touches the hardware, and the UI talks to it over a WebSocket on `127.0.0.1`.
+**LiteArm VR Studio** is the operator console for LiteArm 7-DoF collaborative robotic arms. It is a browser UI served by a local Python daemon: the daemon is the **only** process that touches the hardware, and the UI talks to it over a WebSocket on `127.0.0.1`.
 
 > **VR-only build.** This branch keeps only the **VR teleop console** (`/vr`). The
 > manual control page (joint sliders / Cartesian jogging / gripper), the log page,
@@ -20,7 +20,7 @@ browser window (React UI)
    │  HTTP  → static assets, /api/health
    │  WS    → state push (down) / commands (up)
    ▼
-litearm-studio-daemon  (Python, loopback only, `daemon/`)
+litearm-vr-studio-daemon  (Python, loopback only, `daemon/`)
    ▼
 litearm-python  ──USB CDC (1d50:606f)──>  STM32  ──CAN──>  motors
 ```
@@ -95,21 +95,21 @@ Trajectory teaching/playback, dexterous-hand panels and per-joint impedance or h
 **Do not confuse this with the older product of a similar name**: if `dpkg -l` lists
 `lite-arm-studio` (described as a Tauri desktop app), that is the old product and neither its UI
 nor its behaviour has anything to do with this one. This is a local Python program plus a browser
-UI, and its command is `litearm-studio-daemon`.
+UI, and its command is `litearm-vr-studio-daemon`.
 
 ### 2. Run the whole application
 
 ```bash
 cd litearm-studio
 make sdk                           # fetch the pinned SDK submodules and install them
-pip install -e "daemon[test]"     # installs fastapi/uvicorn and the `litearm-studio-daemon` entry point
+pip install -e "daemon[test]"     # installs fastapi/uvicorn and the `litearm-vr-studio-daemon` entry point
 pnpm install && pnpm build         # build the UI the daemon will serve
 
-litearm-studio-daemon --fake       # offline: full session on the SDK's fake transport, no hardware
-# litearm-studio-daemon --fake --fake-unactivated   # no hardware, and the device is UNLICENSED:
+litearm-vr-studio-daemon --fake       # offline: full session on the SDK's fake transport, no hardware
+# litearm-vr-studio-daemon --fake --fake-unactivated   # no hardware, and the device is UNLICENSED:
 #                                                   # the activation panel and its signup form show up
-# litearm-studio-daemon            # real arm: auto-discovers the USB CDC device
-# litearm-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
+# litearm-vr-studio-daemon            # real arm: auto-discovers the USB CDC device
+# litearm-vr-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
 ```
 
 The fake device is licensed by default, so the activation panel shows a state and no form.
@@ -179,7 +179,7 @@ pnpm install
 pnpm dev        # http://localhost:5173 — proxies /ws and /api to 127.0.0.1:49321
 ```
 
-Run `litearm-studio-daemon --fake --no-open` alongside it.
+Run `litearm-vr-studio-daemon --fake --no-open` alongside it.
 
 ### 4. Prebuilt artifacts
 
@@ -197,19 +197,19 @@ cd ~/Downloads
 # https://github.com/nexform-tech/litearm-studio/releases
 version=0.17.4
 base="https://github.com/nexform-tech/litearm-studio/releases/download/v${version}"
-curl -LO "$base/litearm-studio_${version}_amd64.deb"
-curl -LO "$base/litearm-studio_${version}_amd64.deb.sha256"
-sha256sum -c "litearm-studio_${version}_amd64.deb.sha256"   # prints: ...: OK
-sudo apt install ./litearm-studio_${version}_amd64.deb
-litearm-studio --fake     # offline, no hardware
+curl -LO "$base/litearm-vr-studio_${version}_amd64.deb"
+curl -LO "$base/litearm-vr-studio_${version}_amd64.deb.sha256"
+sha256sum -c "litearm-vr-studio_${version}_amd64.deb.sha256"   # prints: ...: OK
+sudo apt install ./litearm-vr-studio_${version}_amd64.deb
+litearm-vr-studio --fake     # offline, no hardware
 ```
 
 `version` is a number that **goes stale**: copy an old one and nothing fails — `curl` happily
 downloads that older build and you only notice after installing that it is several releases
 behind. Check the releases page before you install.
 
-Asset names are fixed per release: `litearm-studio_<version>_amd64.deb`,
-`litearm-studio-<version>-linux-amd64`, `litearm-studio-<version>-windows-amd64.exe`, each with a
+Asset names are fixed per release: `litearm-vr-studio_<version>_amd64.deb`,
+`litearm-vr-studio-<version>-linux-amd64`, `litearm-vr-studio-<version>-windows-amd64.exe`, each with a
 matching `.sha256`.
 
 Everywhere else — and on Windows — use the standalone file. It is not executable as downloaded, so
@@ -218,12 +218,12 @@ Everywhere else — and on Windows — use the standalone file. It is not execut
 ```bash
 mkdir -p ~/Applications && cd ~/Applications
 # $base and $version are the ones set above
-curl -LO "$base/litearm-studio-${version}-linux-amd64"
-curl -LO "$base/litearm-studio-${version}-linux-amd64.sha256"
-sha256sum -c "litearm-studio-${version}-linux-amd64.sha256"
-chmod +x "litearm-studio-${version}-linux-amd64"
-./"litearm-studio-${version}-linux-amd64" --fake     # offline, no hardware
-./"litearm-studio-${version}-linux-amd64"            # real arm, USB auto-discovery
+curl -LO "$base/litearm-vr-studio-${version}-linux-amd64"
+curl -LO "$base/litearm-vr-studio-${version}-linux-amd64.sha256"
+sha256sum -c "litearm-vr-studio-${version}-linux-amd64.sha256"
+chmod +x "litearm-vr-studio-${version}-linux-amd64"
+./"litearm-vr-studio-${version}-linux-amd64" --fake     # offline, no hardware
+./"litearm-vr-studio-${version}-linux-amd64"            # real arm, USB auto-discovery
 ```
 
 [docs/INSTALL.md](docs/INSTALL.md) covers the requirements, the serial-port permission and

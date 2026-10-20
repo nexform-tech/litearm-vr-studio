@@ -86,6 +86,6 @@ def test_image_does_not_bake_the_daemon_or_the_sdks():
     one being packaged.
     """
     pinned = {_name(requirement) for requirement in _pin_requirements()}
-    assert "litearm-studio-daemon" not in pinned
+    assert "litearm-vr-studio-daemon" not in pinned
     assert "litearm-python" not in pinned
     assert "litegrip" not in pinned

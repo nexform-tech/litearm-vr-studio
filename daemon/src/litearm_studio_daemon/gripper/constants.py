@@ -36,7 +36,7 @@ TELEMETRY_HZ = 50
 PLOT_HZ = 25
 
 # ── Motion ──────────────────────────────────────────────────────────────────
-# Speed range/default follow litearm-studio's gripper panel (5–150, default 50).
+# Speed range/default follow litearm-vr-studio's gripper panel (5–150, default 50).
 SPEED_MIN_MM_S = 5.0
 SPEED_MAX_MM_S = 150.0
 SPEED_DEFAULT_MM_S = 50.0

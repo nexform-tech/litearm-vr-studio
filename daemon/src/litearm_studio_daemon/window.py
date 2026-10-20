@@ -36,7 +36,7 @@ from typing import Any, Callable, Optional
 log = logging.getLogger(__name__)
 
 #: 窗口标题, 也是桌面条目里的 `Name`。
-APP_NAME = "LiteArm Studio"
+APP_NAME = "LiteArm VR Studio"
 
 #: 应用 id。这一个字符串同时决定三件事, 所以只能有一个来源:
 #: 窗口的 WM_CLASS / Qt 的 desktopFileName, 以及 `packaging/deb.py` 桌面条目里的
@@ -44,7 +44,7 @@ APP_NAME = "LiteArm Studio"
 #:
 #: ⚠ 三者必须相等, 否则桌面会把窗口和启动图标当成两个不同的程序 —— 表现就是任务栏里
 #: 显示的是别人的图标。`packaging/tests/test_deb.py` 钉住这个等式。
-WINDOW_CLASS = "litearm-studio"
+WINDOW_CLASS = "litearm-vr-studio"
 
 #: 窗口的初始尺寸与下限。取自旧 Tauri 壳的 `tauri.conf.json`, 界面在更小的尺寸下会挤。
 WINDOW_SIZE = (1440, 900)
@@ -102,7 +102,7 @@ def _set_desktop_identity() -> None:
     ⚠ **必须在窗口创建之前**调用: GTK 的 WM_CLASS 取自 GLib 的程序名, Qt 的取自
     `QCoreApplication.applicationName()` / `desktopFileName`, 两者都在创建窗口时读一次。
     pywebview 自己**不设**这两样 (已核对 6.2.1 的 `platforms/gtk.py` 与 `platforms/qt.py`),
-    于是默认值是 Python 解释器/可执行文件名, 桌面找不到 `litearm-studio.desktop`, 就
+    于是默认值是 Python 解释器/可执行文件名, 桌面找不到 `litearm-vr-studio.desktop`, 就
     借用了通用图标。
 
     每一步独立失败: 只装了其中一个后端是正常情况, 缺哪个都不该报错。
@@ -111,12 +111,12 @@ def _set_desktop_identity() -> None:
         from gi.repository import GLib  # noqa: PLC0415 - 有 GTK 后端才有
 
         # `set_prgname` 喂的是 X11 的 WM_CLASS **instance** 与 Wayland 的 app id —— 两者
-        # 都正是 `WINDOW_CLASS`，桌面据此就能对上 `litearm-studio.desktop`。
+        # 都正是 `WINDOW_CLASS`，桌面据此就能对上 `litearm-vr-studio.desktop`。
         #
         # ⚠ X11 的 WM_CLASS **class** 那一半我们控制不了：实测它在 GTK 里既不跟着
         # `set_prgname` 也不跟着 `set_application_name`（`Gdk.set_program_class` 也被
         # GTK 初始化时覆盖掉了，设了与不设完全一样）。GTK 给出的是 `Litearm-studio`
-        # ——与 `StartupWMClass=litearm-studio` 只差首字母大小写。桌面的匹配对
+        # ——与 `StartupWMClass=litearm-vr-studio` 只差首字母大小写。桌面的匹配对
         # instance 与 class 都会试，且实际比较不区分大小写，所以图标能归对组;
         # 万一某台机器上不行，改 `deb.desktop_entry()` 的 `StartupWMClass` 即可。
         GLib.set_prgname(WINDOW_CLASS)
@@ -187,9 +187,9 @@ def _unavailable_message(cause: Any) -> str:
             "    Linux（推荐, 用系统的 WebKitGTK）:\n"
             "        apt install python3-gi gir1.2-webkit2-4.1\n"
             "    或者自带内核的 Qt（不需要 apt, 但多 ~200 MB）:\n"
-            "        pip install \"litearm-studio-daemon[ui-qt]\"\n"
+            "        pip install \"litearm-vr-studio-daemon[ui-qt]\"\n"
             "    或者无界面运行:\n"
-            "        litearm-studio-daemon --no-open\n"
+            "        litearm-vr-studio-daemon --no-open\n"
             f"    (原始错误: {cause})")
 
 

@@ -11,14 +11,14 @@ date: "October 6, 2026"
 
 ## 1. Architecture & Requirements
 
-LiteArm Studio is a local Python program plus a browser UI. The program owns the USB serial link to the arm; the UI is served by that program and talks to it over a loopback WebSocket. There is no server and no IP address to configure.
+LiteArm VR Studio is a local Python program plus a browser UI. The program owns the USB serial link to the arm; the UI is served by that program and talks to it over a loopback WebSocket. There is no server and no IP address to configure.
 
 ```
 browser window (React UI, served by the daemon)
    │  HTTP  → static assets, /api/health
    │  WS    → state push (down) / commands (up)
    ▼
-litearm-studio-daemon  (Python, 127.0.0.1 only)
+litearm-vr-studio-daemon  (Python, 127.0.0.1 only)
    ▼
 litearm-python  ──USB CDC (1d50:606f @921600)──>  STM32  ──CAN──>  motors
 ```
@@ -74,13 +74,13 @@ panel is what breaks — see the troubleshooting entry at the end of this docume
 
 ```bash
 # Offline: a complete session on the SDK's fake transport — no hardware required
-litearm-studio-daemon --fake
+litearm-vr-studio-daemon --fake
 
 # Real arm: auto-discovers the USB CDC device
-litearm-studio-daemon
+litearm-vr-studio-daemon
 
 # Explicit port, custom HTTP port, no window
-litearm-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
+litearm-vr-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
 ```
 
 The daemon prints the address it actually bound to (default `http://127.0.0.1:49321/`; if the port is busy it increments and prints the new one) and opens its own embedded application window. No browser needs to be installed. Closing that window quits the program.
@@ -143,7 +143,7 @@ Open the **Telemetry** page: a session is created automatically when the arm con
 
 - Check the USB cable and that the controller is powered.
 - Verify the device enumerates with VID:PID `1d50:606f`.
-- If it shows up under a different path, pass it explicitly: `litearm-studio-daemon --port /dev/ttyACM1`.
+- If it shows up under a different path, pass it explicitly: `litearm-vr-studio-daemon --port /dev/ttyACM1`.
 - On Linux, make sure your user can open the serial device (`dialout` group).
 
 ### "Enable" does nothing

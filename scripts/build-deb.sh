@@ -9,7 +9,7 @@
 #     scripts/build-deb.sh --no-ui               # reuse the existing dist/ build
 #     scripts/build-deb.sh --rebuild-image       # after editing packaging/deb.Dockerfile
 #
-# Output: packaging/dist/litearm-studio_<version>_amd64.deb
+# Output: packaging/dist/litearm-vr-studio_<version>_amd64.deb
 #
 # ⚠ Why a container instead of the host toolchain: see packaging/deb.Dockerfile. Short
 # version — the frozen runtime links against the build machine's glibc, so a package built
@@ -17,7 +17,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-IMAGE="${LITEARM_DEB_BUILDER_IMAGE:-litearm-studio-deb-builder:22.04}"
+IMAGE="${LITEARM_DEB_BUILDER_IMAGE:-litearm-vr-studio-deb-builder:22.04}"
 DOCKERFILE="$ROOT/packaging/deb.Dockerfile"
 VERSION="${LITEARM_STUDIO_VERSION:-}"
 BUILD_UI=1

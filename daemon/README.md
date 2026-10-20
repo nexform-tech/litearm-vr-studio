@@ -1,6 +1,6 @@
-# litearm-studio-daemon
+# litearm-vr-studio-daemon
 
-LiteArm Studio 的**本地程序（守护进程）**——上位机上唯一持有硬件的进程。
+LiteArm VR Studio 的**本地程序（守护进程）**——上位机上唯一持有硬件的进程。
 
 ## 它为什么存在
 
@@ -56,8 +56,8 @@ pip install -e "daemon[ui]"                       # pywebview 本体
 #  当前的 60 MiB 之后，同一个命令从 15.5 MB 涨到这里）。
 sudo apt install python3-gi gir1.2-webkit2-4.1
 
-litearm-studio-daemon             # 开窗口；关掉窗口就是退出
-litearm-studio-daemon --no-open   # 无界面运行；界面用浏览器连它打印出的地址
+litearm-vr-studio-daemon             # 开窗口；关掉窗口就是退出
+litearm-vr-studio-daemon --no-open   # 无界面运行；界面用浏览器连它打印出的地址
 ```
 
   ⚠ Linux 上还有一个**自带内核**的备选：`pip install -e "daemon[ui-qt]"`（Qt WebEngine）。
@@ -78,13 +78,13 @@ litearm-studio-daemon --no-open   # 无界面运行；界面用浏览器连它�
 
 ```bash
 # 离线：用 SDK 的假传输起一个完整会话，不需要任何硬件
-litearm-studio-daemon --fake
+litearm-vr-studio-daemon --fake
 
 # 真机：自动发现 USB CDC 设备（VID:PID 1d50:606f）
-litearm-studio-daemon
+litearm-vr-studio-daemon
 
 # 指定串口 / 端口 / 不自动开窗口
-litearm-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
+litearm-vr-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
 ```
 
 启动后：
@@ -122,7 +122,7 @@ litearm-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
 开发期前端（vite，默认 5173）已显式放行；换端口或换别的源时加 `--allow-origin`：
 
 ```bash
-litearm-studio-daemon --allow-origin http://localhost:8000
+litearm-vr-studio-daemon --allow-origin http://localhost:8000
 ```
 
 ⚠ 放行一个来源 = 让那个来源的页面能驱动机械臂。只在你确知用途时才加。
@@ -148,9 +148,9 @@ litearm-studio-daemon --allow-origin http://localhost:8000
 变：仍然是同一个构建、同一种会话，仍然取**端口最小**的那个实例。
 
 ```bash
-$ litearm-studio-daemon
-[litearm-studio-daemon] 已有实例在运行, 复用它: http://127.0.0.1:49321/
-[litearm-studio-daemon] 已把它的窗口抬到前面
+$ litearm-vr-studio-daemon
+[litearm-vr-studio-daemon] 已有实例在运行, 复用它: http://127.0.0.1:49321/
+[litearm-vr-studio-daemon] 已把它的窗口抬到前面
 ```
 
 ⚠ **不新开窗口**：一个进程一个窗口，新开一个会让两个窗口指向同一个会话。旧实例是无界面
@@ -230,8 +230,8 @@ $ litearm-studio-daemon
 先按「断开」，守护进程不会把活着的链路挪走。不指口、或指的就是当前口，仍是幂等的 no-op
 （页面每次加载自动发的那条无参 `connect` 走这里）。
 
-上次连上的口记在 `$XDG_CONFIG_HOME/litearm-studio/arm.json`（默认
-`~/.config/litearm-studio/arm.json`，可用 `LITEARM_STUDIO_ARM_CONFIG` 覆盖），**只在连上
+上次连上的口记在 `$XDG_CONFIG_HOME/litearm-vr-studio/arm.json`（默认
+`~/.config/litearm-vr-studio/arm.json`，可用 `LITEARM_STUDIO_ARM_CONFIG` 覆盖），**只在连上
 之后**才写：记一个连不通的口，会让下次的默认选择和「上次能用」无关。它只是**提示**，不是
 硬性目标——设备重新枚举后节点名会变，所以它后面永远留着自动发现那条退路。`--port` 仍然是
 硬性指定，且**界面选的口优先于它**（`--fake` 下两者都只是占位字符串）。
@@ -247,20 +247,20 @@ OpenTelemetry 的日志数据模型。页面的「日志」页是它的一个视
 
 | 平台 | 目录 |
 | --- | --- |
-| Linux | `$XDG_STATE_HOME/litearm-studio/daemon.jsonl`（默认 `~/.local/state/litearm-studio/`） |
-| macOS | `~/Library/Logs/litearm-studio/daemon.jsonl` |
-| Windows | `%LOCALAPPDATA%\litearm-studio\Logs\daemon.jsonl` |
+| Linux | `$XDG_STATE_HOME/litearm-vr-studio/daemon.jsonl`（默认 `~/.local/state/litearm-vr-studio/`） |
+| macOS | `~/Library/Logs/litearm-vr-studio/daemon.jsonl` |
+| Windows | `%LOCALAPPDATA%\litearm-vr-studio\Logs\daemon.jsonl` |
 
 ```bash
 # 看最近发生了什么
-tail -n 20 ~/.local/state/litearm-studio/daemon.jsonl | jq -c '{ts,severity,event,body}'
+tail -n 20 ~/.local/state/litearm-vr-studio/daemon.jsonl | jq -c '{ts,severity,event,body}'
 
 # 只看失败的命令
 jq -c 'select(.event=="arm.command.failed") | {ts,method:.fields.method,err:.fields.error_kind}' \
-  ~/.local/state/litearm-studio/daemon.jsonl
+  ~/.local/state/litearm-vr-studio/daemon.jsonl
 
 # 改目录 / 级别 / 轮转
-litearm-studio-daemon --log-dir /tmp/litearm-logs --log-level DEBUG
+litearm-vr-studio-daemon --log-dir /tmp/litearm-logs --log-level DEBUG
 ```
 
 开关（`--help` 里有同样的说明）：
@@ -300,16 +300,16 @@ UID、从激活服务取回的凭据、固件镜像的字节、任何叫 `token`
 
 ```bash
 # 仿真：夹爪也走模拟后端，不需要 CAN 硬件
-litearm-studio-daemon --fake
+litearm-vr-studio-daemon --fake
 
 # 真机：默认用上次记录的接口（首次为 can0）
-litearm-studio-daemon --can-channel can0
+litearm-vr-studio-daemon --can-channel can0
 
 # 接口由你或 systemd 管理时不弹授权框
-litearm-studio-daemon --no-can-setup
+litearm-vr-studio-daemon --no-can-setup
 
 # 完全不要夹爪
-litearm-studio-daemon --no-gripper
+litearm-vr-studio-daemon --no-gripper
 ```
 
 几条必须知道的规矩（完整规范见 [`docs/GRIPPER_INTEGRATION.md`](../docs/GRIPPER_INTEGRATION.md)）：
@@ -338,13 +338,13 @@ remote-api 插件的 router），而守护进程是 Python，`eclipse-zenoh` 一
 
 ```bash
 # 没有桥、没有头显、没有真机：VR 通道走假件，臂映射卡照样点得动
-litearm-studio-daemon --fake
+litearm-vr-studio-daemon --fake
 
 # 有桥时：默认连本机 tcp/127.0.0.1:7447，桥在别的机器上就指过去
-litearm-studio-daemon --vr-endpoint tcp/192.168.31.20:7447
+litearm-vr-studio-daemon --vr-endpoint tcp/192.168.31.20:7447
 
 # 完全不要 VR 通道
-litearm-studio-daemon --no-vr
+litearm-vr-studio-daemon --no-vr
 ```
 
 几条必须知道的规矩：
@@ -372,7 +372,7 @@ litearm-studio-daemon --no-vr
 **本地出包就一条命令**（需要 Docker）：
 
 ```bash
-make deb        # → packaging/dist/litearm-studio_<版本>_amd64.deb
+make deb        # → packaging/dist/litearm-vr-studio_<版本>_amd64.deb
 ```
 
 它做三件事：构建界面（`pnpm build`）、在**准备好的 Ubuntu 22.04 容器**里跑
@@ -403,10 +403,10 @@ make deb-image                            # 改过 packaging/deb.Dockerfile 之�
 换过构建镜像、动过打包脚本之后，拿发布产物当基准核一遍清单：
 
 ```bash
-gh release download v0.17.5 --pattern 'litearm-studio_0.17.5_amd64.deb'
+gh release download v0.17.5 --pattern 'litearm-vr-studio_0.17.5_amd64.deb'
 pip install pyinstaller                     # 只有这个脚本需要它
-python scripts/compare_bundles.py litearm-studio_0.17.5_amd64.deb \
-    packaging/dist/litearm-studio_*_amd64.deb \
+python scripts/compare_bundles.py litearm-vr-studio_0.17.5_amd64.deb \
+    packaging/dist/litearm-vr-studio_*_amd64.deb \
     --ignore 'libapt-pkg*' --ignore 'libudev*' --ignore 'libyaml*' \
     --ignore 'libusb-1.0*' --ignore 'ossl-modules/*' --ignore 'libxxhash*'
 ```
@@ -426,7 +426,7 @@ python scripts/compare_bundles.py litearm-studio_0.17.5_amd64.deb \
 
 ```bash
 pnpm build                     # 先构建界面：打包脚本会拒绝在没有 dist/ 的情况下继续
-python packaging/build.py      # 产物：packaging/dist/litearm-studio-daemon[.exe]
+python packaging/build.py      # 产物：packaging/dist/litearm-vr-studio-daemon[.exe]
 ```
 
 `packaging/build.py` 做这几件事：
@@ -512,7 +512,7 @@ pytest daemon/tests -q
 ### 没有硬件也要能看到界面
 
 ```bash
-litearm-studio-daemon --fake --fake-unactivated
+litearm-vr-studio-daemon --fake --fake-unactivated
 ```
 
 `--fake` 起的是**已激活**的假设备（只显示授权状态，不出表单）；`--fake-unactivated` 把它

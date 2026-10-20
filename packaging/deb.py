@@ -5,7 +5,7 @@ executable — see `bundled_daemon()` for which of its two shapes this expects):
 
 ```bash
 python packaging/deb.py
-# artifact: packaging/dist/litearm-studio_<version>_amd64.deb
+# artifact: packaging/dist/litearm-vr-studio_<version>_amd64.deb
 ```
 
 Why this exists. The bare executable runs, but it leaves every part of "install" to the
@@ -58,14 +58,14 @@ OUT_DIST = ROOT / "packaging" / "dist"
 #: What `packaging/build.py` leaves behind — a **file** in `onefile` mode, a **directory**
 #: in `onedir` mode, and the same path either way. `bundled_daemon()` tells them apart;
 #: the package is built from the directory shape (see there for why).
-DEFAULT_BINARY = OUT_DIST / "litearm-studio-daemon"
+DEFAULT_BINARY = OUT_DIST / "litearm-vr-studio-daemon"
 
-PACKAGE = "litearm-studio"
-BINARY_NAME = "litearm-studio-daemon"
+PACKAGE = "litearm-vr-studio"
+BINARY_NAME = "litearm-vr-studio-daemon"
 #: Command the desktop entry and the documentation name. It is a wrapper, not the
 #: executable itself: a PyInstaller bundle has no business on PATH under a name that
 #: suggests a normal program.
-LAUNCHER = "litearm-studio"
+LAUNCHER = "litearm-vr-studio"
 INSTALL_DIR = f"/usr/lib/{PACKAGE}"
 
 #: The console's own default gripper calibration, shipped inside the daemon
@@ -149,7 +149,7 @@ BROWSER_SUGGESTS = "firefox | chromium | chromium-browser | google-chrome-stable
 #: `litearm-can-dkms` ships a patched module plus a udev rule that brings CAN up. It is a
 #: `Recommends`, not a `Depends`: arm-only machines have no CAN adapter and should not be
 #: made to install dkms and a compiler. apt installs recommendations by default, so the
-#: usual `apt install ./litearm-studio.deb` still gets it.
+#: usual `apt install ./litearm-vr-studio.deb` still gets it.
 CAN_RECOMMENDS = "litearm-can-dkms"
 
 
@@ -235,7 +235,7 @@ def depends_for(window_backend: str) -> list[str]:
 
 
 def launcher_script() -> str:
-    """`/usr/bin/litearm-studio`: a two-line wrapper, not a copy of the executable."""
+    """`/usr/bin/litearm-vr-studio`: a two-line wrapper, not a copy of the executable."""
     return (
         "#!/bin/sh\n"
         f"# Installed by the {PACKAGE} Debian package. The program itself is a\n"
@@ -257,7 +257,7 @@ def desktop_entry() -> str:
         "[Desktop Entry]\n"
         "Type=Application\n"
         "Version=1.0\n"
-        "Name=LiteArm Studio\n"
+        "Name=LiteArm VR Studio\n"
         f"Comment={SYNOPSIS}\n"
         f"Exec={LAUNCHER}\n"
         f"Icon={LAUNCHER}\n"
@@ -286,7 +286,7 @@ def udev_rule() -> str:
 def copyright_text() -> str:
     return (
         "Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/\n"
-        "Upstream-Name: LiteArm Studio\n"
+        "Upstream-Name: LiteArm VR Studio\n"
         f"Source: {HOMEPAGE}\n"
         "\n"
         "Files: *\n"

@@ -155,13 +155,13 @@ $(PDF_QS_EN): QUICKSTART.md $(COMMON_DEPS) | $(DIST_DIR)
 $(PDF_MANUAL_ZH): USER_MANUAL_ZH.md $(COMMON_DEPS) | $(DIST_DIR)
 	@echo -e "$(CYAN)[BUILD]$(RESET) 正在编译 User Manual (中文) -> $@ ..."
 	@$(PANDOC) USER_MANUAL_ZH.md -o $@ $(PANDOC_FLAGS) \
-		-M title="LiteArm Studio" \
+		-M title="LiteArm VR Studio" \
 		-M subtitle="操作手册" \
-		-M title-meta="LiteArm Studio 操作手册" \
+		-M title-meta="LiteArm VR Studio 操作手册" \
 		-M author="$(DOC_AUTHOR_ZH)" \
 		-M date="$(DOC_DATE_ZH)" \
 		-V docversion="$(UM_VER_ZH)" \
-		-V header-includes="\gdef\storedhead{LiteArm Studio 操作手册}\gdef\revisionitemonetext{LiteArm Studio 操作手册初版发布}" \
+		-V header-includes="\gdef\storedhead{LiteArm VR Studio 操作手册}\gdef\revisionitemonetext{LiteArm VR Studio 操作手册初版发布}" \
 		-M toc-title="目录"
 	@cp -f $@ $(DIST_DIR)/LiteArm_User_Manual_ZH.pdf
 	@echo -e "$(GREEN)[  OK ]$(RESET) $@"
@@ -170,13 +170,13 @@ $(PDF_MANUAL_ZH): USER_MANUAL_ZH.md $(COMMON_DEPS) | $(DIST_DIR)
 $(PDF_MANUAL_EN): USER_MANUAL.md $(COMMON_DEPS) | $(DIST_DIR)
 	@echo -e "$(CYAN)[BUILD]$(RESET) 正在编译 User Manual (英文) -> $@ ..."
 	@$(PANDOC) USER_MANUAL.md -o $@ $(PANDOC_FLAGS) \
-		-M title="LiteArm Studio" \
+		-M title="LiteArm VR Studio" \
 		-M subtitle="User Manual" \
-		-M title-meta="LiteArm Studio User Manual" \
+		-M title-meta="LiteArm VR Studio User Manual" \
 		-M author="$(DOC_AUTHOR_EN)" \
 		-M date="$(DOC_DATE_EN)" \
 		-V docversion="$(UM_VER_EN)" \
-		-V header-includes="\gdef\storedhead{LiteArm Studio User Manual}$(HEADER_EN_EXTRA)\gdef\revisionitemonetext{LiteArm Studio User Manual Initial Release}" \
+		-V header-includes="\gdef\storedhead{LiteArm VR Studio User Manual}$(HEADER_EN_EXTRA)\gdef\revisionitemonetext{LiteArm VR Studio User Manual Initial Release}" \
 		-M toc-title="Table of Contents"
 	@cp -f $@ $(DIST_DIR)/LiteArm_User_Manual_EN.pdf
 	@echo -e "$(GREEN)[  OK ]$(RESET) $@"

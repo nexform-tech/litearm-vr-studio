@@ -303,7 +303,7 @@ def test_every_line_is_a_parseable_json_object(logging_daemon) -> None:
     assert lines
     for line in lines:
         row = json.loads(line)
-        assert row["service"] == "litearm-studio-daemon"
+        assert row["service"] == "litearm-vr-studio-daemon"
         assert row["ts"].endswith("Z")
         assert isinstance(row["severity_number"], int)
         assert row["event"]

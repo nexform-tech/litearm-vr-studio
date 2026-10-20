@@ -58,14 +58,14 @@ def log_dir_choice(platform: str, os_name: str) -> tuple:
     Posix/Windows at import, so a Windows expectation cannot be built on Linux.
 
     The base and the trailing parts are separate because the env var *replaces*
-    the base: with ``XDG_STATE_HOME=/x`` the directory is ``/x/litearm-studio``,
-    and on macOS (no env var) it is ``~/Library/Logs/litearm-studio``.
+    the base: with ``XDG_STATE_HOME=/x`` the directory is ``/x/litearm-vr-studio``,
+    and on macOS (no env var) it is ``~/Library/Logs/litearm-vr-studio``.
     """
     if platform == "darwin":
-        return (None, ("Library", "Logs"), ("litearm-studio",))
+        return (None, ("Library", "Logs"), ("litearm-vr-studio",))
     if os_name == "nt":
-        return ("LOCALAPPDATA", ("AppData", "Local"), ("litearm-studio", "Logs"))
-    return ("XDG_STATE_HOME", (".local", "state"), ("litearm-studio",))
+        return ("LOCALAPPDATA", ("AppData", "Local"), ("litearm-vr-studio", "Logs"))
+    return ("XDG_STATE_HOME", (".local", "state"), ("litearm-vr-studio",))
 
 
 def default_log_dir() -> Path:
@@ -76,12 +76,12 @@ def default_log_dir() -> Path:
 
     * ``$LITEARM_STUDIO_LOG_DIR`` when set — the escape hatch for a container or
       a test, and the only thing that overrides the platform default;
-    * Linux/other POSIX: ``$XDG_STATE_HOME/litearm-studio`` or
-      ``~/.local/state/litearm-studio``. State, not cache and not data: the file
+    * Linux/other POSIX: ``$XDG_STATE_HOME/litearm-vr-studio`` or
+      ``~/.local/state/litearm-vr-studio``. State, not cache and not data: the file
       is meant to survive, and it is not a document the user manages;
-    * macOS: ``~/Library/Logs/litearm-studio``, the directory Console.app and
+    * macOS: ``~/Library/Logs/litearm-vr-studio``, the directory Console.app and
       every Mac user already looks in;
-    * Windows: ``%LOCALAPPDATA%\\litearm-studio\\Logs``, per-user and not
+    * Windows: ``%LOCALAPPDATA%\\litearm-vr-studio\\Logs``, per-user and not
       roaming, so a roaming profile does not carry one machine's logs to another.
     """
     override = os.environ.get(LOG_DIR_ENV, "").strip()
@@ -94,7 +94,7 @@ def default_log_dir() -> Path:
         # resolves the path, so the guard belongs here rather than in each test.
         import tempfile
 
-        return Path(tempfile.gettempdir()) / "litearm-studio-tests"
+        return Path(tempfile.gettempdir()) / "litearm-vr-studio-tests"
     home = Path.home()
     env_name, fallback, trailing = log_dir_choice(sys.platform, os.name)
     if env_name:

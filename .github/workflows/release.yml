@@ -190,8 +190,8 @@ jobs:
         shell: bash # `${VERSION#v}` 是 bash 展开, 显式声明免得默认 shell 变了就悄悄出错
         run: |
           mkdir -p upload
-          cp packaging/dist/litearm-studio-daemon \
-             "upload/litearm-studio-${VERSION#v}-${{ matrix.suffix }}"
+          cp packaging/dist/litearm-vr-studio-daemon \
+             "upload/litearm-vr-studio-${VERSION#v}-${{ matrix.suffix }}"
 
       # Ubuntu and Debian users get a real package. It is the only artifact that can set
       # the serial-port permission (a udev rule with `uaccess`, so no `dialout` group and
@@ -220,7 +220,7 @@ jobs:
         shell: bash
         run: |
           "$PYTHON" packaging/deb.py \
-            --binary packaging/dist/litearm-studio-daemon \
+            --binary packaging/dist/litearm-vr-studio-daemon \
             --version "$VERSION" \
             --outdir upload
 
@@ -231,7 +231,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force upload | Out-Null
           $v = "$env:VERSION".TrimStart('v')
-          Copy-Item packaging/dist/litearm-studio-daemon.exe "upload/litearm-studio-$v-${{ matrix.suffix }}"
+          Copy-Item packaging/dist/litearm-vr-studio-daemon.exe "upload/litearm-vr-studio-$v-${{ matrix.suffix }}"
 
       # 产物的 sha256 也一起发出去, 便于安装侧校验。纯 Python 脚本而不是内联 shell:
       # Windows 的默认 shell 是 pwsh, `python - <<'PY'` 在那边是语法错误 (实测 CI 被它判失败)。

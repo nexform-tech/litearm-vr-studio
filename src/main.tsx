@@ -33,7 +33,7 @@ createRoot(document.getElementById('root')!).render(
         <Suspense
           fallback={
             <div className="flex h-screen w-screen items-center justify-center bg-muted text-sm text-muted-foreground">
-              LiteArm Studio
+              LiteArm VR Studio
             </div>
           }
         >

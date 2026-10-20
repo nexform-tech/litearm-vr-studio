@@ -1,8 +1,8 @@
-# LiteArm Studio
+# LiteArm VR Studio
 
 [English](README.md) | **简体中文**
 
-**LiteArm Studio** 是 LiteArm 七自由度协作机械臂的操作上位机。它是「本地 Python 程序 + 浏览器界面」：**只有本地程序碰硬件**，界面通过 `127.0.0.1` 上的 WebSocket 与它通信。
+**LiteArm VR Studio** 是 LiteArm 七自由度协作机械臂的操作上位机。它是「本地 Python 程序 + 浏览器界面」：**只有本地程序碰硬件**，界面通过 `127.0.0.1` 上的 WebSocket 与它通信。
 
 > **VR-only 版本。** 本分支只保留 **VR 遥操控制台**（`/vr`）。手动控制页（关节滑条 / 笛卡尔点动 / 夹爪）、日志页与设置页已连同导航入口及页面专用模块一起删除。`daemon/` 与 `sdk/` 未改动，硬件守护进程和 VR 桥也一行未动；下文若提到这些页面，说的是上游完整版。
 
@@ -15,7 +15,7 @@
    │  HTTP  → 静态资源、/api/health
    │  WS    → 状态推送(下行) / 命令(上行)
    ▼
-litearm-studio-daemon  (Python, 只监听本机, `daemon/`)
+litearm-vr-studio-daemon  (Python, 只监听本机, `daemon/`)
    ▼
 litearm-python  ──USB CDC (1d50:606f)──>  STM32  ──CAN──>  电机
 ```
@@ -79,21 +79,21 @@ litearm-python  ──USB CDC (1d50:606f)──>  STM32  ──CAN──>  电�
 
 **别和同名的旧产品搞混**：`dpkg -l` 里若有 `lite-arm-studio`（描述里写着「Tauri 桌面端」），
 那是旧产品，界面与行为都跟本程序无关。本程序是「本地 Python 程序 + 浏览器界面」，
-命令行入口是 `litearm-studio-daemon`。
+命令行入口是 `litearm-vr-studio-daemon`。
 
 ### 2. 跑起完整应用
 
 ```bash
 cd litearm-studio
 make sdk                           # 取回并安装钉住版本的 SDK submodule
-pip install -e "daemon[test]"     # 装 fastapi/uvicorn，并提供 litearm-studio-daemon 入口
+pip install -e "daemon[test]"     # 装 fastapi/uvicorn，并提供 litearm-vr-studio-daemon 入口
 pnpm install && pnpm build         # 构建本地程序要托管的界面
 
-litearm-studio-daemon --fake       # 离线：用 SDK 的假传输跑完整会话，不碰硬件
-# litearm-studio-daemon --fake --fake-unactivated   # 不碰硬件，而且这台假设备**未激活**：
+litearm-vr-studio-daemon --fake       # 离线：用 SDK 的假传输跑完整会话，不碰硬件
+# litearm-vr-studio-daemon --fake --fake-unactivated   # 不碰硬件，而且这台假设备**未激活**：
 #                                                   # 「设置 → 授权激活」会显示注册表单
-# litearm-studio-daemon            # 真机：自动发现 USB CDC 设备
-# litearm-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
+# litearm-vr-studio-daemon            # 真机：自动发现 USB CDC 设备
+# litearm-vr-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
 ```
 
 假设备默认是**已激活**的，所以授权面板只显示状态、不出表单。加上 `--fake-unactivated`
@@ -157,7 +157,7 @@ pnpm install
 pnpm dev        # http://localhost:5173 —— 把 /ws 与 /api 代理到 127.0.0.1:49321
 ```
 
-另开一个终端跑 `litearm-studio-daemon --fake --no-open` 即可。
+另开一个终端跑 `litearm-vr-studio-daemon --fake --no-open` 即可。
 
 ### 4. 预打包产物
 
@@ -173,18 +173,18 @@ cd ~/Downloads
 # 最新 tag 见 https://github.com/nexform-tech/litearm-studio/releases
 version=0.17.4
 base="https://github.com/nexform-tech/litearm-studio/releases/download/v${version}"
-curl -LO "$base/litearm-studio_${version}_amd64.deb"
-curl -LO "$base/litearm-studio_${version}_amd64.deb.sha256"
-sha256sum -c "litearm-studio_${version}_amd64.deb.sha256"   # 输出 ...: OK
-sudo apt install "./litearm-studio_${version}_amd64.deb"
-litearm-studio --fake     # 离线，不碰硬件
+curl -LO "$base/litearm-vr-studio_${version}_amd64.deb"
+curl -LO "$base/litearm-vr-studio_${version}_amd64.deb.sha256"
+sha256sum -c "litearm-vr-studio_${version}_amd64.deb.sha256"   # 输出 ...: OK
+sudo apt install "./litearm-vr-studio_${version}_amd64.deb"
+litearm-vr-studio --fake     # 离线，不碰硬件
 ```
 
 `version` 是个**会过期的数字**：照抄一个旧值不会报错，`curl` 照样下得到那份旧构建，
 装完才发现比最新版少了好几个版本的功能。装之前扫一眼 releases 页。
 
-每个 release 的三种附件命名固定为 `litearm-studio_<版本>_amd64.deb`、
-`litearm-studio-<版本>-linux-amd64`、`litearm-studio-<版本>-windows-amd64.exe`，各自都带
+每个 release 的三种附件命名固定为 `litearm-vr-studio_<版本>_amd64.deb`、
+`litearm-vr-studio-<版本>-linux-amd64`、`litearm-vr-studio-<版本>-windows-amd64.exe`，各自都带
 `.sha256`。
 
 其他发行版与 Windows 用单文件可执行程序：它下载后**没有执行权限**，先 `chmod +x`；Linux 版需要
@@ -193,12 +193,12 @@ glibc 2.35 及以上。
 ```bash
 mkdir -p ~/Applications && cd ~/Applications
 # $base 与 $version 沿用上面的赋值
-curl -LO "$base/litearm-studio-${version}-linux-amd64"
-curl -LO "$base/litearm-studio-${version}-linux-amd64.sha256"
-sha256sum -c "litearm-studio-${version}-linux-amd64.sha256"   # 输出 ...: OK
-chmod +x "litearm-studio-${version}-linux-amd64"
-./"litearm-studio-${version}-linux-amd64" --fake     # 离线，不碰硬件
-./"litearm-studio-${version}-linux-amd64"            # 真机，自动发现 USB 设备
+curl -LO "$base/litearm-vr-studio-${version}-linux-amd64"
+curl -LO "$base/litearm-vr-studio-${version}-linux-amd64.sha256"
+sha256sum -c "litearm-vr-studio-${version}-linux-amd64.sha256"   # 输出 ...: OK
+chmod +x "litearm-vr-studio-${version}-linux-amd64"
+./"litearm-vr-studio-${version}-linux-amd64" --fake     # 离线，不碰硬件
+./"litearm-vr-studio-${version}-linux-amd64"            # 真机，自动发现 USB 设备
 ```
 
 完整的环境要求、串口权限与首次激活步骤见 [docs/INSTALL_ZH.md](docs/INSTALL_ZH.md)。

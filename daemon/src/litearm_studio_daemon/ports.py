@@ -8,7 +8,7 @@
 只会让操作员在噪声里找真设备。判据取"名字像 USB 串口"**或** VID:PID 就是 STM32 CDC
 (`1d50:606f`, 与 `litearm.find_cdc_port` 认的是同一台设备)。
 
-文件位置与夹爪那份同构 (`$XDG_CONFIG_HOME/litearm-studio/arm.json`), 用
+文件位置与夹爪那份同构 (`$XDG_CONFIG_HOME/litearm-vr-studio/arm.json`), 用
 `LITEARM_STUDIO_ARM_CONFIG` 覆盖 —— 测试与"配置放别处"的操作员都要能改。
 读一份坏文件**不抛**: 认不出来就当作"没记住", 会话退回自动发现。
 """
@@ -47,13 +47,13 @@ _USB_SERIAL_MARKERS = ("ttyacm", "ttyusb", "usbmodem", "usbserial", "slab_usbto"
 
 
 def default_config_path() -> Path:
-    """``$XDG_CONFIG_HOME/litearm-studio/arm.json``, expanded."""
+    """``$XDG_CONFIG_HOME/litearm-vr-studio/arm.json``, expanded."""
     override = os.environ.get(CONFIG_ENV)
     if override:
         return Path(override).expanduser()
     base = os.environ.get("XDG_CONFIG_HOME")
     root = Path(base).expanduser() if base else Path.home() / ".config"
-    return root / "litearm-studio" / "arm.json"
+    return root / "litearm-vr-studio" / "arm.json"
 
 
 def _looks_like_usb_serial(device: str) -> bool:

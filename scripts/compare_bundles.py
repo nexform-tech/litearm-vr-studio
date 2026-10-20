@@ -6,7 +6,7 @@ whether the artifact still carries what the released one carries. It exists beca
 build image silently dropped `librsvg` and the SVG pixbuf loader: the package built, installed
 and started, and only the bundled Adwaita icons would have been broken.
 
-    scripts/compare_bundles.py released.deb packaging/dist/litearm-studio_*_amd64.deb [--ignore PATTERN ...]
+    scripts/compare_bundles.py released.deb packaging/dist/litearm-vr-studio_*_amd64.deb [--ignore PATTERN ...]
 
 Both arguments may be a `.deb`, a bare executable (either shape `packaging/build.py` can
 produce) or the bundle directory itself. The verdict is about the two things that change
@@ -43,7 +43,7 @@ from pathlib import Path
 
 from PyInstaller.archive.readers import CArchiveReader
 
-EXE_IN_DEB = Path("usr/lib/litearm-studio/litearm-studio-daemon")
+EXE_IN_DEB = Path("usr/lib/litearm-vr-studio/litearm-vr-studio-daemon")
 #: Where the directory shape keeps everything the executable is not (PyInstaller 6+).
 #: Reading the executable alone would see the bootstrap and nothing else.
 CONTENTS_DIR = "_internal"

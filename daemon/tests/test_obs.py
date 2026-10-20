@@ -363,20 +363,20 @@ def test_default_log_dir_follows_platform_convention(tmp_path: Path,
     # the Windows branch is covered through `log_dir_choice` and the
     # LOCALAPPDATA-missing case below instead.
     monkeypatch.setattr(handlers.sys, "platform", "linux")
-    assert handlers.default_log_dir() == tmp_path / "state" / "litearm-studio"
+    assert handlers.default_log_dir() == tmp_path / "state" / "litearm-vr-studio"
 
     monkeypatch.delenv("XDG_STATE_HOME")
-    assert handlers.default_log_dir() == Path.home() / ".local" / "state" / "litearm-studio"
+    assert handlers.default_log_dir() == Path.home() / ".local" / "state" / "litearm-vr-studio"
 
 
 def test_log_dir_table_names_each_platforms_convention() -> None:
     """The per-platform table is the contract; see `log_dir_choice` for why it is split out."""
     assert handlers.log_dir_choice("darwin", "posix") == (
-        None, ("Library", "Logs"), ("litearm-studio",))
+        None, ("Library", "Logs"), ("litearm-vr-studio",))
     assert handlers.log_dir_choice("win32", "nt") == (
-        "LOCALAPPDATA", ("AppData", "Local"), ("litearm-studio", "Logs"))
+        "LOCALAPPDATA", ("AppData", "Local"), ("litearm-vr-studio", "Logs"))
     assert handlers.log_dir_choice("linux", "posix") == (
-        "XDG_STATE_HOME", (".local", "state"), ("litearm-studio",))
+        "XDG_STATE_HOME", (".local", "state"), ("litearm-vr-studio",))
 
 
 def test_windows_falls_back_when_localappdata_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -385,7 +385,7 @@ def test_windows_falls_back_when_localappdata_is_missing(monkeypatch: pytest.Mon
     env_name, fallback, trailing = handlers.log_dir_choice("win32", "nt")
     assert env_name == "LOCALAPPDATA"
     assert fallback == ("AppData", "Local")
-    assert trailing == ("litearm-studio", "Logs")
+    assert trailing == ("litearm-vr-studio", "Logs")
 
 
 def test_pytest_run_never_touches_the_real_log_directory(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -394,7 +394,7 @@ def test_pytest_run_never_touches_the_real_log_directory(monkeypatch: pytest.Mon
     monkeypatch.setenv(handlers._PYTEST_ENV, "tests/test_obs.py::x")
     chosen = handlers.default_log_dir()
     assert ".local" not in chosen.parts
-    assert chosen.name == "litearm-studio-tests"
+    assert chosen.name == "litearm-vr-studio-tests"
 
 
 def test_log_dir_is_discoverable_for_the_http_layer(tmp_path: Path) -> None:

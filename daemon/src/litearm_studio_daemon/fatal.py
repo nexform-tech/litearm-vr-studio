@@ -60,7 +60,7 @@ def attach_parent_console() -> bool:
     """把 `stdout` / `stderr` 接回启动它的那个终端; 没有父控制台 (双击) 时返回 `False`。
 
     ⚠ **只在冻结产物里做**: 源码直跑时两个流本来就在, 而从管道里重开 `CONOUT$` 会把
-    输出从管道理到控制台 —— `litearm-studio-daemon --log-stdout | jq` 那类用法当场坏掉。
+    输出从管道理到控制台 —— `litearm-vr-studio-daemon --log-stdout | jq` 那类用法当场坏掉。
 
     ⚠ **只补缺的, 绝不覆盖已经存在的那个**。`sys.stdout` / `sys.stderr` 是 `None` 等价于
     "这个流根本没有落点"; 只要它**在**, 就说明启动我们的人给了它一个去处 —— 命令行上的
@@ -139,7 +139,7 @@ def show_fatal(message: str) -> bool:
     是为了让测试与将来的兜底有判据。
     """
     if _stderr_writable():
-        print(f"[litearm-studio-daemon] {message}", file=sys.stderr)
+        print(f"[litearm-vr-studio-daemon] {message}", file=sys.stderr)
         return True
     if on_windows():
         return _message_box(message)

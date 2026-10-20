@@ -1,6 +1,6 @@
-本文说明如何安装 LiteArm Studio 发布版，适用于直接下载发布文件、不从源码构建的用户。
+本文说明如何安装 LiteArm VR Studio 发布版，适用于直接下载发布文件、不从源码构建的用户。
 
-# 安装 LiteArm Studio
+# 安装 LiteArm VR Studio
 
 每个版本都为两个平台发布同一个程序。程序自带 Python 运行时、机械臂 SDK、夹爪 SDK、USB DFU 烧录引擎和网页界面，无需安装 Python、Node.js，也无需下载源码仓库。
 
@@ -8,9 +8,9 @@
 
 | 文件 | 平台 | 说明 |
 | :--- | :--- | :--- |
-| `litearm-studio-<版本号>_amd64.deb` | Ubuntu 22.04+、Debian 12+ | 安装包，见 § 2 |
-| `litearm-studio-<版本号>-linux-amd64` | 其他 64 位 x86 Linux | 单文件可执行程序，见 § 3 |
-| `litearm-studio-<版本号>-windows-amd64.exe` | 64 位 x86 Windows | 同一程序的 `.exe` 版本，见 § 4 |
+| `litearm-vr-studio-<版本号>_amd64.deb` | Ubuntu 22.04+、Debian 12+ | 安装包，见 § 2 |
+| `litearm-vr-studio-<版本号>-linux-amd64` | 其他 64 位 x86 Linux | 单文件可执行程序，见 § 3 |
+| `litearm-vr-studio-<版本号>-windows-amd64.exe` | 64 位 x86 Windows | 同一程序的 `.exe` 版本，见 § 4 |
 | `<文件名>.sha256` | — | 同目录文件的 SHA-256 校验值 |
 
 只发布以上架构。arm64 设备无法运行这些文件，请从源码构建。
@@ -33,17 +33,17 @@ mkdir -p ~/Downloads
 cd ~/Downloads
 version=0.12.0
 base="https://github.com/nexform-tech/litearm-studio/releases/download/v${version}"
-curl -LO "$base/litearm-studio_${version}_amd64.deb"
-curl -LO "$base/litearm-studio_${version}_amd64.deb.sha256"
-sha256sum -c "litearm-studio_${version}_amd64.deb.sha256"
-# litearm-studio_0.12.0_amd64.deb: OK
+curl -LO "$base/litearm-vr-studio_${version}_amd64.deb"
+curl -LO "$base/litearm-vr-studio_${version}_amd64.deb.sha256"
+sha256sum -c "litearm-vr-studio_${version}_amd64.deb.sha256"
+# litearm-vr-studio_0.12.0_amd64.deb: OK
 ```
 
 ### 2.2 安装
 
 ```bash
 cd ~/Downloads
-sudo apt install ./litearm-studio_0.12.0_amd64.deb
+sudo apt install ./litearm-vr-studio_0.12.0_amd64.deb
 ```
 
 请使用 `apt install ./文件名.deb`，不要用 `dpkg -i`。apt 会自动处理依赖，并在系统低于 Ubuntu 22.04 / Debian 12 时拒绝安装，避免装好后因缺少 `GLIBC_2.35` 无法启动。
@@ -52,36 +52,36 @@ sudo apt install ./litearm-studio_0.12.0_amd64.deb
 
 ### 2.3 启动
 
-安装后 `litearm-studio` 命令可直接使用，应用列表中也会出现 **LiteArm Studio**。两种方式都可以启动程序。
+安装后 `litearm-vr-studio` 命令可直接使用，应用列表中也会出现 **LiteArm VR Studio**。两种方式都可以启动程序。
 
 ```bash
-litearm-studio
-litearm-studio --fake     # 离线模式：无需硬件的完整会话
+litearm-vr-studio
+litearm-vr-studio --fake     # 离线模式：无需硬件的完整会话
 ```
 
 程序会打印监听地址（默认 `http://127.0.0.1:49321/`）并打开窗口。端口被占用时会自动换用下一个空闲端口，**请以打印出的地址为准**。这个窗口就是完整的操作界面，而且它属于这个程序：**关掉窗口就是退出程序**，机械臂随之失能、串口随之释放。刷新页面不会退出——只有关窗口才会。
 
-在一个实例还在跑的时候再次启动 `litearm-studio`，不会另起第二个程序，而是**把那个实例的窗口抬到前面**。这一点很要紧：第二个程序连不上机械臂——串口握在第一个进程手里。显式要求某种会话的选项（`--port`、`--fake`、`--can-channel`、`--ui-dir` 等）例外，它们会另起一个实例，因为复用等于把这些选择静默丢掉。**版本不同**的在跑实例也不复用：装了新版之后，新版会照常启动。要无界面运行用 `litearm-studio --no-open`，那时界面可以用浏览器连打印出的地址。
+在一个实例还在跑的时候再次启动 `litearm-vr-studio`，不会另起第二个程序，而是**把那个实例的窗口抬到前面**。这一点很要紧：第二个程序连不上机械臂——串口握在第一个进程手里。显式要求某种会话的选项（`--port`、`--fake`、`--can-channel`、`--ui-dir` 等）例外，它们会另起一个实例，因为复用等于把这些选择静默丢掉。**版本不同**的在跑实例也不复用：装了新版之后，新版会照常启动。要无界面运行用 `litearm-vr-studio --no-open`，那时界面可以用浏览器连打印出的地址。
 
 ### 2.4 安装包写入的内容
 
 | 路径 | 用途 |
 | :--- | :--- |
-| `/usr/bin/litearm-studio` | 启动程序的命令 |
-| `/usr/lib/litearm-studio/litearm-studio-daemon` | 可执行程序；它自带的 `_internal/` 目录就在旁边，两者要一起留着 |
-| `/usr/share/applications/litearm-studio.desktop` | 应用列表入口 |
-| `/usr/share/icons/hicolor/*/apps/litearm-studio.png` | 图标 |
-| `/usr/lib/udev/rules.d/60-litearm-studio.rules` | 允许当前登录的桌面用户访问机械臂串口，无需加入 `dialout` 组 |
+| `/usr/bin/litearm-vr-studio` | 启动程序的命令 |
+| `/usr/lib/litearm-vr-studio/litearm-vr-studio-daemon` | 可执行程序；它自带的 `_internal/` 目录就在旁边，两者要一起留着 |
+| `/usr/share/applications/litearm-vr-studio.desktop` | 应用列表入口 |
+| `/usr/share/icons/hicolor/*/apps/litearm-vr-studio.png` | 图标 |
+| `/usr/lib/udev/rules.d/60-litearm-vr-studio.rules` | 允许当前登录的桌面用户访问机械臂串口，无需加入 `dialout` 组 |
 
 这条 udev 规则通过 systemd-logind 的 ACL（`TAG+="uaccess"`）生效，只对桌面登录有效。通过 SSH 登录时请按 § 5 操作。
 
 ### 2.5 卸载
 
 ```bash
-sudo apt remove litearm-studio
+sudo apt remove litearm-vr-studio
 ```
 
-设置文件保留在 `~/.config/litearm-studio/`，见 § 8。
+设置文件保留在 `~/.config/litearm-vr-studio/`，见 § 8。
 
 ## 3. 在 Linux 上安装单文件版
 
@@ -96,16 +96,16 @@ mkdir -p ~/Applications
 cd ~/Applications
 version=0.12.0
 base="https://github.com/nexform-tech/litearm-studio/releases/download/v${version}"
-curl -LO "$base/litearm-studio-${version}-linux-amd64"
-curl -LO "$base/litearm-studio-${version}-linux-amd64.sha256"
+curl -LO "$base/litearm-vr-studio-${version}-linux-amd64"
+curl -LO "$base/litearm-vr-studio-${version}-linux-amd64.sha256"
 ```
 
 ### 3.2 校验
 
 ```bash
 cd ~/Applications
-sha256sum -c litearm-studio-0.12.0-linux-amd64.sha256
-# litearm-studio-0.12.0-linux-amd64: OK
+sha256sum -c litearm-vr-studio-0.12.0-linux-amd64.sha256
+# litearm-vr-studio-0.12.0-linux-amd64: OK
 ```
 
 `.sha256` 文件里记录的是可执行文件的文件名，因此两个文件必须放在同一目录下，`sha256sum -c` 才能通过。移动了可执行文件，就要连同校验文件一起移动。
@@ -114,8 +114,8 @@ sha256sum -c litearm-studio-0.12.0-linux-amd64.sha256
 
 ```bash
 cd ~/Applications
-chmod +x litearm-studio-0.12.0-linux-amd64
-./litearm-studio-0.12.0-linux-amd64
+chmod +x litearm-vr-studio-0.12.0-linux-amd64
+./litearm-vr-studio-0.12.0-linux-amd64
 ```
 
 程序会打印监听地址（默认 `http://127.0.0.1:49321/`）并自动打开窗口。端口被占用时请以打印出的地址为准。
@@ -127,7 +127,7 @@ chmod +x litearm-studio-0.12.0-linux-amd64
 | glibc 2.35 及以上 | 即 Ubuntu 22.04+、Debian 12+。在 Ubuntu 20.04 上程序无法启动，终端提示缺少 `GLIBC_2.35` |
 | GTK 3 与 WebKitGTK 4.1 | 窗口由系统自带的 WebKitGTK 绘制，可执行文件里不带它。Ubuntu / Debian 上执行 `sudo apt install gir1.2-webkit2-4.1` 即可。缺了它会打印 `无法打开应用窗口: 没有可用的 webview 后端` 与三条出路，并以状态码 3 退出，而不是打开窗口 |
 | `$TMPDIR` 可执行 | 每次启动都会把整包（这一版约 40 MB）解压到 `$TMPDIR`（默认 `/tmp`）并从中运行。`/tmp` 以 `noexec` 挂载时无法启动，请把 `TMPDIR` 指向普通目录 |
-| 浏览器（可选） | 仅当你想用浏览器代替内置窗口时：用 `litearm-studio --no-open` 启动，再打开它打印出的地址 |
+| 浏览器（可选） | 仅当你想用浏览器代替内置窗口时：用 `litearm-vr-studio --no-open` 启动，再打开它打印出的地址 |
 | 串口访问权限 | 仅连接真实机械臂时需要，见 § 5 |
 
 启动需要几秒钟，这是解压造成的，属于正常现象。
@@ -146,18 +146,18 @@ chmod +x litearm-studio-0.12.0-linux-amd64
 | `--no-can-setup` | 不尝试通过 `pkexec` 拉起 CAN 接口 |
 | `--verbose` | 输出调试日志 |
 
-完整参数见 `litearm-studio --help`；单文件版请执行 `./litearm-studio-0.12.0-linux-amd64 --help`。
+完整参数见 `litearm-vr-studio --help`；单文件版请执行 `./litearm-vr-studio-0.12.0-linux-amd64 --help`。
 
 ## 4. 在 Windows 上安装
 
-从同一发布页下载 `litearm-studio-<版本号>-windows-amd64.exe`，双击运行即可，不需要其他组件，打开的是同一个窗口。
+从同一发布页下载 `litearm-vr-studio-<版本号>-windows-amd64.exe`，双击运行即可，不需要其他组件，打开的是同一个窗口。
 
 出现的只有应用窗口：可执行文件按**图形子系统**打包，Windows 不会再配一个控制台窗口。双击到窗口出来之间有几秒：单文件版每次启动都要把整包解到 `%TEMP%`，之后才是内嵌浏览器的初始化。程序若起不来，原因会以对话框弹出，完整记录见 [docs/LOGS.md](LOGS.md) 里指出的那个日志文件。想在终端里读同样的消息，就从 `cmd` 或 PowerShell 启动它 —— 它会把输出接回那个终端。
 
 校验下载文件：在文件所在目录执行以下命令，并将输出与 `.sha256` 文件的内容比对。
 
 ```powershell
-certutil -hashfile litearm-studio-0.12.0-windows-amd64.exe SHA256
+certutil -hashfile litearm-vr-studio-0.12.0-windows-amd64.exe SHA256
 ```
 
 可执行文件没有代码签名，首次运行时 Windows 会提示「Windows 已保护你的电脑」。点击**更多信息**，再点击**仍要运行**，否则程序无法启动。**不要**为此关闭整台电脑的 SmartScreen。
@@ -175,7 +175,7 @@ sudo usermod -aG dialout "$USER"   # 注销并重新登录后生效
 必须注销后重新登录，只打开新终端不起作用。也可以改用 udev 规则授权桌面用户，这与 `.deb` 安装的规则相同：
 
 ```bash
-sudo tee /etc/udev/rules.d/60-litearm-studio.rules >/dev/null <<'EOF'
+sudo tee /etc/udev/rules.d/60-litearm-vr-studio.rules >/dev/null <<'EOF'
 SUBSYSTEM=="tty", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="606f", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="uaccess"
 EOF
 sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=tty
@@ -209,27 +209,27 @@ sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=tt
 
 ## 8. 设置文件位置
 
-程序只保存少量设置（目前是上次使用的 SocketCAN 接口），位于 `$XDG_CONFIG_HOME/litearm-studio/`，默认是 `~/.config/litearm-studio/`。
+程序只保存少量设置（目前是上次使用的 SocketCAN 接口），位于 `$XDG_CONFIG_HOME/litearm-vr-studio/`，默认是 `~/.config/litearm-vr-studio/`。
 
 卸载程序不会删除这些设置，需要手动清理：
 
 ```bash
-sudo apt remove litearm-studio                          # 安装包方式
-rm ~/Applications/litearm-studio-0.12.0-linux-amd64     # 单文件方式
-rm -rf ~/.config/litearm-studio
+sudo apt remove litearm-vr-studio                          # 安装包方式
+rm ~/Applications/litearm-vr-studio-0.12.0-linux-amd64     # 单文件方式
+rm -rf ~/.config/litearm-vr-studio
 ```
 
 ## 9. 常见问题
 
 | 现象 | 原因与处理 |
 | :--- | :--- |
-| `bash: ./litearm-studio-0.12.0-linux-amd64: Permission denied` | 单文件版没有执行权限。执行 `chmod +x`（见 § 3.3），或改装 `.deb` |
+| `bash: ./litearm-vr-studio-0.12.0-linux-amd64: Permission denied` | 单文件版没有执行权限。执行 `chmod +x`（见 § 3.3），或改装 `.deb` |
 | `cannot execute binary file: Exec format error` | 文件只支持 x86-64，或下载被代理截断。重新下载并校验 |
 | `version 'GLIBC_2.35' not found` | 系统低于 Ubuntu 22.04 / Debian 12，请从源码构建 |
 | `apt install` 报 `libc6 (>= 2.35)` 无法满足 | 原因同上，由 apt 在安装前报出，请从源码构建 |
-| 程序启动后立即退出，提示解压失败 | `$TMPDIR`（通常是 `/tmp`）以 `noexec` 挂载。先创建 `~/tmp`，再执行 `TMPDIR=~/tmp litearm-studio` |
+| 程序启动后立即退出，提示解压失败 | `$TMPDIR`（通常是 `/tmp`）以 `noexec` 挂载。先创建 `~/tmp`，再执行 `TMPDIR=~/tmp litearm-vr-studio` |
 | 界面能打开，但顶栏一直显示「连接失败」 | 串口设备不存在或没有读取权限。检查 § 5，并用 `--port` 显式指定设备 |
 | 界面能打开，但一直没有状态 | WebSocket 被拦截。握手要求同源，改写来源的代理或浏览器扩展会导致失败 |
-| 没有窗口，终端只提示 `无法打开应用窗口: 没有可用的 webview 后端` | 没有可用的 webview 后端，窗口建不出来。提示里给了三条出路：装系统的 WebKitGTK（`sudo apt install python3-gi gir1.2-webkit2-4.1`）、装自带内核的 Qt（`pip install "litearm-studio-daemon[ui-qt]"`），或者不要窗口地运行（`litearm-studio-daemon --no-open`）再打开它打印的地址。程序以状态码 3 退出 —— 它**刻意不静默退回无界面** |
+| 没有窗口，终端只提示 `无法打开应用窗口: 没有可用的 webview 后端` | 没有可用的 webview 后端，窗口建不出来。提示里给了三条出路：装系统的 WebKitGTK（`sudo apt install python3-gi gir1.2-webkit2-4.1`）、装自带内核的 Qt（`pip install "litearm-vr-studio-daemon[ui-qt]"`），或者不要窗口地运行（`litearm-vr-studio-daemon --no-open`）再打开它打印的地址。程序以状态码 3 退出 —— 它**刻意不静默退回无界面** |
 | 点「使能」没有反应 | 机械臂尚未激活，见 § 7 |
 | 激活页面提示「固件不支持」 | 固件版本低于 1.8.0，需要先升级固件，见 [用户手册](USER_MANUAL_ZH.md) §5.7 |

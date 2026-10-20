@@ -1,4 +1,4 @@
-LiteArm Studio reads whether an arm is activated and submits the vendor-issued
+LiteArm VR Studio reads whether an arm is activated and submits the vendor-issued
 credential to the device. This document is the contract shared by the Studio
 activation panel, the daemon's `license` command, and the vendor signer; read it
 before changing any of the three.

@@ -429,18 +429,18 @@ def test_the_product_check_reads_a_frozen_tree(tmp_path, monkeypatch) -> None:
     那种退化: 上游多出一条收集路径, 构建照样"成功", 包又悄悄多带一份。
     """
     monkeypatch.setattr(build, "HOOKS_DIR", ROOT / "packaging" / "hooks")
-    tree = tmp_path / "litearm-studio-daemon" / "_internal"
+    tree = tmp_path / "litearm-vr-studio-daemon" / "_internal"
     (tree / "gi").mkdir(parents=True)
     (tree / "gi" / "_gi.cpython-310-x86_64-linux-gnu.so").write_bytes(b"ours")
 
-    assert build.desktop_stack_members(tmp_path / "litearm-studio-daemon"
+    assert build.desktop_stack_members(tmp_path / "litearm-vr-studio-daemon"
                                        / build.EXE_NAME, "onedir") == []
 
     (tree / "libglib-2.0.so.0").write_bytes(b"the system's, copied")
     (tree / "gi_typelibs").mkdir()
     (tree / "gi_typelibs" / "Gtk-3.0.typelib").write_bytes(b"the system's, copied")
 
-    found = dict(build.desktop_stack_members(tmp_path / "litearm-studio-daemon"
+    found = dict(build.desktop_stack_members(tmp_path / "litearm-vr-studio-daemon"
                                              / build.EXE_NAME, "onedir"))
     assert set(found) == {"libglib-2.0.so.0", "gi_typelibs/Gtk-3.0.typelib"}
     assert "盖住" in found["libglib-2.0.so.0"]

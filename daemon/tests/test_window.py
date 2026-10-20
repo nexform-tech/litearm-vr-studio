@@ -332,7 +332,7 @@ def _install(monkeypatch, name: str, module: types.ModuleType) -> None:
 def test_window_identity_is_set_on_both_backends(monkeypatch) -> None:
     """GTK 与 Qt 各有一套"我叫什么", 两套都要设成同一个值。
 
-    不设的后果不是报错: 桌面找不到 `litearm-studio.desktop`, 窗口就借用了通用图标 ——
+    不设的后果不是报错: 桌面找不到 `litearm-vr-studio.desktop`, 窗口就借用了通用图标 ——
     "能用但就是不对"的那种缺陷, 所以两个后端都钉住。
 
     ⚠ GTK 那边只有 `set_prgname` 是可用的那一个 —— 它喂 X11 的 WM_CLASS instance 与

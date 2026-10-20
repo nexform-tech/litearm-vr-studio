@@ -2,8 +2,8 @@
 
 ```bash
 python packaging/checksums.py upload
-# upload/litearm-studio-0.6.2-linux-amd64.sha256
-# upload/litearm-studio-0.6.2-windows-amd64.exe.sha256
+# upload/litearm-vr-studio-0.6.2-linux-amd64.sha256
+# upload/litearm-vr-studio-0.6.2-windows-amd64.exe.sha256
 ```
 
 ⚠ **为什么不是一份聚合的 `SHA256SUMS.txt`**: 打包 job 是 ubuntu / windows 两个

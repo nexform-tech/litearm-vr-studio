@@ -1353,7 +1353,7 @@ def create_app(session: Session, *, gripper: Optional[Any] = None,
                     task.cancel()
                     setattr(daemon, name, None)
 
-    app = FastAPI(title="LiteArm Studio Daemon", version=version, docs_url=None,
+    app = FastAPI(title="LiteArm VR Studio Daemon", version=version, docs_url=None,
                   redoc_url=None, openapi_url=None, lifespan=_lifespan)
     # 让 `handle_ws` 拿得到事件循环 (会话事件要从别的线程投递进来)。
     app.state.daemon = daemon
@@ -1625,7 +1625,7 @@ async def serve(session: Session, *, gripper: Optional[Any] = None,
         log.info("端口 0: 内核挑定 %d", http_port)
     port = pick_free_http_port(host, http_port)
     if port != http_port:
-        print(f"[litearm-studio-daemon] 端口 {http_port} 被占用, 改用 {port}")
+        print(f"[litearm-vr-studio-daemon] 端口 {http_port} 被占用, 改用 {port}")
         # ⚠ 端口漂移是 issue #80 的**触发条件**: 它换掉页面 origin, 于是换掉 IndexedDB
         # 库。记录里留下这一条, 事后才解释得清"历史为什么看起来没了"。
         obs.warning(obs.DAEMON_STARTED,
@@ -1651,7 +1651,7 @@ async def serve(session: Session, *, gripper: Optional[Any] = None,
                             ws_ping_interval=20.0, ws_ping_timeout=20.0)
     server = uvicorn.Server(config)
     url = f"http://{host}:{port}/"
-    print(f"[litearm-studio-daemon] 监听 {url}  (WebSocket: ws://{host}:{port}/ws)")
+    print(f"[litearm-vr-studio-daemon] 监听 {url}  (WebSocket: ws://{host}:{port}/ws)")
     # `resolve_ui_dir` 是纯函数 (只看磁盘), 所以再算一次比把路径从 `create_app`
     # 里传出来更省事, 也不会与它给出的答案不一致。
     ui_path = resolve_ui_dir(ui_dir)

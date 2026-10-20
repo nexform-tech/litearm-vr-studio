@@ -1,7 +1,7 @@
-How to install LiteArm Studio from a release. Read this if you downloaded a release
+How to install LiteArm VR Studio from a release. Read this if you downloaded a release
 instead of building the project from source.
 
-# Installing LiteArm Studio
+# Installing LiteArm VR Studio
 
 Every release publishes the same program for two platforms. The program is
 self-contained: it carries the Python runtime, the arm SDK, the gripper SDK, the USB
@@ -11,9 +11,9 @@ DFU engine and the web UI. You need no Python, no Node.js and no repository chec
 
 | File | Platform | What it is |
 | :--- | :--- | :--- |
-| `litearm-studio-<version>_amd64.deb` | Ubuntu 22.04+, Debian 12+ | the package to install; see § 2 |
-| `litearm-studio-<version>-linux-amd64` | other Linux, 64-bit x86 | the program as a plain one-file executable; see § 3 |
-| `litearm-studio-<version>-windows-amd64.exe` | 64-bit x86 Windows | the same program with an `.exe` suffix; see § 4 |
+| `litearm-vr-studio-<version>_amd64.deb` | Ubuntu 22.04+, Debian 12+ | the package to install; see § 2 |
+| `litearm-vr-studio-<version>-linux-amd64` | other Linux, 64-bit x86 | the program as a plain one-file executable; see § 3 |
+| `litearm-vr-studio-<version>-windows-amd64.exe` | 64-bit x86 Windows | the same program with an `.exe` suffix; see § 4 |
 | `<file>.sha256` | — | SHA-256 checksum of the file it is published next to |
 
 No other architecture is published. An arm64 machine cannot run these files; build from
@@ -42,17 +42,17 @@ mkdir -p ~/Downloads
 cd ~/Downloads
 version=0.12.0
 base="https://github.com/nexform-tech/litearm-studio/releases/download/v${version}"
-curl -LO "$base/litearm-studio_${version}_amd64.deb"
-curl -LO "$base/litearm-studio_${version}_amd64.deb.sha256"
-sha256sum -c "litearm-studio_${version}_amd64.deb.sha256"
-# litearm-studio_0.12.0_amd64.deb: OK
+curl -LO "$base/litearm-vr-studio_${version}_amd64.deb"
+curl -LO "$base/litearm-vr-studio_${version}_amd64.deb.sha256"
+sha256sum -c "litearm-vr-studio_${version}_amd64.deb.sha256"
+# litearm-vr-studio_0.12.0_amd64.deb: OK
 ```
 
 ### 2.2 Install
 
 ```bash
 cd ~/Downloads
-sudo apt install ./litearm-studio_0.12.0_amd64.deb
+sudo apt install ./litearm-vr-studio_0.12.0_amd64.deb
 ```
 
 Use `apt install ./file.deb` rather than `dpkg -i`: apt resolves the dependencies, and it
@@ -66,12 +66,12 @@ to open on Ubuntu 24.04, so there is exactly one copy on the machine and it is t
 
 ### 2.3 Start it
 
-`litearm-studio` is now on `PATH`, and **LiteArm Studio** appears in the application
+`litearm-vr-studio` is now on `PATH`, and **LiteArm VR Studio** appears in the application
 list. Either one starts the program.
 
 ```bash
-litearm-studio
-litearm-studio --fake     # offline: a complete session with no hardware
+litearm-vr-studio
+litearm-vr-studio --fake     # offline: a complete session with no hardware
 ```
 
 The program prints the address it listens on, `http://127.0.0.1:49321/` by default, and
@@ -80,24 +80,24 @@ printed address is the one to use**. The window is the whole interface, and it b
 the program: **closing it quits the program**, which de-energises the arm and releases the
 serial port. Reloading the page does not quit — only closing the window does.
 
-Starting `litearm-studio` again while an instance is already running **raises that
+Starting `litearm-vr-studio` again while an instance is already running **raises that
 instance's window** instead of starting a second program. This matters: a second program
 cannot reach the arm, because the first one holds the serial port. Options that ask for a
 specific session — `--port`, `--fake`, `--can-channel`, `--ui-dir` and the other session
 flags — start a separate instance instead, since reusing the running one would silently
 discard them. A running instance of a *different* version is not reused either, so after a
-package upgrade the new launch starts normally. Run `litearm-studio --no-open` to start
+package upgrade the new launch starts normally. Run `litearm-vr-studio --no-open` to start
 without a window (the UI is then reachable in a browser at the printed address).
 
 ### 2.4 What the package sets up
 
 | Path | Purpose |
 | :--- | :--- |
-| `/usr/bin/litearm-studio` | the command that starts the program |
-| `/usr/lib/litearm-studio/litearm-studio-daemon` | the program itself; its `_internal/` directory sits beside it — keep the two together |
-| `/usr/share/applications/litearm-studio.desktop` | the application-list entry |
-| `/usr/share/icons/hicolor/*/apps/litearm-studio.png` | the icon |
-| `/usr/lib/udev/rules.d/60-litearm-studio.rules` | lets the logged-in desktop user open the arm's serial port, so you never join the `dialout` group |
+| `/usr/bin/litearm-vr-studio` | the command that starts the program |
+| `/usr/lib/litearm-vr-studio/litearm-vr-studio-daemon` | the program itself; its `_internal/` directory sits beside it — keep the two together |
+| `/usr/share/applications/litearm-vr-studio.desktop` | the application-list entry |
+| `/usr/share/icons/hicolor/*/apps/litearm-vr-studio.png` | the icon |
+| `/usr/lib/udev/rules.d/60-litearm-vr-studio.rules` | lets the logged-in desktop user open the arm's serial port, so you never join the `dialout` group |
 
 The udev rule works through a systemd-logind ACL (`TAG+="uaccess"`), which covers a
 desktop login. Over SSH, use § 5 instead.
@@ -105,10 +105,10 @@ desktop login. Over SSH, use § 5 instead.
 ### 2.5 Uninstall
 
 ```bash
-sudo apt remove litearm-studio
+sudo apt remove litearm-vr-studio
 ```
 
-Settings stay in `~/.config/litearm-studio/` — see § 8.
+Settings stay in `~/.config/litearm-vr-studio/` — see § 8.
 
 ## 3. Install the standalone executable on Linux
 
@@ -123,16 +123,16 @@ mkdir -p ~/Applications
 cd ~/Applications
 version=0.12.0
 base="https://github.com/nexform-tech/litearm-studio/releases/download/v${version}"
-curl -LO "$base/litearm-studio-${version}-linux-amd64"
-curl -LO "$base/litearm-studio-${version}-linux-amd64.sha256"
+curl -LO "$base/litearm-vr-studio-${version}-linux-amd64"
+curl -LO "$base/litearm-vr-studio-${version}-linux-amd64.sha256"
 ```
 
 ### 3.2 Verify the checksum
 
 ```bash
 cd ~/Applications
-sha256sum -c litearm-studio-0.12.0-linux-amd64.sha256
-# litearm-studio-0.12.0-linux-amd64: OK
+sha256sum -c litearm-vr-studio-0.12.0-linux-amd64.sha256
+# litearm-vr-studio-0.12.0-linux-amd64: OK
 ```
 
 The `.sha256` file names the executable, so `sha256sum -c` only works while both files
@@ -143,8 +143,8 @@ as well.
 
 ```bash
 cd ~/Applications
-chmod +x litearm-studio-0.12.0-linux-amd64
-./litearm-studio-0.12.0-linux-amd64
+chmod +x litearm-vr-studio-0.12.0-linux-amd64
+./litearm-vr-studio-0.12.0-linux-amd64
 ```
 
 The program prints the address it listens on, `http://127.0.0.1:49321/` by default, and
@@ -157,7 +157,7 @@ opens a window. Use the printed address if that port was taken.
 | glibc 2.35 or newer | Ubuntu 22.04+, Debian 12+. On Ubuntu 20.04 the program fails to start and the shell reports a missing `GLIBC_2.35` |
 | GTK 3 and WebKitGTK 4.1 | The window is drawn by the system's WebKitGTK, so the executable does not carry one. On Ubuntu or Debian: `sudo apt install gir1.2-webkit2-4.1`. Without a usable backend the program prints `无法打开应用窗口: 没有可用的 webview 后端` plus three ways to supply one, and exits with status 3 instead of opening a window |
 | An executable `$TMPDIR` | Every start unpacks the whole bundle — around 40 MB for this build — into `$TMPDIR` (default `/tmp`) and runs from there. A `/tmp` mounted `noexec` breaks the start; point `TMPDIR` at a normal directory instead |
-| A browser (optional) | Only if you prefer one over the built-in window: run `litearm-studio --no-open` and open the address it prints |
+| A browser (optional) | Only if you prefer one over the built-in window: run `litearm-vr-studio --no-open` and open the address it prints |
 | Access to the serial port | Real arm only. See § 5 |
 
 Starting the program takes a few seconds, because of that unpack. That is expected.
@@ -176,12 +176,12 @@ Starting the program takes a few seconds, because of that unpack. That is expect
 | `--no-can-setup` | Does not try to bring the CAN interface up with `pkexec` |
 | `--verbose` | Prints debug logging |
 
-The full list is in `litearm-studio --help`, or
-`./litearm-studio-0.12.0-linux-amd64 --help` for a standalone install.
+The full list is in `litearm-vr-studio --help`, or
+`./litearm-vr-studio-0.12.0-linux-amd64 --help` for a standalone install.
 
 ## 4. Install on Windows
 
-Download `litearm-studio-<version>-windows-amd64.exe` from the same release and
+Download `litearm-vr-studio-<version>-windows-amd64.exe` from the same release and
 double-click it. Nothing else is needed; the same window opens.
 
 Only the application window appears. The executable is built for the graphical
@@ -196,7 +196,7 @@ To verify the download, run this in the directory holding the file and compare t
 value with the content of the `.sha256` file:
 
 ```powershell
-certutil -hashfile litearm-studio-0.12.0-windows-amd64.exe SHA256
+certutil -hashfile litearm-vr-studio-0.12.0-windows-amd64.exe SHA256
 ```
 
 The executable is not code-signed, so Windows shows "Windows protected your PC" the
@@ -219,7 +219,7 @@ udev rule that grants the desktop user access — this is the same rule the `.de
 installs:
 
 ```bash
-sudo tee /etc/udev/rules.d/60-litearm-studio.rules >/dev/null <<'EOF'
+sudo tee /etc/udev/rules.d/60-litearm-vr-studio.rules >/dev/null <<'EOF'
 SUBSYSTEM=="tty", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="606f", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="uaccess"
 EOF
 sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=tty
@@ -263,28 +263,28 @@ the copied machine number to your supplier, then submit again.
 ## 8. Where settings live
 
 The program stores the few settings it remembers (currently the SocketCAN channel it
-last used) under `$XDG_CONFIG_HOME/litearm-studio/`, which is
-`~/.config/litearm-studio/` by default.
+last used) under `$XDG_CONFIG_HOME/litearm-vr-studio/`, which is
+`~/.config/litearm-vr-studio/` by default.
 
 Removing the program does not remove them:
 
 ```bash
-sudo apt remove litearm-studio                          # package install
-rm ~/Applications/litearm-studio-0.12.0-linux-amd64     # standalone install
-rm -rf ~/.config/litearm-studio
+sudo apt remove litearm-vr-studio                          # package install
+rm ~/Applications/litearm-vr-studio-0.12.0-linux-amd64     # standalone install
+rm -rf ~/.config/litearm-vr-studio
 ```
 
 ## 9. Troubleshooting
 
 | Symptom | Cause and fix |
 | :--- | :--- |
-| `bash: ./litearm-studio-0.12.0-linux-amd64: Permission denied` | The standalone file is not executable. Run `chmod +x` on it (see § 3.3), or install the `.deb` |
+| `bash: ./litearm-vr-studio-0.12.0-linux-amd64: Permission denied` | The standalone file is not executable. Run `chmod +x` on it (see § 3.3), or install the `.deb` |
 | `cannot execute binary file: Exec format error` | The file is x86-64 only, or the download was truncated by a proxy. Re-download it and check the checksum |
 | `version 'GLIBC_2.35' not found` | The distribution is older than Ubuntu 22.04 / Debian 12. Build the program from source instead |
 | `apt install` refuses with `libc6 (>= 2.35)` | The same thing, reported by apt before anything is installed. Build from source |
-| The program exits immediately, mentioning extraction | `$TMPDIR` (usually `/tmp`) is mounted `noexec`. Run it with `TMPDIR=~/tmp litearm-studio` after creating that directory |
+| The program exits immediately, mentioning extraction | `$TMPDIR` (usually `/tmp`) is mounted `noexec`. Run it with `TMPDIR=~/tmp litearm-vr-studio` after creating that directory |
 | The UI loads but the badge stays "Connect failed" | The serial device is missing or not readable. Check § 5, then pass `--port` explicitly |
 | The UI loads but never shows state | The WebSocket is blocked. Same-origin handshakes are required; a proxy or a browser extension that rewrites origins breaks it |
-| Nothing opens; the terminal prints `无法打开应用窗口: 没有可用的 webview 后端` | No usable webview backend, so the window cannot be created. The message names three remedies: install the system WebKitGTK (`sudo apt install python3-gi gir1.2-webkit2-4.1`), install the self-contained Qt backend (`pip install "litearm-studio-daemon[ui-qt]"`), or run without a window (`litearm-studio-daemon --no-open`) and open the printed address. The program exits with status 3 — there is no silent headless fallback, by design |
+| Nothing opens; the terminal prints `无法打开应用窗口: 没有可用的 webview 后端` | No usable webview backend, so the window cannot be created. The message names three remedies: install the system WebKitGTK (`sudo apt install python3-gi gir1.2-webkit2-4.1`), install the self-contained Qt backend (`pip install "litearm-vr-studio-daemon[ui-qt]"`), or run without a window (`litearm-vr-studio-daemon --no-open`) and open the printed address. The program exits with status 3 — there is no silent headless fallback, by design |
 | **Enable** does nothing | The arm is not activated. See § 7 |
 | The activation panel reads **Not supported** | The firmware predates 1.8.0. Update the firmware first (see [user manual](USER_MANUAL.md) §5.7) |

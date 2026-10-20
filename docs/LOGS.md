@@ -28,7 +28,7 @@ without a translation layer, and someone who knows OTLP already knows the record
   "body": "命令 movej 失败: MotionBusyError: 机械臂正在运动",
   "trace_id": "b7c1f0e2a4d94e51b7c1f0e2a4d94e51",
   "span_id": "9f3a21c4d8e74b02",
-  "service": "litearm-studio-daemon",
+  "service": "litearm-vr-studio-daemon",
   "version": "1.4.2",
   "host": "bench-01",
   "pid": 41233,
@@ -66,9 +66,9 @@ platform's state directory:
 
 | Platform | File |
 | --- | --- |
-| Linux | `$XDG_STATE_HOME/litearm-studio/daemon.jsonl` (default `~/.local/state/litearm-studio/`) |
-| macOS | `~/Library/Logs/litearm-studio/daemon.jsonl` |
-| Windows | `%LOCALAPPDATA%\litearm-studio\Logs\daemon.jsonl` |
+| Linux | `$XDG_STATE_HOME/litearm-vr-studio/daemon.jsonl` (default `~/.local/state/litearm-vr-studio/`) |
+| macOS | `~/Library/Logs/litearm-vr-studio/daemon.jsonl` |
+| Windows | `%LOCALAPPDATA%\litearm-vr-studio\Logs\daemon.jsonl` |
 
 `--log-dir DIR` or `LITEARM_STUDIO_LOG_DIR` overrides it. Rotation is by size
 (`--log-max-bytes`, default 5 MB; `--log-backups`, default 5), so the total stays
@@ -84,7 +84,7 @@ that morning, which is why `/api/logs` reads the file rather than the cache.
 
 **Logs → Export JSONL** writes the records the page currently shows (the filters
 apply) in the same JSONL shape as the file above — one wire object per line, so
-the export drops into `jq`, Loki, or back into LiteArm Studio.
+the export drops into `jq`, Loki, or back into LiteArm VR Studio.
 
 Where it goes is the operator's choice. The page hands the bytes to the daemon
 (`POST /api/export`); the daemon opens the native save dialog with
@@ -106,19 +106,19 @@ want.
 
 ```bash
 # what just happened
-tail -n 20 ~/.local/state/litearm-studio/daemon.jsonl | jq -c '{ts,severity,event,body}'
+tail -n 20 ~/.local/state/litearm-vr-studio/daemon.jsonl | jq -c '{ts,severity,event,body}'
 
 # every failed command, with its method and error class
 jq -c 'select(.event=="arm.command.failed")
        | {ts, method:.fields.method, error:.fields.exception.type}' \
-  ~/.local/state/litearm-studio/daemon.jsonl
+  ~/.local/state/litearm-vr-studio/daemon.jsonl
 
 # one browser session, start to finish (the page's trace id is in every record)
 jq -c 'select(.trace_id=="b7c1f0e2a4d94e51b7c1f0e2a4d94e51") | {ts,event,body}' \
-  ~/.local/state/litearm-studio/daemon.jsonl
+  ~/.local/state/litearm-vr-studio/daemon.jsonl
 
 # feed a collector
-litearm-studio-daemon --log-stdout | fluent-bit -i stdin -p parser=json
+litearm-vr-studio-daemon --log-stdout | fluent-bit -i stdin -p parser=json
 ```
 
 Over HTTP, while the daemon is running:

@@ -28,7 +28,7 @@ WORK=/build/studio
 
 if [ ! -x "$PY" ]; then
     echo "[deb] no build venv at $PY — build the image first:" >&2
-    echo "      docker build -f packaging/deb.Dockerfile -t litearm-studio-deb-builder:22.04 ." >&2
+    echo "      docker build -f packaging/deb.Dockerfile -t litearm-vr-studio-deb-builder:22.04 ." >&2
     exit 2
 fi
 
@@ -79,7 +79,7 @@ echo "[deb 3/5] packaging the executable as a directory (version $VERSION)"
 
 echo "[deb 4/5] building the Debian package"
 "$PY" packaging/deb.py \
-    --binary packaging/dist/litearm-studio-daemon \
+    --binary packaging/dist/litearm-vr-studio-daemon \
     --version "$VERSION" \
     --outdir "$OUT_DIR" \
     --work /tmp/deb-work

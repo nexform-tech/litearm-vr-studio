@@ -1,13 +1,13 @@
 ---
-title: "LiteArm Studio"
+title: "LiteArm VR Studio"
 subtitle: "操作手册"
-title-meta: "LiteArm Studio 操作手册"
+title-meta: "LiteArm VR Studio 操作手册"
 author: "NEXFORM 新元体"
 version: "v1.1"
 date: "2026 年 10 月 6 日"
 ---
 
-# LiteArm Studio 操作手册
+# LiteArm VR Studio 操作手册
 
 ## 1. 软件简介与连接
 
@@ -16,16 +16,16 @@ date: "2026 年 10 月 6 日"
 
 ### 1.1 软件简介
 
-LiteArm Studio 是 LiteArm 七自由度（J1–J7）机械臂的图形化上位机软件，提供实时运动控制、状态监控及系统管理能力。
+LiteArm VR Studio 是 LiteArm 七自由度（J1–J7）机械臂的图形化上位机软件，提供实时运动控制、状态监控及系统管理能力。
 
-软件由**一个本地程序**（`litearm-studio-daemon`）和**一个浏览器界面**组成：本地程序独占机械臂的 USB 串口，界面由它托管，两者在本机回环上通信。**没有后端服务器，也不需要填任何 IP。**
+软件由**一个本地程序**（`litearm-vr-studio-daemon`）和**一个浏览器界面**组成：本地程序独占机械臂的 USB 串口，界面由它托管，两者在本机回环上通信。**没有后端服务器，也不需要填任何 IP。**
 
 ```
 浏览器窗口（React 界面，由本地程序托管）
    │ HTTP → 静态资源、/api/health
    │ WS   → 状态推送 / 命令
    ▼
-litearm-studio-daemon（只监听 127.0.0.1）
+litearm-vr-studio-daemon（只监听 127.0.0.1）
    ▼
 STM32 固件 ──USB CDC（1d50:606f）──> CAN ──> 电机
 ```
@@ -43,9 +43,9 @@ STM32 固件 ──USB CDC（1d50:606f）──> CAN ──> 电机
 
 | 平台 | 文件 | 运行方式 |
 | :--- | :--- | :--- |
-| Ubuntu / Debian | `litearm-studio-<版本号>_amd64.deb` | `sudo apt install ./litearm-studio-<版本号>_amd64.deb` |
-| Windows | `litearm-studio-<版本号>-windows-amd64.exe` | 双击运行 |
-| 其他 Linux | `litearm-studio-<版本号>-linux-amd64` | `chmod +x` 后运行 |
+| Ubuntu / Debian | `litearm-vr-studio-<版本号>_amd64.deb` | `sudo apt install ./litearm-vr-studio-<版本号>_amd64.deb` |
+| Windows | `litearm-vr-studio-<版本号>-windows-amd64.exe` | 双击运行 |
+| 其他 Linux | `litearm-vr-studio-<版本号>-linux-amd64` | `chmod +x` 后运行 |
 
 `.deb` 还会装上桌面入口和 udev 规则，装了它就不必把用户加进 `dialout` 组。单文件版下载后没有
 执行权限，且需要 glibc 2.35 及以上（Ubuntu 22.04+、Debian 12+）；下载命令、校验方法、串口权限
@@ -126,7 +126,7 @@ STM32 固件 ──USB CDC（1d50:606f）──> CAN ──> 电机
 
 ## 2. 界面布局总览
 
-LiteArm Studio 包含左侧导航栏、顶部状态栏与中央主工作区，点击左侧导航栏可在各功能模块之间快速切换。
+LiteArm VR Studio 包含左侧导航栏、顶部状态栏与中央主工作区，点击左侧导航栏可在各功能模块之间快速切换。
 
 ---
 

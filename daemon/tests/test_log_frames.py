@@ -133,7 +133,7 @@ def test_a_command_arrives_as_a_log_frame(logged_app) -> None:
             # 与"同一条连接内一致", 而不是某个固定值。
             assert record["trace_id"] and len(record["trace_id"]) == 32
             int(record["trace_id"], 16)
-            assert record["service"] == "litearm-studio-daemon"
+            assert record["service"] == "litearm-vr-studio-daemon"
             # `set_speed` 是读/设类命令 ⇒ DEBUG (见 `schema.NOTABLE_COMMANDS`):
             # INFO 那一档只留给真正改变机器的命令, 否则文件会被 10Hz 的读取灌满。
             assert record["severity"] == "DEBUG"

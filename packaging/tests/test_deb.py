@@ -43,7 +43,7 @@ needs_dpkg = pytest.mark.skipif(
 
 def _fake_binary(tmp_path: pathlib.Path) -> pathlib.Path:
     """A stand-in for the 38 MB one-file executable: `payload()` never reads it."""
-    binary = tmp_path / "litearm-studio-daemon"
+    binary = tmp_path / "litearm-vr-studio-daemon"
     binary.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
     binary.chmod(0o755)
     return binary
@@ -125,7 +125,7 @@ def test_control_borrows_the_system_webkit_only_for_the_gtk_build():
 
 def test_control_looks_like_a_debian_control_file():
     text = _control()
-    for field in ("Package: litearm-studio", "Version: 0.12.0", "Section: science",
+    for field in ("Package: litearm-vr-studio", "Version: 0.12.0", "Section: science",
                   "Priority: optional", "Architecture: amd64", "Installed-Size: 40000",
                   f"Maintainer: {deb.MAINTAINER}", f"Homepage: {deb.HOMEPAGE}"):
         assert field in text
@@ -216,7 +216,7 @@ def test_payload_installs_the_executable_the_launcher_and_every_icon_size(tmp_pa
 
     icons = [path for path in modes if path.startswith("usr/share/icons/hicolor/")]
     assert len(icons) == len(list(ICON_DIR.glob("icon-*.png"))) > 0
-    assert "usr/share/icons/hicolor/256x256/apps/litearm-studio.png" in modes
+    assert "usr/share/icons/hicolor/256x256/apps/litearm-vr-studio.png" in modes
 
 
 def test_stage_writes_a_control_file_and_an_md5sums_file(tmp_path):
@@ -230,7 +230,7 @@ def test_stage_writes_a_control_file_and_an_md5sums_file(tmp_path):
     assert (root / "DEBIAN" / "postrm").stat().st_mode & 0o111
 
     md5sums = (root / "DEBIAN" / "md5sums").read_text(encoding="utf-8")
-    assert "usr/bin/litearm-studio" in md5sums
+    assert "usr/bin/litearm-vr-studio" in md5sums
     assert "DEBIAN/control" not in md5sums
 
 
@@ -242,7 +242,7 @@ def test_payload_installs_the_whole_directory_when_the_build_is_onedir(tmp_path)
     `/usr/lib/<pkg>/<name>`（launcher、文档、udev 规则都指着那个路径），以及**每个文件
     带着自己的模式进包**（`deb.bundled_daemon` 照搬 `st_mode`，不按类型统一规范化）。
     """
-    built = tmp_path / "litearm-studio-daemon"
+    built = tmp_path / "litearm-vr-studio-daemon"
     (built / "_internal" / "litearm_studio_daemon").mkdir(parents=True)
     exe = built / deb.BINARY_NAME
     exe.write_bytes(b"#!/bin/true\n")
@@ -271,7 +271,7 @@ def _onedir_with_one_theme_file(tmp_path: pathlib.Path) -> tuple:
 
     图标主题正是链接最多的地方（v0.22.2 的包里有 6036 条），所以这里照着它的形状造。
     """
-    built = tmp_path / "litearm-studio-daemon"
+    built = tmp_path / "litearm-vr-studio-daemon"
     (built / "_internal" / "share" / "icons" / "Adwaita" / "22").mkdir(parents=True)
     (built / "_internal" / deb.BINARY_NAME).write_bytes(b"#!/bin/true\n")
     real = built / "_internal" / "share" / "icons" / "Adwaita" / "22" / "about.svg"
@@ -338,7 +338,7 @@ def test_a_link_that_leaves_the_bundle_is_copied_and_a_dangling_one_is_skipped(t
 
     两种情况都退回原来的行为——能读到内容就复制内容，读不到就跳过（与改之前一致）。
     """
-    built = tmp_path / "litearm-studio-daemon"
+    built = tmp_path / "litearm-vr-studio-daemon"
     icons = built / "_internal" / "share" / "icons" / "Adwaita"
     icons.mkdir(parents=True)
     (built / "_internal" / deb.BINARY_NAME).write_bytes(b"#!/bin/true\n")
@@ -375,7 +375,7 @@ def test_builds_a_debian_package_with_the_expected_layout(tmp_path):
         "--work", str(tmp_path / "work"),
     ]) == 0
 
-    package = out / "litearm-studio_0.12.0_amd64.deb"
+    package = out / "litearm-vr-studio_0.12.0_amd64.deb"
     assert package.is_file()
 
     def dpkg_deb(*args: str) -> str:
@@ -383,29 +383,29 @@ def test_builds_a_debian_package_with_the_expected_layout(tmp_path):
                               capture_output=True, text=True, check=True).stdout
 
     fields = dpkg_deb("--field")
-    assert "Package: litearm-studio" in fields
+    assert "Package: litearm-vr-studio" in fields
     assert "Version: 0.12.0" in fields
     assert "Architecture: amd64" in fields
     assert f"Depends: libc6 (>= {deb.GLIBC_FLOOR})" in fields
 
     listing = dpkg_deb("--contents")
     for expected in (
-        "/usr/bin/litearm-studio",
-        f"/usr/lib/litearm-studio/{deb.BINARY_NAME}",
-        "/usr/share/applications/litearm-studio.desktop",
-        "/usr/lib/udev/rules.d/60-litearm-studio.rules",
-        "/usr/share/icons/hicolor/256x256/apps/litearm-studio.png",
-        "/usr/share/doc/litearm-studio/copyright",
+        "/usr/bin/litearm-vr-studio",
+        f"/usr/lib/litearm-vr-studio/{deb.BINARY_NAME}",
+        "/usr/share/applications/litearm-vr-studio.desktop",
+        "/usr/lib/udev/rules.d/60-litearm-vr-studio.rules",
+        "/usr/share/icons/hicolor/256x256/apps/litearm-vr-studio.png",
+        "/usr/share/doc/litearm-vr-studio/copyright",
     ):
         assert expected in listing
 
     extract = tmp_path / "extract"
     subprocess.run(["dpkg-deb", "--extract", str(package), str(extract)], check=True)
-    rule = (extract / "usr/lib/udev/rules.d/60-litearm-studio.rules").read_text(encoding="utf-8")
+    rule = (extract / "usr/lib/udev/rules.d/60-litearm-vr-studio.rules").read_text(encoding="utf-8")
     assert 'TAG+="uaccess"' in rule
-    launcher = extract / "usr/bin/litearm-studio"
+    launcher = extract / "usr/bin/litearm-vr-studio"
     assert launcher.stat().st_mode & 0o111
-    assert f"/usr/lib/litearm-studio/{deb.BINARY_NAME}" in launcher.read_text(encoding="utf-8")
+    assert f"/usr/lib/litearm-vr-studio/{deb.BINARY_NAME}" in launcher.read_text(encoding="utf-8")
 
 
 # ------------------------------------------------- the window-backend variable (#188)

@@ -366,7 +366,7 @@ litearm-vr-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
 # 方式一：Ubuntu / Debian 安装包（推荐；需要 Ubuntu 22.04+ / Debian 12+）
 mkdir -p ~/Downloads && cd ~/Downloads
 version=0.12.0
-base="https://github.com/nexform-tech/litearm-studio/releases/download/v${version}"
+base="https://github.com/nexform-tech/litearm-vr-studio/releases/download/v${version}"
 curl -LO "$base/litearm-vr-studio_${version}_amd64.deb"
 curl -LO "$base/litearm-vr-studio_${version}_amd64.deb.sha256"
 sha256sum -c "litearm-vr-studio_${version}_amd64.deb.sha256"   # 应输出 OK

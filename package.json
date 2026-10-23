@@ -10,11 +10,11 @@
   "author": "Laurence Young <yangdong@nexform.tech> (https://github.com/yang-dong-yd)",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nexform-tech/litearm-studio.git"
+    "url": "git+https://github.com/nexform-tech/litearm-vr-studio.git"
   },
-  "homepage": "https://github.com/nexform-tech/litearm-studio",
+  "homepage": "https://github.com/nexform-tech/litearm-vr-studio",
   "bugs": {
-    "url": "https://github.com/nexform-tech/litearm-studio/issues"
+    "url": "https://github.com/nexform-tech/litearm-vr-studio/issues"
   },
   "keywords": [
     "robotics",

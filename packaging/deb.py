@@ -90,7 +90,7 @@ VID_PID = ("1d50", "606f")
 #: a binary that dies on `GLIBC_2.35 not found`.
 GLIBC_FLOOR = "2.35"
 
-HOMEPAGE = "https://github.com/nexform-tech/litearm-studio"
+HOMEPAGE = "https://github.com/nexform-tech/litearm-vr-studio"
 MAINTAINER = "Laurence Young <yangdong@nexform.tech>"
 SYNOPSIS = "Operator console for LiteArm 7-DoF collaborative robotic arms"
 

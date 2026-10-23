@@ -41,7 +41,7 @@ Run these commands in your download directory. This example uses release 0.12.0;
 mkdir -p ~/Downloads
 cd ~/Downloads
 version=0.12.0
-base="https://github.com/nexform-tech/litearm-studio/releases/download/v${version}"
+base="https://github.com/nexform-tech/litearm-vr-studio/releases/download/v${version}"
 curl -LO "$base/litearm-vr-studio_${version}_amd64.deb"
 curl -LO "$base/litearm-vr-studio_${version}_amd64.deb.sha256"
 sha256sum -c "litearm-vr-studio_${version}_amd64.deb.sha256"
@@ -122,7 +122,7 @@ Run these commands in the directory where you want to keep the program.
 mkdir -p ~/Applications
 cd ~/Applications
 version=0.12.0
-base="https://github.com/nexform-tech/litearm-studio/releases/download/v${version}"
+base="https://github.com/nexform-tech/litearm-vr-studio/releases/download/v${version}"
 curl -LO "$base/litearm-vr-studio-${version}-linux-amd64"
 curl -LO "$base/litearm-vr-studio-${version}-linux-amd64.sha256"
 ```

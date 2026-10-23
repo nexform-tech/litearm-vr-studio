@@ -36,7 +36,7 @@ litearm-python  ──USB CDC (1d50:606f)──>  STM32  ──CAN──>  电�
   - 高优先级 **STOP**（急停），运动过程中依然可达。
 - **日志**（`/log` 页）
   - 守护进程的每一个判断都留下结构化记录：连接、重连、每条命令的调用与参数与结果、激活、固件升级各相位、夹爪提示；
-  - 每台守护进程一份 JSONL 文件，按体积轮转，字段名照 OpenTelemetry —— `jq` / Loki / Fluent Bit / OTel Collector 都能直接读，不需要转换层；它**不随浏览器 origin 走**，所以换端口也不会丢（见 [issue #80](https://github.com/nexform-tech/litearm-studio/issues/80)）；
+  - 每台守护进程一份 JSONL 文件，按体积轮转，字段名照 OpenTelemetry —— `jq` / Loki / Fluent Bit / OTel Collector 都能直接读，不需要转换层；它**不随浏览器 origin 走**，所以换端口也不会丢（见 [issue #80](https://github.com/nexform-tech/litearm-vr-studio/issues/80)）；
   - 页面上是实时视图（级别 / 类别 / 文本过滤、展开原始字段与异常栈、导出 JSONL），历史经 `/api/logs` 从 daemon 的文件回读 —— 刷新页面之后更早的记录仍在。
 - **遥测**
   - 10 Hz 全轴采样（角度、角速度、力矩、驱动温度、驱动错误码），记录在浏览器侧，保留上限可配并支持导出 CSV；
@@ -170,9 +170,9 @@ Ubuntu 22.04+ / Debian 12+ 直接装 `.deb`：执行权限、串口访问与桌�
 ```bash
 cd ~/Downloads
 # 换成你要装的 release 的 tag（去掉 v 前缀）。下面以 v0.17.4 为例，
-# 最新 tag 见 https://github.com/nexform-tech/litearm-studio/releases
+# 最新 tag 见 https://github.com/nexform-tech/litearm-vr-studio/releases
 version=0.17.4
-base="https://github.com/nexform-tech/litearm-studio/releases/download/v${version}"
+base="https://github.com/nexform-tech/litearm-vr-studio/releases/download/v${version}"
 curl -LO "$base/litearm-vr-studio_${version}_amd64.deb"
 curl -LO "$base/litearm-vr-studio_${version}_amd64.deb.sha256"
 sha256sum -c "litearm-vr-studio_${version}_amd64.deb.sha256"   # 输出 ...: OK

@@ -33,7 +33,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          path: litearm-studio
+          path: litearm-vr-studio
           # 两个 SDK 是本仓的 submodule（sdk/），tag 即版本 —— 一次检出全部到位。
           submodules: recursive
 
@@ -48,23 +48,23 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        working-directory: litearm-studio
+        working-directory: litearm-vr-studio
         run: pnpm install --frozen-lockfile
 
       - name: Lint (oxlint)
-        working-directory: litearm-studio
+        working-directory: litearm-vr-studio
         run: pnpm lint
 
       - name: Typecheck
-        working-directory: litearm-studio
+        working-directory: litearm-vr-studio
         run: pnpm exec tsc -b
 
       - name: Unit tests (Vitest)
-        working-directory: litearm-studio
+        working-directory: litearm-vr-studio
         run: pnpm test
 
       - name: Production build
-        working-directory: litearm-studio
+        working-directory: litearm-vr-studio
         run: pnpm build
 
       # ---- 本地守护进程 (Python) ----
@@ -76,7 +76,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install the SDKs and the daemon
-        working-directory: litearm-studio
+        working-directory: litearm-vr-studio
         run: |
           python -m pip install --upgrade pip
           # 两个 SDK 都不在 PyPI 上: 从本仓的 submodule 装, 与 `make sdk` 完全一致。
@@ -91,11 +91,11 @@ jobs:
       # published. Without this step the packaging path would have no per-PR verification
       # at all.
       - name: Python unit tests (pytest)
-        working-directory: litearm-studio
+        working-directory: litearm-vr-studio
         run: python -m pytest daemon/tests packaging/tests -q
 
       - name: Validate repository standards
-        working-directory: litearm-studio
+        working-directory: litearm-vr-studio
         run: |
           set -euo pipefail
           test -s README.md

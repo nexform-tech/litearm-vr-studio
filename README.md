@@ -46,7 +46,7 @@ litearm-python  ──USB CDC (1d50:606f)──>  STM32  ──CAN──>  motor
   - One JSONL file per daemon, rotating by size, in OpenTelemetry's field naming —
     readable by `jq`, Loki, Fluent Bit or an OTel Collector with no translation, and
     **not** tied to the browser's origin (so it survives a port change; see
-    [issue #80](https://github.com/nexform-tech/litearm-studio/issues/80));
+    [issue #80](https://github.com/nexform-tech/litearm-vr-studio/issues/80));
   - A live view over the WebSocket with level, category and text filters, expandable
     raw fields and exceptions, and JSONL export; the daemon's history is read back
     over `/api/logs`, which is how the page still shows earlier records after a reload.
@@ -194,9 +194,9 @@ serial-port permission and adds an entry to the application list.
 cd ~/Downloads
 # replace with the tag of the release you want (drop the leading v);
 # v0.17.4 is used as an example, latest tag on
-# https://github.com/nexform-tech/litearm-studio/releases
+# https://github.com/nexform-tech/litearm-vr-studio/releases
 version=0.17.4
-base="https://github.com/nexform-tech/litearm-studio/releases/download/v${version}"
+base="https://github.com/nexform-tech/litearm-vr-studio/releases/download/v${version}"
 curl -LO "$base/litearm-vr-studio_${version}_amd64.deb"
 curl -LO "$base/litearm-vr-studio_${version}_amd64.deb.sha256"
 sha256sum -c "litearm-vr-studio_${version}_amd64.deb.sha256"   # prints: ...: OK

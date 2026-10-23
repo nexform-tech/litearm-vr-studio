@@ -91,7 +91,7 @@ jobs:
       - name: Checkout Studio
         uses: actions/checkout@v4
         with:
-          path: litearm-studio
+          path: litearm-vr-studio
           # 两个 SDK 都是本仓的 submodule (sdk/), 钉在 tag 上 —— 一次检出全部到位。
           # 夹爪只装 Linux: 它 import 时需要 fcntl / PF_CAN, Windows 产物因此**不含**
           # 夹爪 (D10: 缺席, 不是禁用)。
@@ -114,7 +114,7 @@ jobs:
 
       # 先把界面构建出来 —— 打包脚本会拒绝在没有 dist/ 的情况下继续。
       - name: Build the UI
-        working-directory: litearm-studio
+        working-directory: litearm-vr-studio
         run: |
           pnpm install --frozen-lockfile
           pnpm build
@@ -130,7 +130,7 @@ jobs:
           sudo apt-get install -y python3-gi python3-venv gir1.2-webkit2-4.1
 
       - name: Install the SDK, the daemon and PyInstaller
-        working-directory: litearm-studio
+        working-directory: litearm-vr-studio
         shell: bash # 两条分支都要能在两个平台上写成同一段
         run: |
           # ⚠ Linux 上必须用**系统解释器**建 venv, 不能用 `actions/setup-python` 那个。
@@ -167,7 +167,7 @@ jobs:
 
       - name: Check the window backend is the one we think it is
         if: runner.os == 'Linux'
-        working-directory: litearm-studio
+        working-directory: litearm-vr-studio
         # 先单独问一次, 让"后端不可用"以一行读得懂的原因失败, 而不是埋在 PyInstaller
         # 参数里。这一步与下面那次构建用的是同一个解释器 —— 顺带把版本与搜索路径打出来,
         # 免得下次还要翻日志猜用的是哪个 python。
@@ -178,7 +178,7 @@ jobs:
             from gi.repository import WebKit2; print('PyGObject and WebKit2 are visible to', '$PYTHON')"
 
       - name: Package (one-file executable)
-        working-directory: litearm-studio
+        working-directory: litearm-vr-studio
         # ⚠ `shell: bash` 是必需的: `$PYTHON` 是上面那步写进 `GITHUB_ENV` 的, 而 Windows
         # 的默认 shell 是 pwsh, 在那里它读不到。两条分支都用 bash 才不会一边悄悄跑错解释器。
         shell: bash
@@ -186,7 +186,7 @@ jobs:
 
       - name: Name the artifact (unix)
         if: runner.os != 'Windows'
-        working-directory: litearm-studio
+        working-directory: litearm-vr-studio
         shell: bash # `${VERSION#v}` 是 bash 展开, 显式声明免得默认 shell 变了就悄悄出错
         run: |
           mkdir -p upload
@@ -204,7 +204,7 @@ jobs:
       # 的便携产物发布 —— 两者服务不同场景, 所以这里打两次。
       - name: Package the directory layout the .deb is built from
         if: runner.os == 'Linux'
-        working-directory: litearm-studio
+        working-directory: litearm-vr-studio
         shell: bash
         # 只多这一个开关 —— 版本、窗口后端、激活地址都在 job 一级, 两次构建拿到的是
         # 同一份 (见那里的注释)。
@@ -214,7 +214,7 @@ jobs:
 
       - name: Build the Debian package
         if: runner.os == 'Linux'
-        working-directory: litearm-studio
+        working-directory: litearm-vr-studio
         # ⚠ 用与构建可执行文件**同一个**解释器: `deb.py` 不需要 gi, 但它要与 `$PYTHON`
         # 那次构建的后端选择一致 (见 `WINDOW_BACKEND_ENV` 的默认值取自环境)。
         shell: bash
@@ -226,7 +226,7 @@ jobs:
 
       - name: Name the artifact (windows)
         if: runner.os == 'Windows'
-        working-directory: litearm-studio
+        working-directory: litearm-vr-studio
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force upload | Out-Null
@@ -236,11 +236,11 @@ jobs:
       # 产物的 sha256 也一起发出去, 便于安装侧校验。纯 Python 脚本而不是内联 shell:
       # Windows 的默认 shell 是 pwsh, `python - <<'PY'` 在那边是语法错误 (实测 CI 被它判失败)。
       - name: Checksums
-        working-directory: litearm-studio
+        working-directory: litearm-vr-studio
         run: python packaging/checksums.py upload
 
       - name: Attach artifacts to the release
-        working-directory: litearm-studio
+        working-directory: litearm-vr-studio
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

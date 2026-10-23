@@ -40,7 +40,7 @@ Python、不需要 pnpm、也不需要克隆仓库。下面的命令是源码构
 所以把 submodule 一起克隆下来，再一条命令装好：
 
 ```bash
-git clone --recurse-submodules https://github.com/nexform-tech/litearm-studio.git
+git clone --recurse-submodules https://github.com/nexform-tech/litearm-vr-studio.git
 cd litearm-studio
 
 make sdk                           # 取回并安装钉住版本的 SDK submodule

@@ -41,7 +41,7 @@ The two SDKs are not published on PyPI — they are git submodules of this repos
 `sdk/`, pinned by tag — so clone with the submodules and install them in one step:
 
 ```bash
-git clone --recurse-submodules https://github.com/nexform-tech/litearm-studio.git
+git clone --recurse-submodules https://github.com/nexform-tech/litearm-vr-studio.git
 cd litearm-studio
 
 make sdk                           # fetch + install the pinned SDK submodules

@@ -37,6 +37,7 @@ permissions:
   contents: write # create the tag and the GitHub release
   issues: write # comment on released issues
   pull-requests: write # comment on released pull requests
+  workflows: write # create the bootstrap tag on a commit that contains workflow files
 
 concurrency:
   group: release-${{ github.ref }}

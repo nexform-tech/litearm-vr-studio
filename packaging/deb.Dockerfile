@@ -88,6 +88,7 @@ RUN /venv/bin/python -m pip install -q \
         "uvicorn[standard]==0.54.0" \
         pyusb==1.3.1 \
         libusb-package==1.0.30.0 \
+        eclipse-zenoh==1.10.2 \
         pywebview==6.2.1 \
         pytest==9.1.1 \
         httpx==0.28.1 \

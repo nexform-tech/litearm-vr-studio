@@ -28,7 +28,7 @@ Pico headset ──Wi-Fi──> litearm-vr-bridge :8765
 Two consequences worth remembering:
 
 - **The console is not in the motion path.** Closing the console does not stop a running teleoperation link; use **Stop Teleop** or the physical emergency stop.
-- **The arm's serial port is exclusive.** The console opens it to read state (motor loads, ports). Pressing **Start Teleop** hands the port to the follow service; the console gives it back when teleoperation stops.
+- **The arm's serial port is exclusive.** **Start Teleop** disables the arm and hands the port to the follow service; while VR holds it, the console refuses to reconnect. **Stop Teleop** frees the port, but the console does not reopen it by itself — the page sends its `connect` once, at load, so it stays disconnected until the page is reloaded or the WebSocket reconnects. The motor-load and port readings on this page do not come from that serial session either: the bridge supplies them.
 
 The console is one local program (`litearm-vr-studio-daemon`) plus one embedded window. The daemon binds `127.0.0.1` only; the UI talks to it over loopback, and the daemon talks to the bridge over zenoh.
 
@@ -36,7 +36,7 @@ The console is one local program (`litearm-vr-studio-daemon`) plus one embedded 
 
 | Piece | Where | Default |
 | :--- | :--- | :--- |
-| `litearm-vr-bridge` | The control machine | Status page `ws://<control-host>:8765`, headset connects here |
+| `litearm-vr-bridge` | The control machine | Headset ingress `ws://<control-host>:8765` (this port serves the headset only); the console reads its status over zenoh |
 | Teleop + follow service | Started by the bridge's managed processes | — |
 | `litearm-vr-studio-daemon` | The control machine | zenoh endpoint `tcp/127.0.0.1:7447` |
 | Headset | Wi-Fi, pointing at the bridge | `ws://<control-host>:8765` |
@@ -79,8 +79,8 @@ The page is three columns: motor load on the left, 3D arm preview in the centre,
 
 Tells the bridge which serial port belongs to which arm, and which CAN port holds the gripper. Getting this wrong does not raise an error — the left controller's solution simply goes to the right arm.
 
-- One row per arm (left / right) plus the gripper; choose the port from the list (or type it if the list is unavailable) and press **Save to the bridge**.
-- The card reports where each value came from: **Confirmed** (recorded on the bridge), **Install default**, or **Not reported**.
+- One row per arm (left / right). Each row holds that arm's port and, when the bridge reports a gripper for that arm, that arm's gripper port; choose the port from the list (or type it if the list is unavailable) and press **Save to the bridge**.
+- Each arm row reports where its values came from: **Confirmed** (recorded on the bridge), **Install default**, or **Not reported**.
 - A mismatch banner appears if the follow server actually opened a different device than the one selected.
 - **Ports are frozen while teleoperation runs** — the port is part of the managed command line at launch. Stop teleoperation before changing it.
 
@@ -90,7 +90,7 @@ Tells the bridge which serial port belongs to which arm, and which CAN port hold
 | :--- | :--- |
 | **E-STOP** | Sends `stop` to the follow service and stops forwarding controller frames. The most-used control in an emergency. |
 | **▶ Start Teleop** | Hands the arm's serial port to the bridge, starts the managed upstream processes and begins forwarding. Disabled while the bridge is offline or no headset is connected. |
-| **■ Stop Teleop** | Stops forwarding and stops the follow service; the console takes the serial port back. |
+| **■ Stop Teleop** | Stops forwarding and stops the follow service; the serial port is freed, but the console does not reopen it (see §1). |
 | **In Control** | Who currently commands the arm: **VR headset**, **Console**, **Nobody**, or **Both** (a conflict — stop one side immediately). |
 
 The console side (studio → `litearm-server:7449`) and the VR side are **mutually exclusive**: the same motors cannot be commanded by two controllers. While the console side is executing a motion, following, dragging in zero gravity or running impedance, Start Teleop stays disabled and the card says which activity is blocking it.
@@ -110,7 +110,7 @@ The state of the whole chain, with one data source line naming the bridge:
 
 Statistics: pose rate (Hz), wireless latency (shown as the increase over the window's minimum — the headset clock is not comparable with the host, so this is not an absolute latency), time since last frame, frames forwarded, bridge forward cost, dropped and blocked counts.
 
-Diagnostics list each hop in order — headset, bridge, IK, follow, arm — with `connected` / `not connected` and the live number that belongs to it.
+Diagnostics list each hop in order — headset, bridge, IK, follow, arm. The headset hop shows its pose rate in Hz and the bridge hop its forward cost in ms (or `not connected` when that hop is down); the IK and follow hops show `connected` / `not connected`; the arm hop shows `Following` once the follow service is driving a real arm, `Simulated` or `Unknown` otherwise.
 
 Alert banners appear above the statistics when something is wrong:
 
@@ -128,7 +128,7 @@ Left arm on top, right arm below, one bar per motor with the current load, the s
 
 A 3D view of the arm driven by the live joint angles. **Axes**, **Focus** and **Top View** are on the title row. The source line says whether the pose is **Real** or **Simulated**.
 
-With a single arm, the preview renders the rig's own URDF while the joint angles come from metavr's model; the two differ in joint origins, axes and limits, so the picture does not match what metavr believes and the arm can look askew. That is a known deviation, not bad data. With two arms the preview is the rig model (two side-mounted arms on one column).
+With a single arm, the preview renders the same URDF as the control page (studio/SDK) while the joint angles come from metavr's own model; the two differ in joint origins, axes and limits, so the picture does not match what metavr believes and the arm can look askew. That is a known deviation, not bad data. With two arms the preview is the rig model (metavr's dual-arm description: two side-mounted arms on one column).
 
 ### 2.6 Link configuration
 
@@ -148,10 +148,10 @@ Editing is disabled while teleoperation or the upstream processes are running: m
 
 ## 3. Operating procedure
 
-1. **Start the bridge** on the control machine and confirm its status page is reachable; the headset connects to `ws://<control-host>:8765`.
+1. **Start the bridge** on the control machine; the headset connects to `ws://<control-host>:8765` and the console reports the bridge on the VR Link card.
 2. **Start the console.** It connects to the bridge over zenoh (`tcp/127.0.0.1:7447` by default; `--vr-endpoint` otherwise).
 3. **Check Arm Mapping.** Pick the port for each arm and the gripper and save to the bridge. Do this before starting teleoperation.
-4. **Check the VR Link card.** Headset `connected`, bridge `connected`, no version-mismatch banner, no fault banner.
+4. **Check the VR Link card.** The headset hop shows a pose rate and the bridge hop a forward cost in ms (these two report live numbers rather than `connected`), IK and follow read `connected`, and there is no version-mismatch or fault banner.
 5. **Press ▶ Start Teleop.** The console hands the serial port to the bridge and starts the upstream processes.
 6. **On the headset, press the grip** to anchor and start following; release to hold.
 7. **To stop:** **■ Stop Teleop** for a normal stop, **E-STOP** in an emergency. After a stop or a safe hold, press the grip again (release → press) to resume.

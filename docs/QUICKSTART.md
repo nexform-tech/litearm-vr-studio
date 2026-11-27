@@ -112,12 +112,12 @@ The daemon prints the address it actually bound to (default `http://127.0.0.1:49
 
 ### Step 1 — Start the bridge
 
-Start `litearm-vr-bridge` on the control host and open its status page. The headset connects to `ws://<control-host>:8765`; the console reaches the bridge over zenoh at `tcp/127.0.0.1:7447` by default.
+Start `litearm-vr-bridge` on the control host. The headset connects to `ws://<control-host>:8765` (that port serves the headset only); the console reaches the bridge over zenoh at `tcp/127.0.0.1:7447` by default.
 
 ### Step 2 — Start the console and check the link
 
 1. Start the daemon (it opens its window for you).
-2. The right column shows **VR Link**; the data source line names the bridge. Headset and bridge should both read `connected`.
+2. The right column shows **VR Link**; the data source line names the bridge. The headset hop should show a pose rate and the bridge hop a forward cost in ms; IK and follow read `connected`.
 3. No **Version mismatch** banner: the bridge version has to match the one this page is written against.
 
 ### Step 3 — Map the arms

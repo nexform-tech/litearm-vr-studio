@@ -7,6 +7,12 @@ before changing any of the three.
 
 **English** | [简体中文](ACTIVATION_ZH.md)
 
+> [!NOTE]
+> The activation **form** is on the settings page, which this VR-only build does not ship.
+> The contract below still describes the daemon and firmware side. To activate an arm, use the
+> full-featured LiteArm Studio build or ask your supplier; see the user manual §1.4.
+
+
 ## 1. What the firmware does
 
 An unactivated arm refuses `ENABLE` with `ERR{0x10,0x08}` and behaves normally for

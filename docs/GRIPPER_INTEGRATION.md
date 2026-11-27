@@ -1,5 +1,11 @@
 # Gripper integration in LiteArm VR Studio
 
+> [!NOTE]
+> This VR-only build has no gripper panel and no settings page. The daemon-side gripper session
+> and the WebSocket contract described here are unchanged; the port the gripper sits on is set in
+> the bridge's link configuration.
+
+
 This document specifies how LiteGrip gripper control is added to LiteArm VR Studio;
 read it if you are implementing or reviewing the daemon-side gripper session, the
 WebSocket contract, or the gripper UI.

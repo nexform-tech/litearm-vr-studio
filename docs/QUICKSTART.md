@@ -13,20 +13,26 @@ date: "October 6, 2026"
 
 LiteArm VR Studio is a local Python program plus a browser UI. The program owns the USB serial link to the arm; the UI is served by that program and talks to it over a loopback WebSocket. There is no server and no IP address to configure.
 
+This build is the **VR teleoperation console**. Controller frames do not pass through it: the headset sends them to `litearm-vr-bridge`, the bridge hands them to the teleoperation service (metavr, IK), and that service drives the follow service and the arm. The console reads the whole chain from the bridge over zenoh and provides start / stop / e-stop and the bridge configuration.
+
 ```
 browser window (React UI, served by the daemon)
    │  HTTP  → static assets, /api/health
    │  WS    → state push (down) / commands (up)
    ▼
 litearm-vr-studio-daemon  (Python, 127.0.0.1 only)
-   ▼
-litearm-python  ──USB CDC (1d50:606f @921600)──>  STM32  ──CAN──>  motors
+   ├── USB CDC ──> STM32 (serial held for state; handed over during teleoperation)
+   └── zenoh ──> litearm-vr-bridge ◀── Wi-Fi ── Pico headset
+                     │  zenoh
+                     └──> metavr teleop (IK) ──> follow service ──> STM32 ──CAN──> motors
 ```
 
 ### Requirements
 
 - Control host: Linux or Windows with a free USB port; Python 3.10+
 - Arm controller powered on and connected over USB (USB CDC, VID:PID `1d50:606f`)
+- `litearm-vr-bridge` running on the control host (the console is a client of the bridge for the VR link)
+- A Pico headset joined to the bridge at `ws://<control-host>:8765`
 - Node.js 20+ and pnpm only if you are building the UI yourself
 
 ---
@@ -81,6 +87,9 @@ litearm-vr-studio-daemon
 
 # Explicit port, custom HTTP port, no window
 litearm-vr-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
+
+# Bridge on another machine: point the daemon at its zenoh endpoint
+litearm-vr-studio-daemon --vr-endpoint tcp/192.168.31.139:7447
 ```
 
 The daemon prints the address it actually bound to (default `http://127.0.0.1:49321/`; if the port is busy it increments and prints the new one) and opens its own embedded application window. No browser needs to be installed. Closing that window quits the program.
@@ -96,39 +105,38 @@ The daemon prints the address it actually bound to (default `http://127.0.0.1:49
 
 ---
 
-## 4. Initial Smoke Test
-
-### Step 1 — Activate
-
-A new arm must be activated once before it can move. Until then, pressing **Enable** does nothing; everything else works. Make sure the computer is online and the arm is connected, then:
-
-1. Click **Settings**, then **Activation**. If it says **Activated**, you are done.
-2. If it says **Not activated**, fill in the form. Name, phone, organization, email and region are required; the rest is optional.
-3. Tick the consent box.
-4. If the arm is enabled, press **Disable** first, and hold the arm steady: it will sag under its own weight.
-5. Press **Submit and activate** and wait a few seconds.
-
-When the panel reads **Activated**, you can enable the arm. If the panel says "no credential for this machine", press **Copy** and send the copied machine number to your supplier. Other messages and fixes: user manual §1.4.
-
-### Step 2 — Connect and enable
-
-1. Open the console (the daemon opens it for you).
-2. The top bar shows the connection state and, once connected, the **port · firmware** it resolved. Click **Connect** if the session is not up yet.
-3. Confirm the 3D model renders and J1–J7 show live values.
-4. Click the **Enable** toggle on the control bar.
-
-### Step 3 — Verify motion
+## 4. First run: VR teleoperation
 
 > [!WARNING]
-> Clear the working envelope of people and obstacles before enabling or commanding motion. **STOP** issues an emergency stop and stays reachable while the arm is moving.
+> Clear the working envelope of people and obstacles, and keep the physical emergency stop within reach before starting teleoperation. The console's **E-STOP** sends a stop to the follow service; it does not cut power.
 
-1. **Jog**: pick J1, set speed to 10–20 %, and nudge with the slider; verify a smooth response.
-2. **Home**: click the zero/home action to run the firmware's low-speed homing.
-3. **STOP**: press it once and confirm the arm drops energy immediately.
+### Step 1 — Start the bridge
 
-### Step 4 — Telemetry
+Start `litearm-vr-bridge` on the control host and open its status page. The headset connects to `ws://<control-host>:8765`; the console reaches the bridge over zenoh at `tcp/127.0.0.1:7447` by default.
 
-Open the **Telemetry** page: a session is created automatically when the arm connects, samples are recorded locally, and **Export CSV** writes the selected session to disk.
+### Step 2 — Start the console and check the link
+
+1. Start the daemon (it opens its window for you).
+2. The right column shows **VR Link**; the data source line names the bridge. Headset and bridge should both read `connected`.
+3. No **Version mismatch** banner: the bridge version has to match the one this page is written against.
+
+### Step 3 — Map the arms
+
+In **Arm Mapping**, pick the serial port for each arm and the gripper, then press **Save to the bridge**. This must be done before teleoperation starts: the port is frozen into the managed command line at launch.
+
+### Step 4 — Start teleoperation
+
+1. Press **▶ Start Teleop**. The console hands the arm's serial port to the bridge and starts the upstream processes.
+2. On the headset, **press the grip** to anchor and start following; release it to hold.
+3. Watch **VR Link**: the state becomes **Following**, and the statistics (pose rate, frames forwarded, dropped) move.
+
+### Step 5 — Stop
+
+**■ Stop Teleop** for a normal stop, **E-STOP** in an emergency (it stops the follow service and stops forwarding). After a stop or a safe hold, release and press the grip again to resume. Closing the window does **not** stop a running teleoperation link.
+
+### Activation
+
+This build ships only the VR console — the activation form is not part of it. Activate the arm with the full-featured LiteArm Studio build or through your supplier before delivery; if the firmware refuses to enable an unactivated arm, the console reports it but cannot submit the form.
 
 ---
 
@@ -146,9 +154,18 @@ Open the **Telemetry** page: a session is created automatically when the arm con
 - If it shows up under a different path, pass it explicitly: `litearm-vr-studio-daemon --port /dev/ttyACM1`.
 - On Linux, make sure your user can open the serial device (`dialout` group).
 
-### "Enable" does nothing
+### VR Link says the bridge is not connected
 
-This arm has not been activated yet. Go to **Settings → Activation** and follow step 1 of §4. Nothing except Enable is affected in the meantime.
+- The bridge process is not running on the control host, or it is on another machine and the daemon still points at `tcp/127.0.0.1:7447`. Start the bridge, or start the daemon with `--vr-endpoint tcp/<host>:<port>`.
+- The bridge and the daemon must both speak zenoh on the same endpoint; a typo in the endpoint shows up here, not as a crash.
+
+### Version mismatch banner in VR Link
+
+The bridge reports a version other than the one this page was written against. Until both sides match, treat empty fields as suspect rather than as zeros: the page degrades quietly, and that is the hardest failure to notice. Update the bridge or the console so the major.minor versions agree.
+
+### "This arm is not activated"
+
+The firmware refuses to enable an unlicensed arm. This build cannot submit the activation form — activate it with the full-featured LiteArm Studio build or through your supplier.
 
 ### The 3D panel shows the ground plane and no arm
 

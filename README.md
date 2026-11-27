@@ -4,12 +4,12 @@
 
 **LiteArm VR Studio** is the operator console for LiteArm 7-DoF collaborative robotic arms. It is a browser UI served by a local Python daemon: the daemon is the **only** process that touches the hardware, and the UI talks to it over a WebSocket on `127.0.0.1`.
 
-> **VR-only build.** This branch keeps only the **VR teleop console** (`/vr`). The
+> **VR-only build.** This repository keeps only the **VR teleop console** (`/vr`). The
 > manual control page (joint sliders / Cartesian jogging / gripper), the log page,
 > and the settings page were removed, along with their navigation entries and
 > page-only modules. Everything under `daemon/` and `sdk/` is unchanged; the
-> hardware daemon and the VR bridge are untouched. Any feature descriptions below
-> that mention those pages describe the upstream, full-featured edition.
+> hardware daemon and the VR bridge are untouched. The documents in this repository
+> describe this build, not the upstream full-featured edition.
 
 ---
 
@@ -26,6 +26,7 @@ litearm-python  ──USB CDC (1d50:606f)──>  STM32  ──CAN──>  motor
 ```
 
 - **The daemon owns the arm.** It auto-discovers the USB CDC device (or takes `--port`), pushes normalised state at 50 Hz from the SDK's cached frames, and runs every SDK call on a single-threaded executor. Emergency stop and disable run on a separate lane so they stay reachable while a motion is in progress.
+- **The VR link does not pass through the console.** Controller frames go headset → `litearm-vr-bridge` → teleop (IK) → follow service → arm. The daemon reads that chain from the bridge over zenoh (`--vr-endpoint`, default `tcp/127.0.0.1:7447`) and sends start / stop / e-stop and configuration back the same way. Closing the console therefore does not stop a running teleoperation link.
 - **The daemon also owns the window.** It hosts the built assets and opens an **embedded window** (`pywebview`), so there is one process and no browser to install. **Closing the window ends the program** — the arm is de-energised and the serial port released. Reloading the page does not end it.
 - **Loopback only.** Binding anything else is refused in code — exposing an interface that can drive an arm on a LAN is treated as an incident, not a setting.
 
@@ -33,35 +34,24 @@ litearm-python  ──USB CDC (1d50:606f)──>  STM32  ──CAN──>  motor
 
 ## Features
 
-- **Single-arm motion control**
-  - Real-time 3D digital twin (URDF) with interactive frame axes;
-  - Joint space sliders (J1–J7) whose ranges come from the controller's own soft limits (`get_joint_params`), with staged/batched dispatch;
-  - Cartesian jogging in base and tool frames, plus linear `movel` to a target pose;
-  - Ready pose, firmware homing, zero-gravity drag teaching, enable/disable, fault clearing;
-  - High-priority **STOP** (emergency stop) that is reachable during motion.
-- **Logs** (the `/log` page)
-  - Every daemon decision as a structured record: connections, reconnects, command
-    invocations with their arguments and outcome, activation, firmware phases, and
-    gripper alerts;
-  - One JSONL file per daemon, rotating by size, in OpenTelemetry's field naming —
-    readable by `jq`, Loki, Fluent Bit or an OTel Collector with no translation, and
-    **not** tied to the browser's origin (so it survives a port change; see
-    [issue #80](https://github.com/nexform-tech/litearm-vr-studio/issues/80));
-  - A live view over the WebSocket with level, category and text filters, expandable
-    raw fields and exceptions, and JSONL export; the daemon's history is read back
-    over `/api/logs`, which is how the page still shows earlier records after a reload.
-- **Telemetry**
-  - 10 Hz joint sampling (angles, velocities, torques, temperatures, driver error codes),
-    recorded in the browser with a configurable retention cap and CSV export;
-  - 1 Hz state records in the daemon's log file as `kind: "sample"`, so a session's
-    numbers sit next to its events.
-- **LiteGrip gripper** (Linux only) — enable, open, close, grasp and release, with live position, force, torque and temperature readings and a calibration check on the Gripper page.
-- **Settings and activation** — payload, mounting direction (upright / inverted / side ±x / ±y, sent to the firmware as the base-frame gravity vector), per-joint gains and soft limits, the firmware self-test, USB DFU firmware update, and the one-time arm activation.
+- **VR teleoperation console** — the page mirrors the whole control chain (headset → bridge → teleop (IK) → follow → arm) and gives the operator the switches:
+  - **Teleop Control**: **Start / Stop Teleop** and a high-priority **E-STOP** that sends `stop` to the follow service and stops forwarding;
+  - **In Control** ownership: VR headset / Console / Nobody / Both, with the console side (studio → `litearm-server:7449`) and the VR side kept mutually exclusive;
+  - **Arm Mapping**: which serial port belongs to which arm and gripper, saved to the bridge, frozen while teleoperation runs;
+  - **VR Link**: pose rate, wireless latency (relative to the window minimum), frames forwarded, bridge forward cost, dropped/blocked counts, per-hop diagnostics, and alert banners for follow-server faults, safe hold, fallback disabled and bridge version mismatch;
+  - **Motor Load**: per-motor load with session peaks and MOS/coil temperatures, left arm on top and right arm below;
+  - **Arm Preview**: 3D view driven by the live joint angles, with axes / focus / top view.
+- **Link configuration** — the bridge's editable settings (machine and mounting, following, bridge service, upstream processes, per-arm ports), with source, writability and takes-effect-now / needs-restart per row; overrides live on the bridge and the dialog shows the file path.
 - **Internationalization** — English / 简体中文.
 
 ### Not in this build
 
-Trajectory teaching/playback, dexterous-hand panels and per-joint impedance or hold modes are out of scope ([docs/REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md) §5–6). The controller-log page the plan dropped is back, rebuilt on the daemon's own records — see [docs/LOGS.md](docs/LOGS.md). Everything the Settings page exposes (payload, gains, limits, self-test, gripper bus, activation, firmware update) *is* wired to the daemon.
+The upstream full-featured edition's manual control page (joint sliders, Cartesian jogging,
+gripper panel), its log page, its telemetry page and its settings page are **not** part of this
+build; their storage and daemon-side capabilities remain, but there is no page for them. The
+activation form lived on that settings page, so a new arm has to be activated with the
+full-featured build or through the supplier. Trajectory teaching/playback, dexterous-hand panels
+and per-joint impedance or hold modes are out of scope ([docs/REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md) §5–6).
 
 ---
 
@@ -85,8 +75,8 @@ Trajectory teaching/playback, dexterous-hand panels and per-joint impedance or h
 
 - **`litegrip` (the LiteGrip gripper SDK) — Linux only**, is the other one of those two
   submodules (`sdk/litegrip-python`), so `make sdk` above is the whole installation — including
-  the pinned revision (`git submodule status` prints it), which is the one the daemon and the
-  settings page were written against. Running does not strictly require it: on Linux the daemon
+  the pinned revision (`git submodule status` prints it), which is the one the daemon was written
+  against. Running does not strictly require it: on Linux the daemon
   starts without it and simply offers no gripper. **The tests do** — without it the
   `python -m pytest daemon/tests -q` from the Common Commands table at the end of this file stops
   during collection (`ModuleNotFoundError: No module named 'litegrip'`) and not one test runs.
@@ -106,15 +96,13 @@ pip install -e "daemon[test]"     # installs fastapi/uvicorn and the `litearm-vr
 pnpm install && pnpm build         # build the UI the daemon will serve
 
 litearm-vr-studio-daemon --fake       # offline: full session on the SDK's fake transport, no hardware
-# litearm-vr-studio-daemon --fake --fake-unactivated   # no hardware, and the device is UNLICENSED:
-#                                                   # the activation panel and its signup form show up
 # litearm-vr-studio-daemon            # real arm: auto-discovers the USB CDC device
 # litearm-vr-studio-daemon --port /dev/ttyACM1 --http-port 9000 --no-open
+# litearm-vr-studio-daemon --vr-endpoint tcp/192.168.31.139:7447   # bridge on another machine
 ```
 
-The fake device is licensed by default, so the activation panel shows a state and no form.
-Add `--fake-unactivated` to walk the whole unlicensed path: the signup form, the activation
-consent document, and the `ERR{0x10,0x08}` refusal when you press Enable.
+`--fake-unactivated` still turns the fake device unlicensed, but this build has no activation
+page to exercise: the console reports the activation error and nothing else changes.
 
 To move to a newer SDK: check the tag out inside `sdk/<repo>` and commit the updated
 submodule pointer. `.gitmodules` plus that pointer is the only place the two versions live,
@@ -250,8 +238,8 @@ so an untracked icon silently falls back to PyInstaller's default executable ico
 ## Documentation
 
 - **[Installation](docs/INSTALL.md)** — what each release file is, and how to install it on Ubuntu and Windows.
-- **[User Manual (English)](docs/USER_MANUAL.md)** — operations, settings, safety and troubleshooting. Its trajectory and end-effector sections still describe the retired server-based build and are being rewritten.
-- **[用户操作手册 (简体中文)](docs/USER_MANUAL_ZH.md)** — same caveat.
+- **[User Manual (English)](docs/USER_MANUAL.md)** — the VR console, link status and configuration, the operating procedure, safety rules and troubleshooting.
+- **[用户操作手册 (简体中文)](docs/USER_MANUAL_ZH.md)** — the same manual in Chinese.
 - **[Quickstart](docs/QUICKSTART.md)** / **[快速开始](docs/QUICKSTART_ZH.md)**
 - **[Activation contract](docs/ACTIVATION.md)** / **[激活接口约定](docs/ACTIVATION_ZH.md)** — the firmware, daemon and vendor-signer agreement behind activation. For developers changing any of the three.
 - **[Log format](docs/LOGS.md)** — the record schema, where the files live, how to read them, and what is never written to them. For anyone answering "what happened?" after a session.

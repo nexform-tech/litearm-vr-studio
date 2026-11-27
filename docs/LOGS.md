@@ -1,5 +1,9 @@
 # Logs
 
+> [!NOTE]
+> This VR-only build has no log page. The daemon still writes the JSON Lines records described
+> here and serves them on `/api/logs`; read the files with `jq` or plug them into your log platform.
+
 This document is for anyone who has to answer "what happened?" after a LiteArm
 Studio session — an operator reporting a fault, a developer reading a bug report,
 or anyone wiring the daemon's logs into a log platform. It describes the record

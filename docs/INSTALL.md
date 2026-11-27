@@ -167,7 +167,7 @@ Starting the program takes a few seconds, because of that unpack. That is expect
 | Flag | What it does |
 | :--- | :--- |
 | `--fake` | Runs a complete session against a simulated arm, with no hardware |
-| `--fake-unactivated` | With `--fake`: simulates an unlicensed arm, so the activation panel shows its signup form |
+| `--fake-unactivated` | With `--fake`: marks the simulated arm as unlicensed, so **Enable** is refused with an activation error. This build has no activation page to walk |
 | `--port /dev/ttyACM1` | Uses a serial device the automatic discovery did not pick |
 | `--http-port 9000` | Binds a different HTTP port |
 | `--no-open` | Does not open a browser window |
@@ -283,6 +283,7 @@ Removing the program does not remove any of them:
 sudo apt remove litearm-vr-studio                          # package install
 rm ~/Applications/litearm-vr-studio-0.3.0-linux-amd64     # standalone install
 rm -rf ~/.config/litearm-vr-studio ~/.local/state/litearm-vr-studio
+rm ~/.litegrip/<channel>_calibration.json                 # measured gripper calibration
 ```
 
 ## 9. Troubleshooting

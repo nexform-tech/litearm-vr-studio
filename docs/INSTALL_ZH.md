@@ -137,7 +137,7 @@ chmod +x litearm-vr-studio-0.3.0-linux-amd64
 | 参数 | 作用 |
 | :--- | :--- |
 | `--fake` | 用模拟机械臂运行完整会话，无需硬件 |
-| `--fake-unactivated` | 与 `--fake` 合用：模拟未激活的机械臂，激活页面会显示注册表单 |
+| `--fake-unactivated` | 与 `--fake` 合用：把模拟机械臂标成未激活，点**使能**会被固件以激活错误拒绝。本版没有激活页可走 |
 | `--port /dev/ttyACM1` | 指定自动发现没有选中的串口设备 |
 | `--http-port 9000` | 改用其他 HTTP 端口 |
 | `--no-open` | 不自动打开浏览器窗口 |
@@ -221,6 +221,7 @@ Linux 上结构化日志在 `$XDG_STATE_HOME/litearm-vr-studio`（默认 `~/.loc
 sudo apt remove litearm-vr-studio                          # 安装包方式
 rm ~/Applications/litearm-vr-studio-0.3.0-linux-amd64     # 单文件方式
 rm -rf ~/.config/litearm-vr-studio ~/.local/state/litearm-vr-studio
+rm ~/.litegrip/<channel>_calibration.json                 # 夹爪实测标定
 ```
 
 ## 9. 常见问题
@@ -236,4 +237,4 @@ rm -rf ~/.config/litearm-vr-studio ~/.local/state/litearm-vr-studio
 | 界面能打开，但一直没有状态 | WebSocket 被拦截。握手要求同源，改写来源的代理或浏览器扩展会导致失败 |
 | 没有窗口，终端只提示 `无法打开应用窗口: 没有可用的 webview 后端` | 没有可用的 webview 后端，窗口建不出来。提示里给了三条出路：装系统的 WebKitGTK（`sudo apt install python3-gi gir1.2-webkit2-4.1`）、装自带内核的 Qt（`pip install "litearm-vr-studio-daemon[ui-qt]"`），或者不要窗口地运行（`litearm-vr-studio-daemon --no-open`）再打开它打印的地址。程序以状态码 3 退出 —— 它**刻意不静默退回无界面** |
 | 点「使能」没有反应，或出现激活类错误 | 机械臂尚未激活，见 § 7 |
-| 激活页面提示「固件不支持」 | 固件版本低于 1.8.0，需要先升级固件，见 [用户手册](USER_MANUAL_ZH.md) §5.7 |
+| 激活报「固件不支持」 | 固件版本低于 1.8.0，需要先升级固件。升级用全功能版 LiteArm Studio 或交由供方处理 |
